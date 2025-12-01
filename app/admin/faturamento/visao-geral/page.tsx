@@ -78,7 +78,7 @@ export default function FaturamentoVisaoGeralPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-gray-900">
-                        R$ {invoice.amount.toFixed(2).replace('.', ',')}
+                        MZM {invoice.amount.toFixed(2).replace('.', ',')}
                       </p>
                       <Button size="sm" className="mt-2">Ver Detalhes</Button>
                     </div>

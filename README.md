@@ -69,15 +69,15 @@ O aplicativo estará disponível em `http://localhost:3000`
 ## Contas de Demonstração
 
 ### Responsável
-- Email: `responsavel@daycare.com`
+- Email: `responsavel@creche.com`
 - Senha: qualquer valor
 
 ### Staff
-- Email: `staff@daycare.com`
+- Email: `staff@creche.com`
 - Senha: qualquer valor
 
 ### Administrador
-- Email: `admin@daycare.com`
+- Email: `admin@creche.com`
 - Senha: qualquer valor
 
 ## Estrutura do Banco de Dados

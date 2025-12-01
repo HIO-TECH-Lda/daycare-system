@@ -1,43 +1,19 @@
 'use client';
 
 import { useAuth } from '@/lib/auth-context';
-import { Navbar } from '@/components/layout/navbar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { mockInvoices, mockChildren } from '@/lib/mock-data';
-import { ArrowLeft, CreditCard, CheckCircle2, Clock } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { CheckCircle2, Clock } from 'lucide-react';
 
 export default function FaturamentoPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && (!user || user.role !== 'responsavel')) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
-
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Carregando...</div>;
-  if (!user) return null;
-
-  const myInvoices = mockInvoices.filter(i => i.parent_id === user.id);
+  const { user } = useAuth();
+  const myInvoices = mockInvoices.filter(i => i.parent_id === user?.id);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/responsavel/dashboard">
-          <Button variant="ghost" size="sm" className="gap-2 mb-4">
-            <ArrowLeft className="w-4 h-4" />
-            Voltar ao Painel
-          </Button>
-        </Link>
-
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Faturamento</h1>
+    <div className="max-w-4xl mx-auto">
+        <h1 className="text-xl font-bold text-gray-900 mb-4">Faturamento</h1>
 
         <div className="space-y-4">
           {myInvoices.map(invoice => {
@@ -76,7 +52,7 @@ export default function FaturamentoPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-gray-900">
-                        R$ {invoice.amount.toFixed(2).replace('.', ',')}
+                        MZM {invoice.amount.toFixed(2).replace('.', ',')}
                       </p>
                       <Button size="sm" className="mt-2">
                         Ver Detalhes
@@ -88,7 +64,6 @@ export default function FaturamentoPage() {
             );
           })}
         </div>
-      </main>
     </div>
   );
 }

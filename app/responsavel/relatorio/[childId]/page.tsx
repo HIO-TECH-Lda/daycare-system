@@ -1,33 +1,14 @@
 'use client';
 
-import { useAuth } from '@/lib/auth-context';
-import { Navbar } from '@/components/layout/navbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { mockChildren, mockDailyReports, mockActivities, mockReportPhotos } from '@/lib/mock-data';
-import { ArrowLeft, Utensils, Moon, Baby, BookOpen, SmilePlus, Image as ImageIcon } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { Utensils, Moon, Baby, BookOpen, SmilePlus, Image as ImageIcon } from 'lucide-react';
+import { useParams } from 'next/navigation';
 
 export default function ChildReportPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
   const params = useParams();
   const childId = params.childId as string;
-
-  useEffect(() => {
-    if (!loading && (!user || user.role !== 'responsavel')) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
-
-  if (loading) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Carregando...</div>;
-  }
-
-  if (!user) return null;
 
   const child = mockChildren.find(c => c.id === childId);
   if (!child) return <div>Criança não encontrada</div>;
@@ -82,42 +63,32 @@ export default function ChildReportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <Link href="/responsavel/dashboard">
-            <Button variant="ghost" size="sm" className="gap-2 mb-4">
-              <ArrowLeft className="w-4 h-4" />
-              Voltar ao Painel
-            </Button>
-          </Link>
-
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 mb-4">
             <img
               src={child.photo_url}
               alt={child.name}
-              className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
+              className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
             />
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{child.name}</h1>
-              <p className="text-gray-600">Rotina Diária - 12 de Novembro de 2025</p>
+              <h1 className="text-xl font-bold text-gray-900">{child.name}</h1>
+              <p className="text-sm text-gray-600">Rotina Diária - 12 de Novembro de 2025</p>
             </div>
           </div>
         </div>
 
         {report ? (
-          <div className="space-y-6">
-            <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
-              <CardContent className="pt-6">
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <SmilePlus className="w-6 h-6 text-yellow-600" />
+                  <div className="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center">
+                    <SmilePlus className="w-5 h-5 text-yellow-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Humor do Dia</p>
-                    <p className="text-2xl font-bold text-gray-900">{report.mood}</p>
+                    <p className="text-xs text-gray-600">Humor do Dia</p>
+                    <p className="text-lg font-semibold text-gray-900">{report.mood}</p>
                   </div>
                 </div>
               </CardContent>
@@ -134,10 +105,10 @@ export default function ChildReportPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Linha do Tempo das Atividades</CardTitle>
+                <CardTitle className="text-lg">Atividades do Dia</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {activities.map((activity, index) => (
                     <div key={activity.id} className="flex gap-4">
                       <div className="flex flex-col items-center">
@@ -213,11 +184,10 @@ export default function ChildReportPage() {
         ) : (
           <Card>
             <CardContent className="text-center py-12">
-              <p className="text-gray-500 text-lg">Ainda não há relatório para hoje</p>
+              <p className="text-gray-500">Ainda não há relatório para hoje</p>
             </CardContent>
           </Card>
         )}
-      </main>
-    </div>
+      </div>
   );
 }

@@ -1,44 +1,19 @@
 'use client';
 
 import { useAuth } from '@/lib/auth-context';
-import { Navbar } from '@/components/layout/navbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { mockChildren } from '@/lib/mock-data';
-import { ArrowLeft, User } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 export default function PerfilPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && (!user || user.role !== 'responsavel')) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
-
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Carregando...</div>;
-  if (!user) return null;
-
-  const myChildren = mockChildren.filter(c => c.parent_id === user.id);
+  const { user } = useAuth();
+  const myChildren = mockChildren.filter(c => c.parent_id === user?.id);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/responsavel/dashboard">
-          <Button variant="ghost" size="sm" className="gap-2 mb-4">
-            <ArrowLeft className="w-4 h-4" />
-            Voltar ao Painel
-          </Button>
-        </Link>
-
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Meu Perfil</h1>
+    <div className="max-w-4xl mx-auto">
+        <h1 className="text-xl font-bold text-gray-900 mb-4">Meu Perfil</h1>
 
         <div className="space-y-6">
           <Card>
@@ -97,7 +72,6 @@ export default function PerfilPage() {
             </Card>
           ))}
         </div>
-      </main>
     </div>
   );
 }

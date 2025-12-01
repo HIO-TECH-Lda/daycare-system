@@ -12,8 +12,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 const mockStaff = [
-  { id: '2', name: 'Ana Santos', email: 'ana@daycare.com', phone: '(11) 98765-1234' },
-  { id: '7', name: 'Carlos Lima', email: 'carlos@daycare.com', phone: '(11) 98765-5555' },
+  { id: '2', name: 'Ana Santos', email: 'ana@creche.com', phone: '(11) 98765-1234' },
+  { id: '7', name: 'Carlos Lima', email: 'carlos@creche.com', phone: '(11) 98765-5555' },
 ];
 
 export default function GestaoStaffPage() {

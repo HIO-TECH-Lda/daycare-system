@@ -22,21 +22,21 @@ export const useAuth = () => useContext(AuthContext);
 const mockUsers: User[] = [
   {
     id: '1',
-    email: 'responsavel@daycare.com',
+    email: 'responsavel@creche.com',
     name: 'Maria Silva',
     role: 'responsavel',
     phone: '(11) 98765-4321',
   },
   {
     id: '2',
-    email: 'staff@daycare.com',
+    email: 'staff@creche.com',
     name: 'Ana Santos',
     role: 'staff',
     phone: '(11) 98765-1234',
   },
   {
     id: '3',
-    email: 'admin@daycare.com',
+    email: 'admin@creche.com',
     name: 'João Oliveira',
     role: 'administrador',
     phone: '(11) 98765-5678',

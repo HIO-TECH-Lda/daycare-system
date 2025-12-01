@@ -40,16 +40,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-yellow-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-            <Baby className="w-8 h-8 text-green-600" />
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center space-y-2">
+          <div className="mx-auto w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+            <Baby className="w-6 h-6 text-green-600" />
           </div>
-          <div>
-            <CardTitle className="text-2xl">Bem-vindo</CardTitle>
-            <CardDescription>Sistema de Gestão de Creche</CardDescription>
-          </div>
+          <CardTitle className="text-xl">Creche Feliz</CardTitle>
+          <CardDescription>Faça login para continuar</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -83,14 +81,11 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg text-sm space-y-2">
-            <p className="font-medium text-blue-900">Contas de demonstração:</p>
-            <div className="space-y-1 text-blue-700">
-              <p><strong>Responsável:</strong> responsavel@daycare.com</p>
-              <p><strong>Staff:</strong> staff@daycare.com</p>
-              <p><strong>Admin:</strong> admin@daycare.com</p>
-              <p className="text-xs mt-2 text-blue-600">Senha: qualquer valor</p>
-            </div>
+          <div className="mt-6 p-3 bg-gray-50 rounded-lg text-xs space-y-1.5">
+            <p className="font-medium text-gray-700">Contas de teste:</p>
+            <p className="text-gray-600">responsavel@creche.com</p>
+            <p className="text-gray-600">staff@creche.com</p>
+            <p className="text-gray-600">admin@creche.com</p>
           </div>
         </CardContent>
       </Card>

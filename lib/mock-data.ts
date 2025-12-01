@@ -1,0 +1,340 @@
+export const mockClasses = [
+  {
+    id: 'class-1',
+    name: 'Berçário',
+    min_age_months: 0,
+    max_age_months: 12,
+    capacity: 8,
+  },
+  {
+    id: 'class-2',
+    name: 'Maternal I',
+    min_age_months: 13,
+    max_age_months: 24,
+    capacity: 12,
+  },
+  {
+    id: 'class-3',
+    name: 'Maternal II',
+    min_age_months: 25,
+    max_age_months: 36,
+    capacity: 15,
+  },
+  {
+    id: 'class-4',
+    name: 'Jardim I',
+    min_age_months: 37,
+    max_age_months: 48,
+    capacity: 20,
+  },
+  {
+    id: 'class-5',
+    name: 'Jardim II',
+    min_age_months: 49,
+    max_age_months: 60,
+    capacity: 20,
+  },
+];
+
+export const mockChildren = [
+  {
+    id: 'child-1',
+    name: 'Lucas Silva',
+    birth_date: '2023-03-15',
+    class_id: 'class-2',
+    parent_id: '1',
+    photo_url: 'https://images.pexels.com/photos/1912868/pexels-photo-1912868.jpeg?auto=compress&cs=tinysrgb&w=200',
+    allergies: 'Lactose',
+    medications: 'Nenhum',
+    emergency_contact_name: 'João Silva',
+    emergency_contact_phone: '(11) 99999-1111',
+  },
+  {
+    id: 'child-2',
+    name: 'Sofia Santos',
+    birth_date: '2022-08-20',
+    class_id: 'class-3',
+    parent_id: '1',
+    photo_url: 'https://images.pexels.com/photos/1545706/pexels-photo-1545706.jpeg?auto=compress&cs=tinysrgb&w=200',
+    allergies: 'Nenhuma',
+    medications: 'Nenhum',
+    emergency_contact_name: 'Maria Silva',
+    emergency_contact_phone: '(11) 98765-4321',
+  },
+  {
+    id: 'child-3',
+    name: 'Miguel Oliveira',
+    birth_date: '2023-01-10',
+    class_id: 'class-2',
+    parent_id: '4',
+    photo_url: 'https://images.pexels.com/photos/1648387/pexels-photo-1648387.jpeg?auto=compress&cs=tinysrgb&w=200',
+    allergies: 'Amendoim',
+    medications: 'Antialérgico (conforme necessidade)',
+    emergency_contact_name: 'Carlos Oliveira',
+    emergency_contact_phone: '(11) 99999-2222',
+  },
+  {
+    id: 'child-4',
+    name: 'Ana Costa',
+    birth_date: '2021-05-15',
+    class_id: 'class-4',
+    parent_id: '5',
+    photo_url: 'https://images.pexels.com/photos/1619697/pexels-photo-1619697.jpeg?auto=compress&cs=tinysrgb&w=200',
+    allergies: 'Nenhuma',
+    medications: 'Nenhum',
+    emergency_contact_name: 'Paula Costa',
+    emergency_contact_phone: '(11) 99999-3333',
+  },
+  {
+    id: 'child-5',
+    name: 'Pedro Souza',
+    birth_date: '2020-11-25',
+    class_id: 'class-5',
+    parent_id: '6',
+    photo_url: 'https://images.pexels.com/photos/1684032/pexels-photo-1684032.jpeg?auto=compress&cs=tinysrgb&w=200',
+    allergies: 'Glúten',
+    medications: 'Nenhum',
+    emergency_contact_name: 'Roberto Souza',
+    emergency_contact_phone: '(11) 99999-4444',
+  },
+];
+
+export const mockDailyReports = [
+  {
+    id: 'report-1',
+    child_id: 'child-1',
+    report_date: '2025-11-12',
+    mood: 'Feliz',
+    summary_note: 'Lucas teve um ótimo dia! Participou de todas as atividades com muito entusiasmo. Alimentou-se muito bem e dormiu tranquilamente.',
+    created_by: '2',
+  },
+  {
+    id: 'report-2',
+    child_id: 'child-2',
+    report_date: '2025-11-12',
+    mood: 'Calma',
+    summary_note: 'Sofia estava mais calma hoje. Brincou bastante com os colegas e demonstrou interesse especial nas atividades de pintura.',
+    created_by: '2',
+  },
+];
+
+export const mockActivities = [
+  {
+    id: 'act-1',
+    daily_report_id: 'report-1',
+    activity_type: 'feeding' as const,
+    time: '09:30',
+    food_item: 'Mamadeira',
+    amount: '180ml',
+  },
+  {
+    id: 'act-2',
+    daily_report_id: 'report-1',
+    activity_type: 'nap' as const,
+    time: '10:30',
+    duration_minutes: 90,
+  },
+  {
+    id: 'act-3',
+    daily_report_id: 'report-1',
+    activity_type: 'feeding' as const,
+    time: '12:00',
+    food_item: 'Papinha de legumes com frango',
+    amount: 'Porção completa',
+  },
+  {
+    id: 'act-4',
+    daily_report_id: 'report-1',
+    activity_type: 'diaper' as const,
+    time: '13:15',
+    diaper_condition: 'Normal',
+  },
+  {
+    id: 'act-5',
+    daily_report_id: 'report-1',
+    activity_type: 'pedagogical' as const,
+    time: '14:00',
+    description: 'Atividade sensorial com texturas diferentes',
+  },
+  {
+    id: 'act-6',
+    daily_report_id: 'report-1',
+    activity_type: 'feeding' as const,
+    time: '15:30',
+    food_item: 'Lanche (fruta e biscoito)',
+    amount: 'Porção normal',
+  },
+  {
+    id: 'act-7',
+    daily_report_id: 'report-2',
+    activity_type: 'feeding' as const,
+    time: '09:00',
+    food_item: 'Café da manhã',
+    amount: 'Completo',
+  },
+  {
+    id: 'act-8',
+    daily_report_id: 'report-2',
+    activity_type: 'pedagogical' as const,
+    time: '10:00',
+    description: 'Pintura com tinta guache',
+  },
+  {
+    id: 'act-9',
+    daily_report_id: 'report-2',
+    activity_type: 'nap' as const,
+    time: '11:00',
+    duration_minutes: 60,
+  },
+  {
+    id: 'act-10',
+    daily_report_id: 'report-2',
+    activity_type: 'feeding' as const,
+    time: '12:30',
+    food_item: 'Almoço',
+    amount: 'Completo',
+  },
+];
+
+export const mockReportPhotos = [
+  {
+    id: 'photo-1',
+    daily_report_id: 'report-1',
+    photo_url: 'https://images.pexels.com/photos/1104014/pexels-photo-1104014.jpeg?auto=compress&cs=tinysrgb&w=400',
+  },
+  {
+    id: 'photo-2',
+    daily_report_id: 'report-1',
+    photo_url: 'https://images.pexels.com/photos/1148998/pexels-photo-1148998.jpeg?auto=compress&cs=tinysrgb&w=400',
+  },
+  {
+    id: 'photo-3',
+    daily_report_id: 'report-2',
+    photo_url: 'https://images.pexels.com/photos/1720186/pexels-photo-1720186.jpeg?auto=compress&cs=tinysrgb&w=400',
+  },
+];
+
+export const mockAttendance = [
+  {
+    id: 'att-1',
+    child_id: 'child-1',
+    attendance_date: '2025-11-12',
+    check_in_time: '08:00',
+    check_out_time: '17:30',
+    authorized_pickup_person: 'Maria Silva',
+  },
+  {
+    id: 'att-2',
+    child_id: 'child-2',
+    attendance_date: '2025-11-12',
+    check_in_time: '08:15',
+    check_out_time: null,
+    authorized_pickup_person: null,
+  },
+];
+
+export const mockCalendarEvents = [
+  {
+    id: 'event-1',
+    title: 'Reunião de Pais',
+    description: 'Reunião mensal para discutir o desenvolvimento das crianças',
+    event_date: '2025-11-20',
+    event_type: 'Reunião',
+    class_id: 'class-2',
+  },
+  {
+    id: 'event-2',
+    title: 'Festa Junina',
+    description: 'Festa com comidas típicas e apresentações',
+    event_date: '2025-06-15',
+    event_type: 'Festa',
+    class_id: null,
+  },
+  {
+    id: 'event-3',
+    title: 'Feriado - Dia da Consciência Negra',
+    description: 'Creche fechada',
+    event_date: '2025-11-20',
+    event_type: 'Feriado',
+    class_id: null,
+  },
+  {
+    id: 'event-4',
+    title: 'Dia das Crianças',
+    description: 'Atividades especiais e recreação',
+    event_date: '2025-10-12',
+    event_type: 'Comemoração',
+    class_id: null,
+  },
+];
+
+export const mockInvoices = [
+  {
+    id: 'inv-1',
+    parent_id: '1',
+    child_id: 'child-1',
+    amount: 850.0,
+    due_date: '2025-11-05',
+    issue_date: '2025-10-25',
+    status: 'pago' as const,
+  },
+  {
+    id: 'inv-2',
+    parent_id: '1',
+    child_id: 'child-2',
+    amount: 850.0,
+    due_date: '2025-11-05',
+    issue_date: '2025-10-25',
+    status: 'pago' as const,
+  },
+  {
+    id: 'inv-3',
+    parent_id: '1',
+    child_id: 'child-1',
+    amount: 850.0,
+    due_date: '2025-12-05',
+    issue_date: '2025-11-25',
+    status: 'pendente' as const,
+  },
+  {
+    id: 'inv-4',
+    parent_id: '1',
+    child_id: 'child-2',
+    amount: 850.0,
+    due_date: '2025-12-05',
+    issue_date: '2025-11-25',
+    status: 'pendente' as const,
+  },
+];
+
+export const mockMessages = [
+  {
+    id: 'msg-1',
+    sender_id: '2',
+    receiver_id: '1',
+    message: 'Olá! Hoje o Lucas teve um ótimo dia. Ele participou de todas as atividades e se alimentou muito bem.',
+    read: true,
+    created_at: '2025-11-12T16:30:00',
+  },
+  {
+    id: 'msg-2',
+    sender_id: '1',
+    receiver_id: '2',
+    message: 'Que ótimo! Muito obrigada pela atenção. Ele tem falado muito sobre as atividades na creche.',
+    read: true,
+    created_at: '2025-11-12T17:00:00',
+  },
+  {
+    id: 'msg-3',
+    sender_id: '3',
+    receiver_id: '1',
+    message: 'Lembramos que a reunião de pais está agendada para o dia 20/11. Contamos com sua presença!',
+    read: false,
+    created_at: '2025-11-11T10:00:00',
+  },
+];
+
+export const mockStaffAssignments = [
+  { id: 'sa-1', staff_id: '2', class_id: 'class-2' },
+  { id: 'sa-2', staff_id: '2', class_id: 'class-3' },
+];

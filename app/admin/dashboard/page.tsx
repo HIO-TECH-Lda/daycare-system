@@ -10,12 +10,12 @@ export default function AdminDashboard() {
   const totalRevenue = mockInvoices.filter(i => i.status === 'pago').reduce((sum, inv) => sum + inv.amount, 0);
 
   return (
-    <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+    <div className="max-w-6xl mx-auto w-full">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
           <Card>
             <CardContent className="p-4">
               <p className="text-2xl font-bold text-gray-900">{totalChildren}</p>

@@ -38,9 +38,16 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
   if (user && !isLoginPage) {
     return (
       <div className="flex h-screen overflow-hidden bg-gray-50">
-        <Sidebar />
+        {/* Desktop Sidebar */}
+        <div className="hidden md:flex">
+          <Sidebar />
+        </div>
+        {/* Mobile Sidebar */}
+        <div className="md:hidden">
+          <Sidebar mobile />
+        </div>
         <main className="flex-1 overflow-y-auto">
-          <div className="h-full p-6">
+          <div className="h-full p-4 sm:p-6 pt-16 md:pt-6">
             {children}
           </div>
         </main>

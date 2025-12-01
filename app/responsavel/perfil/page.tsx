@@ -12,7 +12,7 @@ export default function PerfilPage() {
   const myChildren = mockChildren.filter(c => c.parent_id === user?.id);
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
         <h1 className="text-xl font-bold text-gray-900 mb-4">Meu Perfil</h1>
 
         <div className="space-y-6">
@@ -24,15 +24,15 @@ export default function PerfilPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Nome</Label>
-                  <Input id="name" defaultValue={user.name} />
+                  <Input id="name" defaultValue={user?.name} />
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue={user.email} />
+                  <Input id="email" type="email" defaultValue={user?.email} />
                 </div>
                 <div>
                   <Label htmlFor="phone">Telefone</Label>
-                  <Input id="phone" defaultValue={user.phone} />
+                  <Input id="phone" defaultValue={user?.phone} />
                 </div>
               </div>
               <Button>Salvar Alterações</Button>

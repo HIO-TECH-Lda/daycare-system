@@ -16,17 +16,17 @@ export default function MensagensPage() {
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto w-full">
         <h1 className="text-xl font-bold text-gray-900 mb-4">Mensagens</h1>
 
-        <Card className="h-[600px] flex flex-col">
-          <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
+        <Card className="h-[calc(100vh-12rem)] sm:h-[600px] flex flex-col">
+          <CardContent className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 sm:space-y-4">
             {myMessages.map(msg => {
               const isMe = msg.sender_id === user?.id;
               return (
                 <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[70%] rounded-lg p-4 ${isMe ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                    <p className="text-sm">{msg.message}</p>
+                  <div className={`max-w-[85%] sm:max-w-[70%] rounded-lg p-3 sm:p-4 ${isMe ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                    <p className="text-xs sm:text-sm">{msg.message}</p>
                     <p className={`text-xs mt-2 ${isMe ? 'text-blue-100' : 'text-gray-500'}`}>
                       {new Date(msg.created_at).toLocaleString('pt-BR')}
                     </p>
@@ -36,12 +36,13 @@ export default function MensagensPage() {
             })}
           </CardContent>
 
-          <div className="p-4 border-t bg-white">
+          <div className="p-3 sm:p-4 border-t bg-white">
             <div className="flex gap-2">
               <Input
                 placeholder="Digite sua mensagem..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
+                className="text-sm"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && message.trim()) {
                     alert('Mensagem enviada: ' + message);
@@ -49,7 +50,7 @@ export default function MensagensPage() {
                   }
                 }}
               />
-              <Button onClick={() => {
+              <Button size="icon" onClick={() => {
                 if (message.trim()) {
                   alert('Mensagem enviada: ' + message);
                   setMessage('');

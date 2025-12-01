@@ -18,43 +18,43 @@ export default function ResponsavelDashboard() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+    <div className="max-w-6xl mx-auto w-full">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
           {unreadMessages > 0 && (
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">
               Você tem {unreadMessages} mensagem{unreadMessages > 1 ? 's' : ''} não lida{unreadMessages > 1 ? 's' : ''}
             </p>
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {myChildren.map(child => {
             const { report, attendance } = getChildReport(child.id);
 
             return (
               <Card key={child.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center gap-4">
+                <CardHeader className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                     <img
                       src={child.photo_url}
                       alt={child.name}
-                      className="w-14 h-14 rounded-full object-cover border-2 border-gray-200"
+                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-gray-200 mx-auto sm:mx-0"
                     />
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{child.name}</CardTitle>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm text-gray-600">Idade: {calculateAge(child.birth_date)}</span>
+                    <div className="flex-1 text-center sm:text-left">
+                      <CardTitle className="text-base sm:text-lg">{child.name}</CardTitle>
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-1">
+                        <span className="text-xs sm:text-sm text-gray-600">Idade: {calculateAge(child.birth_date)}</span>
                         {attendance?.check_in_time && (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Presente
                           </Badge>
                         )}
                       </div>
                     </div>
-                    <Link href={`/responsavel/relatorio/${child.id}`}>
-                      <Button size="sm" variant="outline" className="gap-2">
+                    <Link href={`/responsavel/relatorio/${child.id}`} className="w-full sm:w-auto">
+                      <Button size="sm" variant="outline" className="gap-2 w-full sm:w-auto">
                         <FileText className="w-4 h-4" />
                         Ver Rotina
                       </Button>
@@ -63,14 +63,14 @@ export default function ResponsavelDashboard() {
                 </CardHeader>
 
                 {report && (
-                  <CardContent>
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <SmilePlus className="w-5 h-5 text-yellow-600" />
+                  <CardContent className="p-4 sm:p-6 pt-0">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <SmilePlus className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 mb-1">Humor: {report.mood}</p>
-                        <p className="text-sm text-gray-600 line-clamp-2">{report.summary_note}</p>
+                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Humor: {report.mood}</p>
+                        <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{report.summary_note}</p>
                       </div>
                     </div>
                   </CardContent>

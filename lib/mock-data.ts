@@ -47,7 +47,7 @@ export const mockChildren = [
     allergies: 'Lactose',
     medications: 'Nenhum',
     emergency_contact_name: 'João Silva',
-    emergency_contact_phone: '(11) 99999-1111',
+    emergency_contact_phone: '(+258) 99999-1111',
   },
   {
     id: 'child-2',
@@ -59,7 +59,7 @@ export const mockChildren = [
     allergies: 'Nenhuma',
     medications: 'Nenhum',
     emergency_contact_name: 'Maria Silva',
-    emergency_contact_phone: '(11) 98765-4321',
+    emergency_contact_phone: '(+258) 98765-4321',
   },
   {
     id: 'child-3',
@@ -71,7 +71,7 @@ export const mockChildren = [
     allergies: 'Amendoim',
     medications: 'Antialérgico (conforme necessidade)',
     emergency_contact_name: 'Carlos Oliveira',
-    emergency_contact_phone: '(11) 99999-2222',
+    emergency_contact_phone: '(+258) 99999-2222',
   },
   {
     id: 'child-4',
@@ -83,7 +83,7 @@ export const mockChildren = [
     allergies: 'Nenhuma',
     medications: 'Nenhum',
     emergency_contact_name: 'Paula Costa',
-    emergency_contact_phone: '(11) 99999-3333',
+    emergency_contact_phone: '(+258) 99999-3333',
   },
   {
     id: 'child-5',
@@ -95,7 +95,7 @@ export const mockChildren = [
     allergies: 'Glúten',
     medications: 'Nenhum',
     emergency_contact_name: 'Roberto Souza',
-    emergency_contact_phone: '(11) 99999-4444',
+    emergency_contact_phone: '(+258) 99999-4444',
   },
 ];
 

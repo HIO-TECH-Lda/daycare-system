@@ -48,15 +48,8 @@ export default function PreencherRelatorioPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/staff/dashboard">
-          <Button variant="ghost" size="sm" className="gap-2 mb-4">
-            <ArrowLeft className="w-4 h-4" />
-            Voltar ao Painel
-          </Button>
-        </Link>
+    <div className="max-w-6xl mx-auto w-full">
+
 
         <div className="flex items-center gap-4 mb-6">
           <img src={child.photo_url} alt={child.name} className="w-16 h-16 rounded-full object-cover" />
@@ -185,7 +178,6 @@ export default function PreencherRelatorioPage() {
             </Button>
           </div>
         </div>
-      </main>
     </div>
   );
 }

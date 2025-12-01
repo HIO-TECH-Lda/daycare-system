@@ -34,66 +34,56 @@ export default function TurmaPage() {
   const today = '2025-11-12';
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/staff/dashboard">
-          <Button variant="ghost" size="sm" className="gap-2 mb-4">
-            <ArrowLeft className="w-4 h-4" />
-            Voltar ao Painel
-          </Button>
-        </Link>
+    <div className="max-w-6xl mx-auto w-full">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">{classData.name}</h1>
+        <p className="text-gray-600">
+          {classChildren.length} crianças | {classData.min_age_months}-{classData.max_age_months} meses
+        </p>
+      </div>
 
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">{classData.name}</h1>
-          <p className="text-gray-600">
-            {classChildren.length} crianças | {classData.min_age_months}-{classData.max_age_months} meses
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {classChildren.map(child => (
-            <Card key={child.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-4">
-                <div className="flex items-start gap-3">
-                  <img src={child.photo_url} alt={child.name} className="w-16 h-16 rounded-full object-cover" />
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{child.name}</CardTitle>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Nascimento: {new Date(child.birth_date).toLocaleDateString('pt-BR')}
-                    </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {classChildren.map(child => (
+          <Card key={child.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-4">
+              <div className="flex items-start gap-3">
+                <img src={child.photo_url} alt={child.name} className="w-16 h-16 rounded-full object-cover" />
+                <div className="flex-1">
+                  <CardTitle className="text-lg">{child.name}</CardTitle>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Nascimento: {new Date(child.birth_date).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(child.allergies && child.allergies !== 'Nenhuma') && (
+                <div className="bg-red-50 rounded-lg p-3 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <p className="font-semibold text-red-900">Alergias</p>
+                    <p className="text-red-700">{child.allergies}</p>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {(child.allergies && child.allergies !== 'Nenhuma') && (
-                  <div className="bg-red-50 rounded-lg p-3 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-xs">
-                      <p className="font-semibold text-red-900">Alergias</p>
-                      <p className="text-red-700">{child.allergies}</p>
-                    </div>
-                  </div>
-                )}
+              )}
 
-                {(child.medications && child.medications !== 'Nenhum') && (
-                  <div className="bg-blue-50 rounded-lg p-3 text-xs">
-                    <p className="font-semibold text-blue-900">Medicações</p>
-                    <p className="text-blue-700">{child.medications}</p>
-                  </div>
-                )}
+              {(child.medications && child.medications !== 'Nenhum') && (
+                <div className="bg-blue-50 rounded-lg p-3 text-xs">
+                  <p className="font-semibold text-blue-900">Medicações</p>
+                  <p className="text-blue-700">{child.medications}</p>
+                </div>
+              )}
 
-                <Link href={`/staff/relatorio/preencher/${child.id}/${today}`}>
-                  <Button className="w-full gap-2" size="sm">
-                    <FileEdit className="w-4 h-4" />
-                    Preencher Relatório
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </main>
+              <Link href={`/staff/relatorio/preencher/${child.id}/${today}`}>
+                <Button className="w-full gap-2" size="sm">
+                  <FileEdit className="w-4 h-4" />
+                  Preencher Relatório
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

@@ -25,21 +25,21 @@ const mockUsers: User[] = [
     email: 'responsavel@creche.com',
     name: 'Maria Silva',
     role: 'responsavel',
-    phone: '(11) 98765-4321',
+    phone: '(+258) 98765-4321',
   },
   {
     id: '2',
     email: 'staff@creche.com',
     name: 'Ana Santos',
     role: 'staff',
-    phone: '(11) 98765-1234',
+    phone: '(+258) 98765-1234',
   },
   {
     id: '3',
     email: 'admin@creche.com',
     name: 'João Oliveira',
     role: 'administrador',
-    phone: '(11) 98765-5678',
+    phone: '(+258) 98765-5678',
   },
 ];
 

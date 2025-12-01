@@ -2,10 +2,12 @@
 
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
-import { Baby, LogOut, LayoutDashboard, Users, FileText, MessageCircle, Calendar, CreditCard, User, ClipboardCheck, School, UserCog, Receipt } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Baby, LogOut, LayoutDashboard, Users, FileText, MessageCircle, Calendar, CreditCard, User, ClipboardCheck, School, UserCog, Receipt, Menu } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface NavItem {
   title: string;
@@ -13,7 +15,11 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  mobile?: boolean;
+}
+
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -21,6 +27,10 @@ export function Sidebar() {
   const handleLogout = () => {
     logout();
     router.push('/login');
+  };
+
+  const handleNavClick = () => {
+    onNavigate?.();
   };
 
   if (!user) return null;
@@ -66,13 +76,14 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleNavClick}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 isActive
@@ -105,5 +116,33 @@ export function Sidebar() {
       </div>
     </div>
   );
+}
+
+export function Sidebar({ mobile }: SidebarProps) {
+  const [open, setOpen] = useState(false);
+
+  if (mobile) {
+    return (
+      <>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="fixed top-4 left-4 z-50 md:hidden bg-white shadow-md hover:bg-gray-50"
+            >
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Abrir menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0">
+            <SidebarContent onNavigate={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+
+  return <SidebarContent />;
 }
 

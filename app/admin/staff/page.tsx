@@ -1,75 +1,268 @@
 'use client';
 
-import { useAuth } from '@/lib/auth-context';
-import { Navbar } from '@/components/layout/navbar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { mockStaffAssignments, mockClasses } from '@/lib/mock-data';
-import { ArrowLeft, Plus, Edit } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 
-const mockStaff = [
+type Staff = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+};
+
+const initialMockStaff: Staff[] = [
   { id: '2', name: 'Ana Santos', email: 'ana@creche.com', phone: '(+258) 98765-1234' },
   { id: '7', name: 'Carlos Lima', email: 'carlos@creche.com', phone: '(+258) 98765-5555' },
 ];
 
 export default function GestaoStaffPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+  const [staff, setStaff] = useState<Staff[]>(initialMockStaff);
+  const [assignments, setAssignments] = useState(mockStaffAssignments);
+  const [open, setOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    classIds: [] as string[],
+  });
 
-  useEffect(() => {
-    if (!loading && (!user || user.role !== 'administrador')) {
-      router.push('/login');
+  const handleOpenDialog = (staffMember?: Staff) => {
+    if (staffMember) {
+      setEditingStaff(staffMember);
+      const staffAssignments = assignments.filter(sa => sa.staff_id === staffMember.id);
+      setFormData({
+        name: staffMember.name,
+        email: staffMember.email,
+        phone: staffMember.phone,
+        classIds: staffAssignments.map(sa => sa.class_id),
+      });
+    } else {
+      setEditingStaff(null);
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        classIds: [],
+      });
     }
-  }, [user, loading, router]);
+    setOpen(true);
+  };
 
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Carregando...</div>;
-  if (!user) return null;
+  const handleToggleClass = (classId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      classIds: prev.classIds.includes(classId)
+        ? prev.classIds.filter(id => id !== classId)
+        : [...prev.classIds, classId],
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingStaff) {
+      // Update existing staff
+      setStaff(staff.map(s => 
+        s.id === editingStaff.id 
+          ? { ...s, ...formData }
+          : s
+      ));
+      // Update assignments
+      const existingAssignments = assignments.filter(sa => sa.staff_id !== editingStaff.id);
+      const newAssignments = formData.classIds.map(classId => ({
+        id: `sa-${Date.now()}-${classId}`,
+        staff_id: editingStaff.id,
+        class_id: classId,
+      }));
+      setAssignments([...existingAssignments, ...newAssignments]);
+      alert('Staff atualizado com sucesso!');
+    } else {
+      // Create new staff
+      const newStaff: Staff = {
+        id: `staff-${Date.now()}`,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+      };
+      setStaff([...staff, newStaff]);
+      // Create assignments
+      const newAssignments = formData.classIds.map(classId => ({
+        id: `sa-${Date.now()}-${classId}`,
+        staff_id: newStaff.id,
+        class_id: classId,
+      }));
+      setAssignments([...assignments, ...newAssignments]);
+      alert('Staff criado com sucesso!');
+    }
+    setOpen(false);
+    setEditingStaff(null);
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      classIds: [],
+    });
+  };
+
+  const handleDelete = (staffId: string) => {
+    setStaff(staff.filter(s => s.id !== staffId));
+    setAssignments(assignments.filter(sa => sa.staff_id !== staffId));
+    alert('Staff excluído com sucesso!');
+  };
 
   return (
     <div className="max-w-6xl mx-auto w-full">
-
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Gestão de Staff</h1>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          Adicionar Novo Staff
-        </Button>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestão de Staff</h1>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2 w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+              <Plus className="w-4 h-4" />
+              Adicionar Novo Staff
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingStaff ? 'Editar Staff' : 'Novo Staff'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Telefone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Atribuir Turmas</Label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                  {mockClasses.map(classItem => (
+                    <div key={classItem.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`class-${classItem.id}`}
+                        checked={formData.classIds.includes(classItem.id)}
+                        onCheckedChange={() => handleToggleClass(classItem.id)}
+                      />
+                      <Label
+                        htmlFor={`class-${classItem.id}`}
+                        className="text-sm font-normal cursor-pointer flex-1"
+                      >
+                        {classItem.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">{editingStaff ? 'Atualizar' : 'Criar'} Staff</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <div className="space-y-4">
-        {mockStaff.map(staff => {
-          const assignments = mockStaffAssignments.filter(sa => sa.staff_id === staff.id);
-          const assignedClasses = mockClasses.filter(c => assignments.some(a => a.class_id === c.id));
+      <div className="space-y-3 sm:space-y-4">
+        {staff.map(staffMember => {
+          const staffAssignments = assignments.filter(sa => sa.staff_id === staffMember.id);
+          const assignedClasses = mockClasses.filter(c => staffAssignments.some(a => a.class_id === c.id));
 
           return (
-            <Card key={staff.id}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{staff.name}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{staff.email}</p>
-                    <p className="text-sm text-gray-600">{staff.phone}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className="text-sm text-gray-700">Turmas:</span>
-                      {assignedClasses.map(c => (
-                        <Badge key={c.id} variant="outline">{c.name}</Badge>
-                      ))}
-                    </div>
+            <Card key={staffMember.id}>
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  <div className="flex-1">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">{staffMember.name}</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1">{staffMember.email}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">{staffMember.phone}</p>
+                    {assignedClasses.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 mt-3">
+                        <span className="text-xs sm:text-sm text-gray-700">Turmas:</span>
+                        {assignedClasses.map(c => (
+                          <Badge key={c.id} variant="outline" className="text-xs">{c.name}</Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <Button size="sm" variant="outline" className="gap-2">
-                    <Edit className="w-4 h-4" />
-                    Editar
-                  </Button>
+                  <div className="flex gap-2 justify-center sm:justify-end">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="gap-2"
+                      onClick={() => handleOpenDialog(staffMember)}
+                    >
+                      <Edit className="w-4 h-4" />
+                      <span className="hidden sm:inline">Editar</span>
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-red-600 hover:text-red-700 gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span className="hidden sm:inline">Excluir</span>
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir o staff "{staffMember.name}"? Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(staffMember.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
-
     </div>
   );
 }

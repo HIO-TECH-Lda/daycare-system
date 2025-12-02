@@ -4,6 +4,7 @@ import './globals.css';
 import { Inter } from 'next/font/google';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { Sidebar } from '@/components/layout/sidebar';
+import { Toaster } from '@/components/ui/sonner';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -69,6 +70,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <AppWrapper>{children}</AppWrapper>
+          <Toaster />
         </AuthProvider>
       </body>
     </html>

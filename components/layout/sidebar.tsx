@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Baby, LogOut, LayoutDashboard, Users, FileText, MessageCircle, Calendar, CreditCard, User, ClipboardCheck, School, UserCog, Receipt, Menu } from 'lucide-react';
+import { Baby, LogOut, LayoutDashboard, Users, FileText, MessageCircle, Calendar, CreditCard, User, ClipboardCheck, School, UserCog, Receipt, Menu, FileBarChart, Wallet, ReceiptText } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -38,14 +38,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const responsavelNav: NavItem[] = [
     { title: 'Dashboard', href: '/responsavel/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { title: 'Mensagens', href: '/responsavel/mensagens', icon: <MessageCircle className="w-5 h-5" /> },
+    { title: 'Relatórios Mensais', href: '/responsavel/relatorios-mensais', icon: <FileBarChart className="w-5 h-5" /> },
+    { title: 'Pagamentos', href: '/responsavel/faturamento', icon: <Wallet className="w-5 h-5" /> },
     { title: 'Eventos', href: '/responsavel/eventos', icon: <Calendar className="w-5 h-5" /> },
-    // { title: 'Faturamento', href: '/responsavel/faturamento', icon: <CreditCard className="w-5 h-5" /> },
     { title: 'Perfil', href: '/responsavel/perfil', icon: <User className="w-5 h-5" /> },
   ];
 
   const staffNav: NavItem[] = [
     { title: 'Dashboard', href: '/staff/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { title: 'Presença', href: '/staff/presenca', icon: <ClipboardCheck className="w-5 h-5" /> },
+    { title: 'Relatórios Mensais', href: '/staff/relatorios-mensais', icon: <FileBarChart className="w-5 h-5" /> },
     { title: 'Mensagens', href: '/staff/mensagens', icon: <MessageCircle className="w-5 h-5" /> },
   ];
 
@@ -54,7 +56,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     { title: 'Alunos', href: '/admin/alunos', icon: <Users className="w-5 h-5" /> },
     { title: 'Staff', href: '/admin/staff', icon: <UserCog className="w-5 h-5" /> },
     { title: 'Turmas', href: '/admin/turmas', icon: <School className="w-5 h-5" /> },
-    // { title: 'Faturamento', href: '/admin/faturamento/visao-geral', icon: <Receipt className="w-5 h-5" /> },
+    { title: 'Relatórios Mensais', href: '/admin/relatorios-mensais', icon: <FileBarChart className="w-5 h-5" /> },
+    { title: 'Pagamentos', href: '/admin/pagamentos', icon: <Wallet className="w-5 h-5" /> },
+    { title: 'Despesas', href: '/admin/despesas', icon: <ReceiptText className="w-5 h-5" /> },
     { title: 'Eventos', href: '/admin/eventos/gestao', icon: <Calendar className="w-5 h-5" /> },
     { title: 'Matrículas', href: '/admin/matriculas', icon: <FileText className="w-5 h-5" /> },
   ];
@@ -71,7 +75,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <Baby className="w-6 h-6 text-green-600" />
         </div>
         <div>
-          <h1 className="text-lg font-semibold text-gray-900">Creche Feliz</h1>
+          <h1 className="text-lg font-semibold text-gray-900">Sonho de Criança</h1>
         </div>
       </div>
 

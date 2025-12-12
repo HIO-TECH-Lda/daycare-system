@@ -46,7 +46,7 @@ export default function LoginPage() {
           <div className="mx-auto w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
             <Baby className="w-6 h-6 text-green-600" />
           </div>
-          <CardTitle className="text-xl">Creche Feliz</CardTitle>
+          <CardTitle className="text-xl">Sonho de Criança Centro Infantil</CardTitle>
           <CardDescription>Faça login para continuar</CardDescription>
         </CardHeader>
         <CardContent>

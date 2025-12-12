@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { mockChildren, mockClasses } from '@/lib/mock-data';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, FileText } from 'lucide-react';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 // Mock parents data (in real app, this would come from the database)
 const mockParents = [
@@ -21,6 +22,7 @@ const mockParents = [
 ];
 
 export default function GestaoMatriculasPage() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [changeClassOpen, setChangeClassOpen] = useState(false);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
@@ -85,13 +87,21 @@ export default function GestaoMatriculasPage() {
     <div className="max-w-6xl mx-auto w-full">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestão de Matrículas</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 w-full sm:w-auto">
-              <Plus className="w-4 h-4" />
-              Iniciar Nova Matrícula
-            </Button>
-          </DialogTrigger>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button 
+            className="gap-2 w-full sm:w-auto"
+            onClick={() => router.push('/admin/matriculas/questionario')}
+          >
+            <FileText className="w-4 h-4" />
+            Questionário de Inscrição
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 w-full sm:w-auto">
+                <Plus className="w-4 h-4" />
+                Matrícula Rápida
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Nova Matrícula</DialogTitle>
@@ -215,6 +225,7 @@ export default function GestaoMatriculasPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="space-y-3 sm:space-y-4">

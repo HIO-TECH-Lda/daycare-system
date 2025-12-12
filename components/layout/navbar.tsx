@@ -23,7 +23,7 @@ export function Navbar() {
               <Baby className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">Creche Feliz</h1>
+              <h1 className="text-lg font-semibold text-gray-900">Sonho de Criança</h1>
               <p className="text-xs text-gray-500">
                 {user?.role === 'responsavel' && 'Portal do Responsável'}
                 {user?.role === 'staff' && 'Portal do Educador'}

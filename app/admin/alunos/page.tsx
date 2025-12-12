@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { mockChildren, mockClasses } from '@/lib/mock-data';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
 import { useState } from 'react';
 
 // Mock parents data
@@ -33,12 +33,27 @@ type Child = {
   medications: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
+  gender?: string;
+  nationality?: string;
+  address?: string;
+  languages_spoken?: string;
+  dietary_restrictions?: string;
+  sleep_schedule?: string;
+  preferred_foods?: string;
+  separation_reaction?: string;
+  plays_with_others?: boolean;
+  behavior_notes?: string;
+  previous_center?: string;
+  transfer_reason?: string;
+  image_usage_authorized?: boolean;
 };
 
 export default function GestaoAlunosPage() {
   const [children, setChildren] = useState<Child[]>(mockChildren);
   const [searchTerm, setSearchTerm] = useState('');
   const [open, setOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [editingChild, setEditingChild] = useState<Child | null>(null);
   const [parentType, setParentType] = useState<'existing' | 'new'>('existing');
   const [formData, setFormData] = useState({
@@ -366,15 +381,43 @@ export default function GestaoAlunosPage() {
                     <h3 className="text-base sm:text-lg font-semibold text-gray-900">{child.name}</h3>
                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-1">
                       <Badge className="text-xs">{classData?.name}</Badge>
+                      {child.gender && (
+                        <Badge variant="outline" className="text-xs">{child.gender}</Badge>
+                      )}
                       <span className="text-xs sm:text-sm text-gray-600">
                         Nascimento: {new Date(child.birth_date).toLocaleDateString('pt-BR')}
                       </span>
+                      {child.nationality && (
+                        <span className="text-xs sm:text-sm text-gray-600">
+                          • {child.nationality}
+                        </span>
+                      )}
                     </div>
-                    {child.allergies && child.allergies !== 'Nenhuma' && (
-                      <p className="text-xs sm:text-sm text-red-600 mt-1">⚠️ Alergia: {child.allergies}</p>
-                    )}
+                    <div className="mt-1 space-y-1">
+                      {child.allergies && child.allergies !== 'Nenhuma' && (
+                        <p className="text-xs sm:text-sm text-red-600">⚠️ Alergia: {child.allergies}</p>
+                      )}
+                      {child.dietary_restrictions && child.dietary_restrictions !== '' && (
+                        <p className="text-xs sm:text-sm text-orange-600">🍽️ Restrições alimentares: {child.dietary_restrictions}</p>
+                      )}
+                      {child.medications && child.medications !== 'Nenhum' && (
+                        <p className="text-xs sm:text-sm text-blue-600">💊 Medicação: {child.medications}</p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2 justify-center sm:justify-end">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="gap-2"
+                      onClick={() => {
+                        setSelectedChild(child);
+                        setDetailsOpen(true);
+                      }}
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span className="hidden sm:inline">Detalhes</span>
+                    </Button>
                     <Button 
                       size="sm" 
                       variant="outline" 
@@ -420,6 +463,125 @@ export default function GestaoAlunosPage() {
           );
         })}
       </div>
+
+      {/* Child Details Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalhes Completos do Aluno</DialogTitle>
+          </DialogHeader>
+          {selectedChild && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-semibold">Nome Completo</Label>
+                  <p className="text-sm">{selectedChild.name}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold">Data de Nascimento</Label>
+                  <p className="text-sm">{new Date(selectedChild.birth_date).toLocaleDateString('pt-BR')}</p>
+                </div>
+                {selectedChild.gender && (
+                  <div>
+                    <Label className="text-sm font-semibold">Sexo</Label>
+                    <p className="text-sm">{selectedChild.gender}</p>
+                  </div>
+                )}
+                {selectedChild.nationality && (
+                  <div>
+                    <Label className="text-sm font-semibold">Nacionalidade</Label>
+                    <p className="text-sm">{selectedChild.nationality}</p>
+                  </div>
+                )}
+                {selectedChild.address && (
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-semibold">Endereço</Label>
+                    <p className="text-sm">{selectedChild.address}</p>
+                  </div>
+                )}
+                {selectedChild.languages_spoken && (
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-semibold">Língua(s) Falada(s) em Casa</Label>
+                    <p className="text-sm">{selectedChild.languages_spoken}</p>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-sm font-semibold">Alergias</Label>
+                  <p className="text-sm">{selectedChild.allergies || 'Nenhuma'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold">Medicações</Label>
+                  <p className="text-sm">{selectedChild.medications || 'Nenhum'}</p>
+                </div>
+                {selectedChild.dietary_restrictions && (
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-semibold">Restrições Alimentares</Label>
+                    <p className="text-sm">{selectedChild.dietary_restrictions}</p>
+                  </div>
+                )}
+                {selectedChild.sleep_schedule && (
+                  <div>
+                    <Label className="text-sm font-semibold">Horário de Sono</Label>
+                    <p className="text-sm">{selectedChild.sleep_schedule}</p>
+                  </div>
+                )}
+                {selectedChild.preferred_foods && (
+                  <div>
+                    <Label className="text-sm font-semibold">Alimentos Preferidos/Recusados</Label>
+                    <p className="text-sm">{selectedChild.preferred_foods}</p>
+                  </div>
+                )}
+                {selectedChild.plays_with_others !== undefined && (
+                  <div>
+                    <Label className="text-sm font-semibold">Gosta de Brincar com Outras Crianças</Label>
+                    <p className="text-sm">{selectedChild.plays_with_others ? 'Sim' : 'Não'}</p>
+                  </div>
+                )}
+                {selectedChild.previous_center && (
+                  <div>
+                    <Label className="text-sm font-semibold">Centro Anterior</Label>
+                    <p className="text-sm">{selectedChild.previous_center}</p>
+                  </div>
+                )}
+                {selectedChild.transfer_reason && (
+                  <div>
+                    <Label className="text-sm font-semibold">Motivo da Transferência</Label>
+                    <p className="text-sm">{selectedChild.transfer_reason}</p>
+                  </div>
+                )}
+              </div>
+              {selectedChild.behavior_notes && (
+                <div className="bg-yellow-50 rounded-lg p-4">
+                  <Label className="text-sm font-semibold text-yellow-900">Notas sobre Comportamento</Label>
+                  <p className="text-sm text-yellow-800 mt-1">{selectedChild.behavior_notes}</p>
+                </div>
+              )}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <Label className="text-sm font-semibold text-blue-900">Contato de Emergência</Label>
+                <p className="text-sm text-blue-800 mt-1"><strong>Nome:</strong> {selectedChild.emergency_contact_name}</p>
+                <p className="text-sm text-blue-800"><strong>Telefone:</strong> {selectedChild.emergency_contact_phone}</p>
+              </div>
+              {selectedChild.image_usage_authorized !== undefined && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <Label className="text-sm font-semibold">Autorização de Uso de Imagem</Label>
+                  <p className="text-sm mt-1">{selectedChild.image_usage_authorized ? 'Autorizado' : 'Não autorizado'}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+              Fechar
+            </Button>
+            <Button onClick={() => {
+              setDetailsOpen(false);
+              handleOpenDialog(selectedChild || undefined);
+            }}>
+              Editar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

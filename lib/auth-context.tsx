@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-const mockUsers: User[] = [
+export const mockUsers: User[] = [
   {
     id: '1',
     email: 'responsavel@creche.com',

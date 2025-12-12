@@ -53,6 +53,30 @@ export default function PerfilPage() {
                     <Label>Data de Nascimento</Label>
                     <Input value={new Date(child.birth_date).toLocaleDateString('pt-BR')} disabled />
                   </div>
+                  {child.gender && (
+                    <div>
+                      <Label>Sexo</Label>
+                      <Input value={child.gender} disabled />
+                    </div>
+                  )}
+                  {child.nationality && (
+                    <div>
+                      <Label>Nacionalidade</Label>
+                      <Input value={child.nationality} disabled />
+                    </div>
+                  )}
+                  {child.address && (
+                    <div className="md:col-span-2">
+                      <Label>Endereço</Label>
+                      <Input value={child.address} disabled />
+                    </div>
+                  )}
+                  {child.languages_spoken && (
+                    <div className="md:col-span-2">
+                      <Label>Língua(s) falada(s) em casa</Label>
+                      <Input value={child.languages_spoken} disabled />
+                    </div>
+                  )}
                   <div>
                     <Label>Alergias</Label>
                     <Input value={child.allergies || 'Nenhuma'} disabled />
@@ -61,7 +85,32 @@ export default function PerfilPage() {
                     <Label>Medicações</Label>
                     <Input value={child.medications || 'Nenhum'} disabled />
                   </div>
+                  {child.dietary_restrictions && (
+                    <div className="md:col-span-2">
+                      <Label>Restrições Alimentares</Label>
+                      <Input value={child.dietary_restrictions || 'Nenhuma'} disabled />
+                    </div>
+                  )}
+                  {child.sleep_schedule && (
+                    <div>
+                      <Label>Horário de Sono</Label>
+                      <Input value={child.sleep_schedule} disabled />
+                    </div>
+                  )}
+                  {child.preferred_foods && (
+                    <div>
+                      <Label>Alimentos Preferidos/Recusados</Label>
+                      <Input value={child.preferred_foods} disabled />
+                    </div>
+                  )}
                 </div>
+
+                {child.behavior_notes && (
+                  <div className="bg-yellow-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-yellow-900 mb-2">Notas sobre Comportamento</h4>
+                    <p className="text-sm text-yellow-800">{child.behavior_notes}</p>
+                  </div>
+                )}
 
                 <div className="bg-blue-50 rounded-lg p-4 mt-4">
                   <h4 className="font-semibold text-blue-900 mb-2">Contato de Emergência</h4>

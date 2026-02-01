@@ -3,6 +3,7 @@
 import './globals.css';
 import { Inter } from 'next/font/google';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { QueryProvider } from '@/lib/query-provider';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Toaster } from '@/components/ui/sonner';
 import { usePathname, useRouter } from 'next/navigation';
@@ -68,10 +69,12 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        <AuthProvider>
-          <AppWrapper>{children}</AppWrapper>
-          <Toaster />
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <AppWrapper>{children}</AppWrapper>
+            <Toaster />
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

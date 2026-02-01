@@ -1,6 +1,6 @@
 # Sistema de Gestão de Creche
 
-Sistema completo de gestão para creches dedicadas a crianças de 0 a 5 anos, desenvolvido com Next.js, TypeScript, Tailwind CSS e Supabase.
+Sistema completo de gestão para creches dedicadas a crianças de 0 a 5 anos, desenvolvido com Next.js, TypeScript, Tailwind CSS e uma API backend (Node.js + Express + MongoDB).
 
 ## Funcionalidades
 
@@ -34,8 +34,8 @@ Sistema completo de gestão para creches dedicadas a crianças de 0 a 5 anos, de
 - **Linguagem**: TypeScript
 - **Estilização**: Tailwind CSS
 - **Componentes**: shadcn/ui
-- **Banco de Dados**: Supabase (PostgreSQL)
-- **Autenticação**: Mock authentication (pode ser integrado com Supabase Auth)
+- **Backend**: API em `../api` (Express, TypeScript, MongoDB, JWT auth)
+- **Autenticação**: Mock authentication (será integrado com a API JWT)
 - **Ícones**: Lucide React
 
 ## Configuração
@@ -46,19 +46,22 @@ Sistema completo de gestão para creches dedicadas a crianças de 0 a 5 anos, de
 npm install
 ```
 
-### 2. Configurar Supabase
+### 2. Backend (API)
 
-1. Crie uma conta no [Supabase](https://supabase.com)
-2. Crie um novo projeto
-3. As migrações do banco de dados já foram aplicadas
-4. Configure as variáveis de ambiente no arquivo `.env.local`:
+O frontend consome a API em `../api`. Para desenvolvimento:
 
-```
-NEXT_PUBLIC_SUPABASE_URL=sua_url_do_supabase
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima
-```
+1. Entre na pasta da API e configure o ambiente:
+   ```bash
+   cd ../api
+   cp env.example .env
+   # Edite .env: MONGODB_URI, JWT_SECRET
+   npm install
+   npm run dev
+   ```
+2. A API roda em `http://localhost:3002` por padrão (health: `GET http://localhost:3002/health`).
+3. Documentação da API: `../api/docs/STARTER-KIT-GUIDE.md`.
 
-### 3. Executar em Desenvolvimento
+### 3. Executar o Frontend em Desenvolvimento
 
 ```bash
 npm run dev
@@ -68,35 +71,15 @@ O aplicativo estará disponível em `http://localhost:3000`
 
 ## Contas de Demonstração
 
-### Responsável
-- Email: `responsavel@creche.com`
-- Senha: qualquer valor
+Atualmente o login usa dados mock. Contas de teste:
 
-### Staff
-- Email: `staff@creche.com`
-- Senha: qualquer valor
+- **Responsável**: `responsavel@creche.com` — senha: qualquer valor
+- **Staff**: `staff@creche.com` — senha: qualquer valor
+- **Administrador**: `admin@creche.com` — senha: qualquer valor
 
-### Administrador
-- Email: `admin@creche.com`
-- Senha: qualquer valor
+## Dados
 
-## Estrutura do Banco de Dados
-
-O sistema utiliza as seguintes tabelas principais:
-
-- **users**: Usuários do sistema (responsáveis, staff, administradores)
-- **classes**: Turmas da creche
-- **children**: Crianças matriculadas
-- **staff_classes**: Atribuições de educadores às turmas
-- **daily_reports**: Relatórios diários das crianças
-- **activities**: Atividades registradas nos relatórios
-- **report_photos**: Fotos dos relatórios diários
-- **attendance**: Registro de presença (check-in/out)
-- **calendar_events**: Eventos do calendário
-- **invoices**: Faturas de pagamento
-- **messages**: Sistema de mensagens
-
-Todas as tabelas possuem Row Level Security (RLS) configurado para garantir que usuários acessem apenas os dados apropriados para seu perfil.
+Em desenvolvimento, as páginas usam dados mock em `lib/mock-data.ts`. A integração com a API (login JWT + endpoints de crianças, turmas, faturas, mensagens, etc.) será feita conforme os recursos forem implementados no backend.
 
 ## Design
 
@@ -118,13 +101,11 @@ Todo o sistema está em **Português Brasileiro**, incluindo:
 
 ## Próximos Passos
 
-Para integração completa com Supabase:
-
-1. Substituir o mock authentication por Supabase Auth
-2. Conectar todas as páginas ao banco de dados real
-3. Implementar upload de fotos para Supabase Storage
-4. Adicionar notificações em tempo real
-5. Implementar geração de relatórios em PDF
+1. Integrar login com a API (JWT: register, login, refresh, me).
+2. Conectar as páginas aos endpoints da API (crianças, turmas, faturas, mensagens, etc.).
+3. Implementar upload de fotos (API já suporta Multer + Cloudinary).
+4. Adicionar middleware de proteção de rotas por role no frontend.
+5. Implementar geração de relatórios em PDF.
 
 ## Licença
 

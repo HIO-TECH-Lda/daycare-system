@@ -1,9 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/**
+ * Domain types for the daycare web app.
+ * Backend is the API (../api) — MongoDB + JWT auth.
+ */
 
 export type UserRole = 'responsavel' | 'staff' | 'administrador';
 
@@ -34,7 +32,6 @@ export interface Child {
   medications: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
-  // New fields from registration form
   gender?: 'Masculino' | 'Feminino';
   nationality?: string;
   address?: string;
@@ -81,7 +78,7 @@ export interface EnrollmentDocument {
 export interface MonthlyReport {
   id: string;
   child_id: string;
-  report_month: number; // 1-12
+  report_month: number;
   report_year: number;
   physical_development?: string;
   cognitive_development?: string;

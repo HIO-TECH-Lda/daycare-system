@@ -4,16 +4,47 @@ import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { mockMessages } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { messagesApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
 import { Send } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 export default function MensagensPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
 
-  const myMessages = mockMessages.filter(m => m.sender_id === user?.id || m.receiver_id === user?.id)
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const { data: myMessages = [], isLoading } = useQuery({
+    queryKey: queryKeys.messages.inbox(),
+    queryFn: async () => {
+      const response = await messagesApi.getInbox();
+      return response.data?.filter(m => m.sender_id === user?.id || m.recipient_id === user?.id) || [];
+    },
+    enabled: !!user,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: (data: any) => messagesApi.send(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.messages.all });
+      toast.success(messages.success.messageSent);
+      setMessage('');
+    },
+  });
+
+  const handleSend = async () => {
+    if (!message.trim()) return;
+    // TODO: Get recipient_id from context or selection
+    await sendMutation.mutateAsync({
+      recipient_id: '', // Needs to be set based on context
+      recipient_role: 'staff',
+      content: message.trim(),
+      message_type: 'general',
+    });
+  };
 
   return (
     <div className="max-w-6xl mx-auto w-full">
@@ -21,8 +52,17 @@ export default function MensagensPage() {
 
         <Card className="h-[calc(100vh-12rem)] sm:h-[600px] flex flex-col">
           <CardContent className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 sm:space-y-4">
-            {myMessages.map(msg => {
-              const isMe = msg.sender_id === user?.id;
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm text-gray-600">{messages.loading}</p>
+              </div>
+            ) : myMessages.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm text-gray-500">Nenhuma mensagem ainda</p>
+              </div>
+            ) : (
+              myMessages.map(msg => {
+                const isMe = msg.sender_id === user?.id;
               return (
                 <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] sm:max-w-[70%] rounded-lg p-3 sm:p-4 ${isMe ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
@@ -33,7 +73,8 @@ export default function MensagensPage() {
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </CardContent>
 
           <div className="p-3 sm:p-4 border-t bg-white">
@@ -45,17 +86,11 @@ export default function MensagensPage() {
                 className="text-sm"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && message.trim()) {
-                    alert('Mensagem enviada: ' + message);
-                    setMessage('');
+                    handleSend();
                   }
                 }}
               />
-              <Button size="icon" onClick={() => {
-                if (message.trim()) {
-                  alert('Mensagem enviada: ' + message);
-                  setMessage('');
-                }
-              }}>
+              <Button size="icon" onClick={handleSend} disabled={!message.trim()}>
                 <Send className="w-4 h-4" />
               </Button>
             </div>

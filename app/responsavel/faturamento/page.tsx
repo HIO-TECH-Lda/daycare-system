@@ -8,7 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { mockInvoices, mockChildren, mockPayments } from '@/lib/mock-data';
+import { useQuery } from '@tanstack/react-query';
+import { invoicesApi, paymentsApi, childrenApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
 import { CheckCircle2, Clock, History, DollarSign } from 'lucide-react';
 
 const paymentMethods = [
@@ -45,8 +48,16 @@ export default function FaturamentoPage() {
 
   const totalPaid = myInvoices.reduce((sum, inv) => sum + getTotalPaid(inv.id), 0);
   const totalPending = myInvoices
-    .filter(inv => inv.status === 'pendente')
+    .filter(inv => inv.status === 'pending')
     .reduce((sum, inv) => sum + (inv.amount - getTotalPaid(inv.id)), 0);
+
+  if (invoicesLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-sm text-gray-600">{messages.loading}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto w-full">
@@ -105,9 +116,9 @@ export default function FaturamentoPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex items-start gap-3 sm:gap-4 flex-1">
                       <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        invoice.status === 'pago' ? 'bg-green-100' : 'bg-yellow-100'
+                        invoice.status === 'paid' ? 'bg-green-100' : 'bg-yellow-100'
                       }`}>
-                        {invoice.status === 'pago' ? (
+                        {invoice.status === 'paid' ? (
                           <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                         ) : (
                           <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" />
@@ -118,8 +129,8 @@ export default function FaturamentoPage() {
                           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                             Fatura {invoice.id.slice(-6)}
                           </h3>
-                          <Badge variant={invoice.status === 'pago' ? 'default' : 'secondary'} className="text-xs">
-                            {invoice.status === 'pago' ? 'Pago' : 'Pendente'}
+                          <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'} className="text-xs">
+                            {invoice.status === 'paid' ? 'Pago' : 'Pendente'}
                           </Badge>
                         </div>
                         <p className="text-sm sm:text-base text-gray-600 mb-1">{child?.name}</p>
@@ -198,7 +209,7 @@ export default function FaturamentoPage() {
                     <TableBody>
                       {myInvoices.flatMap(invoice => {
                         const payments = getInvoicePayments(invoice.id);
-                        const child = mockChildren.find(c => c.id === invoice.child_id);
+                        const child = children.find(c => c.id === invoice.child_id);
                         return payments.map(payment => (
                           <TableRow key={payment.id}>
                             <TableCell>

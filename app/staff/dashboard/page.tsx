@@ -2,17 +2,72 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { mockChildren, mockStaffAssignments, mockClasses, mockAttendance } from '@/lib/mock-data';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/lib/auth-context';
+import { childrenApi, staffAssignmentsApi, classesApi, attendanceApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
 import { ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StaffDashboard() {
-  const myAssignments = mockStaffAssignments.filter(sa => sa.staff_id === '2');
-  const myClasses = mockClasses.filter(c => myAssignments.some(a => a.class_id === c.id));
-  const myChildren = mockChildren.filter(c => myAssignments.some(a => a.class_id === c.class_id));
+  const { user } = useAuth();
+  const today = new Date().toISOString().split('T')[0];
 
-  const today = '2025-11-12';
-  const presentToday = mockAttendance.filter(a => a.attendance_date === today && a.check_in_time).length;
+  const { data: staffAssignments, isLoading: assignmentsLoading } = useQuery({
+    queryKey: queryKeys.staffAssignments.list({ staff_id: user?.id }),
+    queryFn: async () => {
+      const response = await staffAssignmentsApi.list({ staff_id: user?.id });
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: classes, isLoading: classesLoading } = useQuery({
+    queryKey: queryKeys.classes.list(),
+    queryFn: async () => {
+      const response = await classesApi.list();
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: children, isLoading: childrenLoading } = useQuery({
+    queryKey: queryKeys.children.list(),
+    queryFn: async () => {
+      const response = await childrenApi.list();
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: attendance, isLoading: attendanceLoading } = useQuery({
+    queryKey: queryKeys.attendance.list({ date: today }),
+    queryFn: async () => {
+      const response = await attendanceApi.list({ date: today });
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const isLoading = assignmentsLoading || classesLoading || childrenLoading || attendanceLoading;
+  const myAssignments = staffAssignments || [];
+  const myClasses = classes?.filter(c => myAssignments.some(a => a.class_id === c.id)) || [];
+  const myChildren = children?.filter(c => myAssignments.some(a => a.class_id === c.class_id)) || [];
+  const presentToday = attendance?.filter(a => a.date === today && a.check_in).length || 0;
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto w-full">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600 mx-auto"></div>
+            <p className="text-sm text-gray-600">{messages.loading}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto w-full">
@@ -56,7 +111,7 @@ export default function StaffDashboard() {
           </div>
 
           {myClasses.map(classItem => {
-            const classChildren = mockChildren.filter(c => c.class_id === classItem.id);
+            const classChildren = children?.filter(c => c.class_id === classItem.id) || [];
 
             return (
               <Card key={classItem.id}>

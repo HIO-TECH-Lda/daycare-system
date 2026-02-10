@@ -10,17 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { mockChildren, mockClasses } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { childrenApi, classesApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
+import { toast } from 'sonner';
 import { Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
 import { useState } from 'react';
 
-// Mock parents data
-const mockParents = [
-  { id: '1', name: 'Maria Silva', email: 'responsavel@creche.com', phone: '(+258) 98765-4321' },
-  { id: '4', name: 'Carlos Oliveira', email: 'carlos@creche.com', phone: '(+258) 99999-2222' },
-  { id: '5', name: 'Paula Costa', email: 'paula@creche.com', phone: '(+258) 99999-3333' },
-  { id: '6', name: 'Roberto Souza', email: 'roberto@creche.com', phone: '(+258) 99999-4444' },
-];
+// Note: Parents should be fetched from API or users with role 'responsavel'
 
 type Child = {
   id: string;
@@ -49,7 +47,47 @@ type Child = {
 };
 
 export default function GestaoAlunosPage() {
-  const [children, setChildren] = useState<Child[]>(mockChildren);
+  const queryClient = useQueryClient();
+  const { data: children = [], isLoading } = useQuery({
+    queryKey: queryKeys.children.list(),
+    queryFn: async () => {
+      const response = await childrenApi.list();
+      return response.data || [];
+    },
+  });
+
+  const { data: classes = [] } = useQuery({
+    queryKey: queryKeys.classes.list(),
+    queryFn: async () => {
+      const response = await classesApi.list();
+      return response.data || [];
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => childrenApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.children.all });
+      toast.success(messages.success.created);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => childrenApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.children.all });
+      toast.success(messages.success.updated);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => childrenApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.children.all });
+      toast.success(messages.success.deleted);
+    },
+  });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [open, setOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -77,16 +115,15 @@ export default function GestaoAlunosPage() {
   const handleOpenDialog = (child?: Child) => {
     if (child) {
       setEditingChild(child);
-      const parent = mockParents.find(p => p.id === child.parent_id);
       setParentType('existing');
       setFormData({
         name: child.name,
         birth_date: child.birth_date,
         class_id: child.class_id,
         parent_id: child.parent_id,
-        parentName: parent?.name || '',
-        parentEmail: parent?.email || '',
-        parentPhone: parent?.phone || '',
+        parentName: '',
+        parentEmail: '',
+        parentPhone: '',
         allergies: child.allergies,
         medications: child.medications,
         emergency_contact_name: child.emergency_contact_name,
@@ -96,92 +133,55 @@ export default function GestaoAlunosPage() {
       setEditingChild(null);
       setParentType('existing');
       setFormData({
-        name: '',
-        birth_date: '',
-        class_id: '',
-        parent_id: '',
-        parentName: '',
-        parentEmail: '',
-        parentPhone: '',
-        allergies: '',
-        medications: '',
-        emergency_contact_name: '',
-        emergency_contact_phone: '',
+        name: '', birth_date: '', class_id: '', parent_id: '',
+        parentName: '', parentEmail: '', parentPhone: '',
+        allergies: '', medications: '', emergency_contact_name: '', emergency_contact_phone: '',
       });
     }
     setOpen(true);
   };
 
   const handleParentSelect = (parentId: string) => {
-    const parent = mockParents.find(p => p.id === parentId);
-    if (parent) {
-      setFormData({
-        ...formData,
-        parent_id: parent.id,
-        parentName: parent.name,
-        parentEmail: parent.email,
-        parentPhone: parent.phone,
-      });
-    }
+    setFormData({ ...formData, parent_id: parentId });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingChild) {
-      // Update existing child
-      setChildren(children.map(c => 
-        c.id === editingChild.id 
-          ? {
-              ...c,
-              name: formData.name,
-              birth_date: formData.birth_date,
-              class_id: formData.class_id,
-              parent_id: formData.parent_id,
-              allergies: formData.allergies || 'Nenhuma',
-              medications: formData.medications || 'Nenhum',
-              emergency_contact_name: formData.emergency_contact_name,
-              emergency_contact_phone: formData.emergency_contact_phone,
-            }
-          : c
-      ));
-      alert('Aluno atualizado com sucesso!');
-    } else {
-      // Create new child
-      const newChild: Child = {
-        id: `child-${Date.now()}`,
+    try {
+      const childData = {
         name: formData.name,
         birth_date: formData.birth_date,
         class_id: formData.class_id,
         parent_id: formData.parent_id,
-        photo_url: 'https://images.pexels.com/photos/1912868/pexels-photo-1912868.jpeg?auto=compress&cs=tinysrgb&w=200',
         allergies: formData.allergies || 'Nenhuma',
         medications: formData.medications || 'Nenhum',
         emergency_contact_name: formData.emergency_contact_name,
         emergency_contact_phone: formData.emergency_contact_phone,
       };
-      setChildren([...children, newChild]);
-      alert('Aluno criado com sucesso!');
+
+      if (editingChild) {
+        await updateMutation.mutateAsync({ id: editingChild.id, data: childData });
+      } else {
+        await createMutation.mutateAsync(childData);
+      }
+      setOpen(false);
+      setEditingChild(null);
+      setFormData({
+        name: '', birth_date: '', class_id: '', parent_id: '',
+        parentName: '', parentEmail: '', parentPhone: '',
+        allergies: '', medications: '', emergency_contact_name: '', emergency_contact_phone: '',
+      });
+    } catch (error) {
+      toast.error('Erro ao salvar aluno');
     }
-    setOpen(false);
-    setEditingChild(null);
-    setFormData({
-      name: '',
-      birth_date: '',
-      class_id: '',
-      parent_id: '',
-      parentName: '',
-      parentEmail: '',
-      parentPhone: '',
-      allergies: '',
-      medications: '',
-      emergency_contact_name: '',
-      emergency_contact_phone: '',
-    });
   };
 
-  const handleDelete = (childId: string) => {
-    setChildren(children.filter(c => c.id !== childId));
-    alert('Aluno excluído com sucesso!');
+  const handleDelete = async (childId: string) => {
+    try {
+      await deleteMutation.mutateAsync(childId);
+    } catch (error) {
+      toast.error('Erro ao excluir aluno');
+    }
   };
 
   return (
@@ -264,11 +264,8 @@ export default function GestaoAlunosPage() {
                         <SelectValue placeholder="Selecione um responsável" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockParents.map((parent) => (
-                          <SelectItem key={parent.id} value={parent.id}>
-                            {parent.name} - {parent.email}
-                          </SelectItem>
-                        ))}
+                        {/* TODO: Fetch parents from API/users with role 'responsavel' */}
+                        <SelectItem value="1">Responsável (selecione)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -369,9 +366,17 @@ export default function GestaoAlunosPage() {
         </CardContent>
       </Card>
 
-      <div className="space-y-3 sm:space-y-4">
-        {filteredChildren.map(child => {
-          const classData = mockClasses.find(c => c.id === child.class_id);
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600 mx-auto"></div>
+            <p className="text-sm text-gray-600">{messages.loading}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3 sm:space-y-4">
+          {filteredChildren.map(child => {
+            const classData = classes.find(c => c.id === child.class_id);
           return (
             <Card key={child.id}>
               <CardContent className="p-4 sm:p-6">

@@ -7,7 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { mockChildren } from '@/lib/mock-data';
+import { useQuery } from '@tanstack/react-query';
+import { monthlyReportsApi, childrenApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
 import { useAuth } from '@/lib/auth-context';
 import { Calendar, Eye, Download, CheckCircle2 } from 'lucide-react';
 
@@ -116,7 +119,11 @@ export default function RelatoriosMensaisPage() {
           </div>
         </div>
 
-        {validatedReports.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <p className="text-sm text-gray-600">{messages.loading}</p>
+          </div>
+        ) : validatedReports.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -135,8 +142,8 @@ export default function RelatoriosMensaisPage() {
         ) : (
           <div className="space-y-4">
             {validatedReports.map(report => {
-              const monthLabel = months.find(m => m.value === report.report_month)?.label || '';
-              const childName = getChildName(report.child_id);
+              const monthLabel = months.find(m => m.value === report.month)?.label || '';
+              const childName = children.find(c => c.id === report.child_id)?.name || 'Criança não encontrada';
               
               return (
                 <Card key={report.id} className="hover:shadow-md transition-shadow">
@@ -153,7 +160,7 @@ export default function RelatoriosMensaisPage() {
                         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
-                            <span>{monthLabel} {report.report_year}</span>
+                            <span>{months.find(m => m.value === report.month)?.label || ''} {report.year}</span>
                           </div>
                           {report.validated_at && (
                             <span className="text-xs text-gray-500">
@@ -209,7 +216,7 @@ export default function RelatoriosMensaisPage() {
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Calendar className="w-4 h-4" />
                 <span>
-                  {months.find(m => m.value === selectedReport.report_month)?.label} {selectedReport.report_year}
+                  {months.find(m => m.value === selectedReport.month)?.label} {selectedReport.year}
                 </span>
                 <Badge className="bg-green-100 text-green-700 ml-auto">
                   <CheckCircle2 className="w-3 h-3 mr-1" />

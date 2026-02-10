@@ -9,7 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { mockExpenses, mockExpenseCategories } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { expensesApi, expenseCategoriesApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
+import { toast } from 'sonner';
 import { Plus, Search, Calendar, DollarSign, TrendingDown, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
@@ -58,14 +62,11 @@ export default function DespesasPage() {
   });
 
   const filteredExpenses = expenses.filter(expense => {
-    const category = mockExpenseCategories.find(c => c.id === expense.category_id);
     const matchesSearch = !searchTerm || 
       expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expense.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expense.reference_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      expense.vendor?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'all' || expense.category_id === filterCategory;
-    const matchesMethod = filterMethod === 'all' || expense.payment_method === filterMethod;
-    return matchesSearch && matchesCategory && matchesMethod;
+    return matchesSearch && matchesCategory;
   });
 
   const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -95,27 +96,26 @@ export default function DespesasPage() {
     setOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const newExpense: Expense = {
-      id: `exp-${Date.now()}`,
-      category_id: formData.category_id,
-      description: formData.description,
-      amount: parseFloat(formData.amount),
-      expense_date: formData.expense_date,
-      payment_method: formData.payment_method,
-      payment_method_details: formData.payment_method_details || undefined,
-      reference_number: formData.reference_number || undefined,
-      supplier_name: formData.supplier_name || undefined,
-      notes: formData.notes || undefined,
-      recorded_by: user?.id || '',
-      created_at: new Date().toISOString(),
-    };
-
-    setExpenses([newExpense, ...expenses]);
-    alert('Despesa registrada com sucesso!');
-    setOpen(false);
+    try {
+      await createMutation.mutateAsync({
+        category_id: formData.category_id,
+        description: formData.description,
+        amount: parseFloat(formData.amount),
+        expense_date: formData.expense_date,
+        vendor: formData.supplier_name || undefined,
+      });
+      setOpen(false);
+      setFormData({
+        category_id: '', description: '', amount: '',
+        expense_date: new Date().toISOString().split('T')[0],
+        payment_method: 'cash', payment_method_details: '', reference_number: '',
+        supplier_name: '', notes: '',
+      });
+    } catch (error) {
+      toast.error('Erro ao registrar despesa');
+    }
   };
 
   const getPaymentMethodLabel = (method: Expense['payment_method']) => {
@@ -250,9 +250,14 @@ export default function DespesasPage() {
       </div>
 
       {/* Expenses List */}
-      <div className="space-y-4">
-        {filteredExpenses.map(expense => {
-          const category = mockExpenseCategories.find(c => c.id === expense.category_id);
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <p className="text-sm text-gray-600">{messages.loading}</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredExpenses.map(expense => {
+            const category = categories.find(c => c.id === expense.category_id);
           
           return (
             <Card key={expense.id}>
@@ -322,13 +327,13 @@ export default function DespesasPage() {
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
-                <SelectContent>
-                  {mockExpenseCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
               </Select>
             </div>
 

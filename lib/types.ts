@@ -55,9 +55,11 @@ export interface Guardian {
   name: string;
   profession?: string;
   workplace?: string;
+  relationship?: string;
   phone?: string;
   email?: string;
-  guardian_type: 1 | 2;
+  address?: string;
+  guardian_type: 1 | 2; // 1 = primary, 2 = secondary
 }
 
 export interface AuthorizedPickupPerson {
@@ -78,8 +80,18 @@ export interface EnrollmentDocument {
 export interface MonthlyReport {
   id: string;
   child_id: string;
-  report_month: number;
-  report_year: number;
+  month: number; // 1-12
+  year: number;
+  status: 'draft' | 'submitted' | 'validated' | 'rejected';
+  validated_by?: string;
+  validated_at?: string;
+  rejection_reason?: string;
+  attendance_summary?: {
+    total_days: number;
+    present_days: number;
+    absent_days: number;
+    late_days: number;
+  };
   physical_development?: string;
   cognitive_development?: string;
   social_development?: string;
@@ -87,71 +99,87 @@ export interface MonthlyReport {
   general_notes?: string;
   achievements?: string;
   areas_for_improvement?: string;
-  status: 'draft' | 'submitted' | 'validated' | 'rejected';
-  created_by: string;
-  validated_by?: string;
-  validated_at?: string;
-  rejection_reason?: string;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface DailyReport {
   id: string;
   child_id: string;
-  report_date: string;
-  mood: string;
-  summary_note: string;
+  date: string; // ISO date
   created_by: string;
+  meals?: {
+    breakfast?: string;
+    lunch?: string;
+    snack?: string;
+    dinner?: string;
+  };
+  activities?: string[];
+  nap_time?: {
+    start?: string;
+    end?: string;
+    duration_minutes?: number;
+  };
+  mood?: string;
+  notes?: string;
+  behavior_notes?: string;
+  health_notes?: string;
 }
 
 export interface Activity {
   id: string;
-  daily_report_id: string;
-  activity_type: 'nap' | 'feeding' | 'diaper' | 'pedagogical';
-  time: string;
-  duration_minutes?: number;
-  food_item?: string;
-  amount?: string;
-  diaper_condition?: string;
+  name: string;
   description?: string;
+  class_id?: string;
+  age_group?: string;
+  duration_minutes?: number;
+  materials_needed?: string[];
+  learning_objectives?: string[];
+  is_active?: boolean;
 }
 
 export interface ReportPhoto {
   id: string;
   daily_report_id: string;
   photo_url: string;
+  caption?: string;
 }
 
 export interface Attendance {
   id: string;
   child_id: string;
-  attendance_date: string;
-  check_in_time?: string;
-  check_out_time?: string;
-  brought_by?: string;
-  picked_up_by?: string;
+  date: string; // ISO date
+  check_in?: string; // ISO datetime
+  check_out?: string; // ISO datetime
+  status: 'present' | 'absent' | 'late' | 'excused';
+  notes?: string;
 }
 
 export interface CalendarEvent {
   id: string;
   title: string;
-  description: string;
-  event_date: string;
-  event_type: string;
+  description?: string;
+  start_date: string; // ISO datetime
+  end_date: string; // ISO datetime
+  is_all_day?: boolean;
+  event_type: 'activity' | 'holiday' | 'meeting' | 'other';
   class_id?: string;
 }
 
 export interface Invoice {
   id: string;
-  parent_id: string;
+  invoice_number: string;
   child_id: string;
+  parent_id: string;
+  issue_date: string; // ISO date
+  due_date: string; // ISO date
   amount: number;
-  due_date: string;
-  issue_date: string;
-  status: 'pendente' | 'pago';
-  paid_amount?: number;
-  last_payment_date?: string;
+  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+  items: Array<{
+    description: string;
+    quantity?: number;
+    unit_price: number;
+    total: number;
+  }>;
+  notes?: string;
 }
 
 export interface Payment {
@@ -160,42 +188,45 @@ export interface Payment {
   parent_id: string;
   child_id: string;
   amount: number;
-  payment_date: string;
-  payment_method: 'cash' | 'bank_transfer' | 'check' | 'mobile_money' | 'other';
+  payment_date: string; // ISO date
+  payment_method: 'cash' | 'card' | 'bank_transfer' | 'check' | 'mobile_money' | 'other';
   payment_method_details?: string;
   reference_number?: string;
   notes?: string;
-  recorded_by: string;
-  created_at: string;
+}
+
+export interface StaffAssignment {
+  id: string;
+  staff_id: string;
+  class_id: string;
 }
 
 export interface ExpenseCategory {
   id: string;
   name: string;
   description?: string;
+  is_active?: boolean;
 }
 
 export interface Expense {
   id: string;
   category_id: string;
-  description: string;
   amount: number;
-  expense_date: string;
-  payment_method: 'cash' | 'bank_transfer' | 'check' | 'mobile_money' | 'other';
-  payment_method_details?: string;
-  reference_number?: string;
-  supplier_name?: string;
-  notes?: string;
+  description: string;
+  expense_date: string; // ISO date
   receipt_url?: string;
-  recorded_by: string;
-  created_at: string;
+  vendor?: string;
 }
 
 export interface Message {
   id: string;
   sender_id: string;
-  receiver_id: string;
-  message: string;
-  read: boolean;
+  recipient_id: string;
+  recipient_role?: 'responsavel' | 'staff' | 'administrador';
+  subject?: string;
+  content: string;
+  message_type?: 'info' | 'reminder' | 'alert' | 'general';
+  child_id?: string;
+  is_read: boolean;
   created_at: string;
 }

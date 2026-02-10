@@ -2,20 +2,50 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { mockChildren, mockDailyReports, mockActivities, mockReportPhotos } from '@/lib/mock-data';
+import { useQuery } from '@tanstack/react-query';
+import { childrenApi, dailyReportsApi, reportPhotosApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
 import { Utensils, Moon, Baby, BookOpen, SmilePlus, Image as ImageIcon } from 'lucide-react';
 import { useParams } from 'next/navigation';
 
 export default function ChildReportPage() {
   const params = useParams();
   const childId = params.childId as string;
+  const today = new Date().toISOString().split('T')[0];
 
-  const child = mockChildren.find(c => c.id === childId);
+  const { data: child, isLoading: childLoading } = useQuery({
+    queryKey: queryKeys.children.detail(childId),
+    queryFn: async () => {
+      const response = await childrenApi.get(childId);
+      return response.data;
+    },
+  });
+
+  const { data: reports = [], isLoading: reportsLoading } = useQuery({
+    queryKey: queryKeys.dailyReports.list({ child_id: childId, date: today }),
+    queryFn: async () => {
+      const response = await dailyReportsApi.list({ child_id: childId, date: today });
+      return response.data || [];
+    },
+    enabled: !!childId,
+  });
+
+  const report = reports[0];
+  
+  const { data: photos = [] } = useQuery({
+    queryKey: queryKeys.reportPhotos.byReport(report?.id || ''),
+    queryFn: async () => {
+      if (!report?.id) return [];
+      const response = await reportPhotosApi.getByReport(report.id);
+      return response.data || [];
+    },
+    enabled: !!report?.id,
+  });
+
+
+  if (childLoading || reportsLoading) return <div className="flex items-center justify-center h-64">{messages.loading}</div>;
   if (!child) return <div>Criança não encontrada</div>;
-
-  const report = mockDailyReports.find(r => r.child_id === childId && r.report_date === '2025-11-12');
-  const activities = report ? mockActivities.filter(a => a.daily_report_id === report.id) : [];
-  const photos = report ? mockReportPhotos.filter(p => p.daily_report_id === report.id) : [];
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -73,7 +103,7 @@ export default function ChildReportPage() {
             />
             <div>
               <h1 className="text-xl font-bold text-gray-900">{child.name}</h1>
-              <p className="text-sm text-gray-600">Rotina Diária - 12 de Novembro de 2025</p>
+              <p className="text-sm text-gray-600">Rotina Diária - {new Date(today).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </div>
           </div>
         </div>
@@ -88,7 +118,7 @@ export default function ChildReportPage() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-600">Humor do Dia</p>
-                    <p className="text-lg font-semibold text-gray-900">{report.mood}</p>
+                    <p className="text-lg font-semibold text-gray-900">{report.mood || 'N/A'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -99,7 +129,7 @@ export default function ChildReportPage() {
                 <CardTitle>Resumo do Dia</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700 leading-relaxed">{report.summary_note}</p>
+                <p className="text-gray-700 leading-relaxed">{report.notes || report.summary_note || 'Nenhuma nota'}</p>
               </CardContent>
             </Card>
 
@@ -109,24 +139,20 @@ export default function ChildReportPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {activities.map((activity, index) => (
-                    <div key={activity.id} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${getActivityColor(activity.activity_type)}`}>
-                          {getActivityIcon(activity.activity_type)}
+                  {report.activities && report.activities.length > 0 ? (
+                    report.activities.map((activityName, index) => (
+                      <div key={index} className="flex gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-green-100 text-green-700`}>
+                            <BookOpen className="w-5 h-5" />
+                          </div>
+                          {index < report.activities.length - 1 && (
+                            <div className="w-0.5 h-full bg-gray-200 mt-2"></div>
+                          )}
                         </div>
-                        {index < activities.length - 1 && (
-                          <div className="w-0.5 h-full bg-gray-200 mt-2"></div>
-                        )}
-                      </div>
-
-                      <div className="flex-1 pb-6">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">
-                            {activity.time}
-                          </Badge>
+                        <div className="flex-1 pb-6">
                           <span className="text-sm font-semibold text-gray-900">
-                            {getActivityLabel(activity.activity_type)}
+                            {activityName}
                           </span>
                         </div>
 

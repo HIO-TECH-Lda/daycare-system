@@ -1,13 +1,41 @@
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { mockChildren, mockClasses, mockInvoices } from '@/lib/mock-data';
+import { useQuery } from '@tanstack/react-query';
+import { childrenApi, classesApi, invoicesApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
 
 export default function AdminDashboard() {
-  const totalChildren = mockChildren.length;
-  const totalClasses = mockClasses.length;
-  const pendingInvoices = mockInvoices.filter(i => i.status === 'pendente').length;
-  const totalRevenue = mockInvoices.filter(i => i.status === 'pago').reduce((sum, inv) => sum + inv.amount, 0);
+  const { data: children, isLoading: childrenLoading } = useQuery({
+    queryKey: queryKeys.children.list(),
+    queryFn: async () => {
+      const response = await childrenApi.list();
+      return response.data || [];
+    },
+  });
+
+  const { data: classes, isLoading: classesLoading } = useQuery({
+    queryKey: queryKeys.classes.list(),
+    queryFn: async () => {
+      const response = await classesApi.list();
+      return response.data || [];
+    },
+  });
+
+  const { data: invoices, isLoading: invoicesLoading } = useQuery({
+    queryKey: queryKeys.invoices.list(),
+    queryFn: async () => {
+      const response = await invoicesApi.list();
+      return response.data || [];
+    },
+  });
+
+  const isLoading = childrenLoading || classesLoading || invoicesLoading;
+  const totalChildren = children?.length || 0;
+  const totalClasses = classes?.length || 0;
+  const pendingInvoices = invoices?.filter(i => i.status === 'pending').length || 0;
+  const totalRevenue = invoices?.filter(i => i.status === 'paid').reduce((sum, inv) => sum + inv.amount, 0) || 0;
 
   return (
     <div className="max-w-6xl mx-auto w-full">
@@ -47,9 +75,9 @@ export default function AdminDashboard() {
             <CardContent className="p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Ocupação das Turmas</h3>
               <div className="space-y-3">
-                {mockClasses.map(classItem => {
-                  const enrolled = mockChildren.filter(c => c.class_id === classItem.id).length;
-                  const percentage = (enrolled / classItem.capacity) * 100;
+                {classes?.map(classItem => {
+                  const enrolled = children?.filter(c => c.class_id === classItem.id).length || 0;
+                  const percentage = classItem.capacity > 0 ? (enrolled / classItem.capacity) * 100 : 0;
 
                   return (
                     <div key={classItem.id}>
@@ -83,9 +111,9 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
                   <span className="text-sm text-gray-900">Faturas Pendentes</span>
                   <span className="text-lg font-bold text-yellow-700">
-                    MZM {mockInvoices.filter(i => i.status === 'pendente')
+                    MZM {invoices?.filter(i => i.status === 'pending')
                       .reduce((sum, inv) => sum + inv.amount, 0)
-                      .toFixed(2).replace('.', ',')}
+                      .toFixed(2).replace('.', ',') || '0,00'}
                   </span>
                 </div>
               </div>

@@ -61,6 +61,7 @@ O frontend consome a API em `../api`. Para desenvolvimento:
 2. A API roda em `http://localhost:3002` por padrão (health: `GET http://localhost:3002/health`).
 3. Documentação da API: `../api/docs/STARTER-KIT-GUIDE.md`.
 4. Como conectar o frontend à API: `docs/API-CONNECTION.md`.
+5. **Especificação do backend** (para a equipe da API): `docs/BACKEND-SPEC.md` — recursos, endpoints, regras de acesso e tipos esperados pelo frontend.
 
 ### 3. Executar o Frontend em Desenvolvimento
 

@@ -9,7 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockCalendarEvents, mockClasses } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { calendarEventsApi, classesApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
+import { toast } from 'sonner';
 import { Plus, Calendar, Edit, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -23,7 +27,48 @@ type CalendarEvent = {
 };
 
 export default function GestaoEventosPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>(mockCalendarEvents);
+  const queryClient = useQueryClient();
+  
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: queryKeys.calendarEvents.list(),
+    queryFn: async () => {
+      const response = await calendarEventsApi.list();
+      return response.data || [];
+    },
+  });
+
+  const { data: classes = [] } = useQuery({
+    queryKey: queryKeys.classes.list(),
+    queryFn: async () => {
+      const response = await classesApi.list();
+      return response.data || [];
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => calendarEventsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendarEvents.all });
+      toast.success(messages.success.created);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => calendarEventsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendarEvents.all });
+      toast.success(messages.success.updated);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => calendarEventsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendarEvents.all });
+      toast.success(messages.success.deleted);
+    },
+  });
+
   const [open, setOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [formData, setFormData] = useState({
@@ -42,7 +87,7 @@ export default function GestaoEventosPage() {
       setFormData({
         title: event.title,
         description: event.description,
-        event_date: event.event_date,
+        event_date: event.start_date.split('T')[0],
         event_type: event.event_type,
         class_id: event.class_id || '',
       });
@@ -191,7 +236,7 @@ export default function GestaoEventosPage() {
 
       <div className="space-y-3 sm:space-y-4">
         {events.map(event => {
-          const classData = event.class_id ? mockClasses.find(c => c.id === event.class_id) : null;
+          const classData = event.class_id ? classes.find(c => c.id === event.class_id) : null;
 
           return (
             <Card key={event.id}>
@@ -209,7 +254,7 @@ export default function GestaoEventosPage() {
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{event.description}</p>
                     <p className="text-xs sm:text-sm text-gray-500">
-                      {new Date(event.event_date).toLocaleDateString('pt-BR', {
+                      {new Date(event.start_date).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: 'long',
                         year: 'numeric'
@@ -261,7 +306,8 @@ export default function GestaoEventosPage() {
             </Card>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

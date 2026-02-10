@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Baby } from 'lucide-react';
+import { messages } from '@/lib/messages';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -24,16 +25,12 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-
-      if (email.includes('responsavel')) {
-        router.push('/responsavel/dashboard');
-      } else if (email.includes('staff')) {
-        router.push('/staff/dashboard');
-      } else if (email.includes('admin')) {
-        router.push('/admin/dashboard');
-      }
+      // After successful login, the auth context will have the user
+      // We'll redirect based on role in a useEffect or let the layout handle it
+      router.push('/');
     } catch (err) {
-      setError('Email ou senha incorretos');
+      const errorMessage = err instanceof Error ? err.message : messages.auth.invalidCredentials;
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -77,7 +74,7 @@ export default function LoginPage() {
               <p className="text-sm text-red-600">{error}</p>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? messages.auth.loggingIn : messages.auth.login}
             </Button>
           </form>
 

@@ -8,14 +8,65 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockChildren, mockStaffAssignments, mockAttendance, mockGuardians, mockAuthorizedPickupPersons, mockUsers } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { childrenApi, staffAssignmentsApi, attendanceApi, guardiansApi, pickupPersonsApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
 import { CheckCircle2, Clock, LogIn, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 export default function PresencaPage() {
   const { user } = useAuth();
-  const [attendance, setAttendance] = useState(mockAttendance);
+  const queryClient = useQueryClient();
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data: staffAssignments = [] } = useQuery({
+    queryKey: queryKeys.staffAssignments.list({ staff_id: user?.id }),
+    queryFn: async () => {
+      const response = await staffAssignmentsApi.list({ staff_id: user?.id });
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: children = [] } = useQuery({
+    queryKey: queryKeys.children.list(),
+    queryFn: async () => {
+      const response = await childrenApi.list();
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: attendance = [] } = useQuery({
+    queryKey: queryKeys.attendance.list({ date: today }),
+    queryFn: async () => {
+      const response = await attendanceApi.list({ date: today });
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const createAttendanceMutation = useMutation({
+    mutationFn: (data: any) => attendanceApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+      toast.success(messages.success.checkInRecorded);
+    },
+  });
+
+  const updateAttendanceMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => attendanceApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+      toast.success(messages.success.checkOutRecorded);
+    },
+  });
+
+  const myAssignments = staffAssignments;
+  const myChildren = children.filter(c => myAssignments.some(a => a.class_id === c.class_id));
+
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkOutOpen, setCheckOutOpen] = useState(false);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -23,11 +74,6 @@ export default function PresencaPage() {
   const [broughtByOther, setBroughtByOther] = useState('');
   const [pickedUpBy, setPickedUpBy] = useState('');
   const [pickedUpByOther, setPickedUpByOther] = useState('');
-
-  const myAssignments = mockStaffAssignments.filter(sa => sa.staff_id === user?.id);
-  const myChildren = mockChildren.filter(c => myAssignments.some(a => a.class_id === c.class_id));
-
-  const today = '2025-11-12';
 
   const handleOpenCheckIn = (childId: string) => {
     setSelectedChildId(childId);
@@ -43,38 +89,45 @@ export default function PresencaPage() {
     setCheckOutOpen(true);
   };
 
+  const { data: guardians = [] } = useQuery({
+    queryKey: queryKeys.guardians.all,
+    queryFn: async () => {
+      const response = await guardiansApi.list();
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: pickupPersons = [] } = useQuery({
+    queryKey: queryKeys.pickupPersons.all,
+    queryFn: async () => {
+      const response = await pickupPersonsApi.list();
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
   const getAuthorizedPersons = (childId: string) => {
     const child = myChildren.find(c => c.id === childId);
     if (!child) return [];
 
-    const guardians = mockGuardians.filter(g => g.child_id === childId);
-    const authorizedPickup = mockAuthorizedPickupPersons.filter(a => a.child_id === childId);
-    const parent = mockUsers.find(u => u.id === child.parent_id);
+    const childGuardians = guardians.filter(g => g.child_id === childId);
+    const childPickupPersons = pickupPersons.filter(a => a.child_id === childId);
 
     const persons: Array<{ name: string; label: string }> = [];
 
-    // Add guardians
-    guardians.forEach(guardian => {
+    childGuardians.forEach(guardian => {
       persons.push({
         name: guardian.name,
         label: `${guardian.name} (${guardian.guardian_type === 1 ? 'Pai/Encarregado 1' : 'Mãe/Encarregada 2'})`,
       });
     });
 
-    // Add parent if not already in guardians
-    if (parent && !guardians.some(g => g.name === parent.name)) {
-      persons.push({
-        name: parent.name,
-        label: `${parent.name} (Responsável)`,
-      });
-    }
-
-    // Add authorized pickup persons
-    authorizedPickup.forEach(person => {
+    childPickupPersons.forEach(person => {
       if (!persons.some(p => p.name === person.name)) {
         persons.push({
           name: person.name,
-          label: `${person.name}${person.kinship_degree ? ` (${person.kinship_degree})` : ''}`,
+          label: `${person.name}${person.relationship ? ` (${person.relationship})` : ''}`,
         });
       }
     });
@@ -82,7 +135,7 @@ export default function PresencaPage() {
     return persons;
   };
 
-  const handleCheckIn = () => {
+  const handleCheckIn = async () => {
     const finalBroughtBy = broughtBy === 'other' ? broughtByOther : broughtBy;
     
     if (!selectedChildId || !finalBroughtBy.trim()) {
@@ -93,43 +146,42 @@ export default function PresencaPage() {
       return;
     }
 
-    const now = new Date();
-    const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const now = new Date().toISOString();
     const child = myChildren.find(c => c.id === selectedChildId);
     
-    // Update attendance state
-    const existingAttendance = attendance.find(a => a.child_id === selectedChildId && a.attendance_date === today);
-    if (existingAttendance) {
-      setAttendance(attendance.map(a => 
-        a.id === existingAttendance.id 
-          ? { ...a, check_in_time: time, brought_by: finalBroughtBy }
-          : a
-      ));
-    } else {
-      setAttendance([...attendance, {
-        id: `att-${Date.now()}`,
-        child_id: selectedChildId,
-        attendance_date: today,
-        check_in_time: time,
-        check_out_time: undefined,
-        brought_by: finalBroughtBy,
-        picked_up_by: undefined,
-      }]);
+    try {
+      const existingAttendance = attendance.find(a => a.child_id === selectedChildId && a.date === today);
+      if (existingAttendance) {
+        await updateAttendanceMutation.mutateAsync({
+          id: existingAttendance.id,
+          data: { check_in: now, status: 'present', notes: `Trouxe: ${finalBroughtBy}` },
+        });
+      } else {
+        await createAttendanceMutation.mutateAsync({
+          child_id: selectedChildId,
+          date: today,
+          check_in: now,
+          status: 'present',
+          notes: `Trouxe: ${finalBroughtBy}`,
+        });
+      }
+
+      toast.success('Entrada registrada com sucesso!', {
+        description: `${child?.name} chegou às ${new Date(now).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} com ${finalBroughtBy}`,
+        icon: <LogIn className="w-4 h-4" />,
+        duration: 3000,
+      });
+
+      setCheckInOpen(false);
+      setBroughtBy('');
+      setBroughtByOther('');
+      setSelectedChildId(null);
+    } catch (error) {
+      toast.error('Erro ao registrar entrada');
     }
-
-    toast.success('Entrada registrada com sucesso!', {
-      description: `${child?.name} chegou às ${time} com ${finalBroughtBy}`,
-      icon: <LogIn className="w-4 h-4" />,
-      duration: 3000,
-    });
-
-    setCheckInOpen(false);
-    setBroughtBy('');
-    setBroughtByOther('');
-    setSelectedChildId(null);
   };
 
-  const handleCheckOut = () => {
+  const handleCheckOut = async () => {
     const finalPickedUpBy = pickedUpBy === 'other' ? pickedUpByOther : pickedUpBy;
     
     if (!selectedChildId || !finalPickedUpBy.trim()) {
@@ -140,8 +192,7 @@ export default function PresencaPage() {
       return;
     }
 
-    const now = new Date();
-    const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const now = new Date().toISOString();
     const child = myChildren.find(c => c.id === selectedChildId);
     const childAttendance = attendance.find(a => a.child_id === selectedChildId && a.attendance_date === today);
     
@@ -218,7 +269,7 @@ export default function PresencaPage() {
 
         <div className="space-y-3 sm:space-y-4">
           {myChildren.map(child => {
-            const childAttendance = attendance.find(a => a.child_id === child.id && a.attendance_date === today);
+            const childAttendance = attendance.find(a => a.child_id === child.id && a.date === today);
 
             return (
               <Card key={child.id} className="hover:shadow-md transition-shadow">
@@ -233,16 +284,16 @@ export default function PresencaPage() {
                       <h3 className="text-base sm:text-lg font-semibold text-gray-900">{child.name}</h3>
                       <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
                         {getStatusBadge(childAttendance)}
-                        {childAttendance?.check_in_time && (
+                        {childAttendance?.check_in && (
                           <span className="text-xs sm:text-sm text-gray-600">
-                            Entrada: {childAttendance.check_in_time}
-                            {childAttendance.brought_by && ` (com ${childAttendance.brought_by})`}
+                            Entrada: {new Date(childAttendance.check_in).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            {childAttendance.notes && childAttendance.notes.includes('Trouxe:') && ` (${childAttendance.notes.split('Trouxe: ')[1]})`}
                           </span>
                         )}
-                        {childAttendance?.check_out_time && (
+                        {childAttendance?.check_out && (
                           <span className="text-xs sm:text-sm text-gray-600">
-                            Saída: {childAttendance.check_out_time}
-                            {childAttendance.picked_up_by && ` (com ${childAttendance.picked_up_by})`}
+                            Saída: {new Date(childAttendance.check_out).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            {childAttendance.notes && childAttendance.notes.includes('Buscou:') && ` (${childAttendance.notes.split('Buscou: ')[1]})`}
                           </span>
                         )}
                       </div>

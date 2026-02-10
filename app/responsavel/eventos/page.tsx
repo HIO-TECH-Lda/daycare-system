@@ -3,14 +3,36 @@
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { mockCalendarEvents, mockChildren } from '@/lib/mock-data';
+import { useQuery } from '@tanstack/react-query';
+import { calendarEventsApi, childrenApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
 import { Calendar } from 'lucide-react';
 
 export default function EventosPage() {
   const { user } = useAuth();
-  const myChildren = mockChildren.filter(c => c.parent_id === user?.id);
+  
+  const { data: children = [] } = useQuery({
+    queryKey: queryKeys.children.list(),
+    queryFn: async () => {
+      const response = await childrenApi.list();
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: queryKeys.calendarEvents.list(),
+    queryFn: async () => {
+      const response = await calendarEventsApi.list();
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const myChildren = children.filter(c => c.parent_id === user?.id);
   const myClassIds = myChildren.map(c => c.class_id);
-  const relevantEvents = mockCalendarEvents.filter(e => !e.class_id || myClassIds.includes(e.class_id));
+  const relevantEvents = events.filter(e => !e.class_id || myClassIds.includes(e.class_id));
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -31,7 +53,7 @@ export default function EventosPage() {
                     </div>
                     <p className="text-gray-600 mb-2">{event.description}</p>
                     <p className="text-sm text-gray-500">
-                      {new Date(event.event_date).toLocaleDateString('pt-BR', {
+                      {new Date(event.start_date).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: 'long',
                         year: 'numeric'
@@ -42,7 +64,8 @@ export default function EventosPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
+        )}
     </div>
   );
 }

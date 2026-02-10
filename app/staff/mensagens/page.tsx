@@ -8,22 +8,51 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { mockMessages, mockChildren } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { messagesApi, childrenApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
 import { Send, MessageCircle, Search, Plus, User } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
-// Mock parents data (in real app, this would come from the database)
-const mockParents = [
-  { id: '1', name: 'Maria Silva', email: 'responsavel@creche.com', phone: '(+258) 98765-4321' },
-  { id: '4', name: 'Carlos Oliveira', email: 'carlos@creche.com', phone: '(+258) 99999-2222' },
-  { id: '5', name: 'Paula Costa', email: 'paula@creche.com', phone: '(+258) 99999-3333' },
-  { id: '6', name: 'Roberto Souza', email: 'roberto@creche.com', phone: '(+258) 99999-4444' },
-];
-
 export default function StaffMensagensPage() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState(mockMessages);
+  const queryClient = useQueryClient();
+  
+  const { data: messagesData = [], isLoading } = useQuery({
+    queryKey: queryKeys.messages.inbox(),
+    queryFn: async () => {
+      const response = await messagesApi.getInbox();
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: children = [] } = useQuery({
+    queryKey: queryKeys.children.list(),
+    queryFn: async () => {
+      const response = await childrenApi.list();
+      return response.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: (data: any) => messagesApi.send(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.messages.all });
+      toast.success(messages.success.messageSent);
+    },
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: (id: string) => messagesApi.markAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.messages.all });
+    },
+  });
+
   const [selectedParentId, setSelectedParentId] = useState<string>('');
   const [messageText, setMessageText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,51 +63,48 @@ export default function StaffMensagensPage() {
   // Get all parents that staff has messaged with
   const conversationPartners = useMemo(() => {
     const parentIds = new Set<string>();
-    messages.forEach(msg => {
-      if (msg.sender_id === user?.id && msg.receiver_id !== user?.id) {
-        parentIds.add(msg.receiver_id);
-      } else if (msg.receiver_id === user?.id && msg.sender_id !== user?.id) {
+    messagesData.forEach(msg => {
+      if (msg.sender_id === user?.id && msg.recipient_id !== user?.id) {
+        parentIds.add(msg.recipient_id);
+      } else if (msg.recipient_id === user?.id && msg.sender_id !== user?.id) {
         parentIds.add(msg.sender_id);
       }
     });
     
-    return mockParents
-      .filter(p => parentIds.has(p.id))
-      .map(parent => {
-        const parentMessages = messages.filter(m => 
-          (m.sender_id === parent.id && m.receiver_id === user?.id) ||
-          (m.receiver_id === parent.id && m.sender_id === user?.id)
-        );
-        const lastMessage = parentMessages[parentMessages.length - 1];
-        const unreadCount = parentMessages.filter(m => 
-          m.receiver_id === user?.id && !m.read
-        ).length;
-        
-        return {
-          ...parent,
-          lastMessage,
-          unreadCount,
-        };
-      })
-      .sort((a, b) => {
-        if (!a.lastMessage || !b.lastMessage) return 0;
-        return new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime();
-      });
-  }, [messages, user?.id]);
+    // Extract parent info from messages (in real app, fetch users with role 'responsavel')
+    return Array.from(parentIds).map(parentId => {
+      const parentMessages = messagesData.filter(m => 
+        (m.sender_id === parentId && m.recipient_id === user?.id) ||
+        (m.recipient_id === parentId && m.sender_id === user?.id)
+      );
+      const lastMessage = parentMessages[parentMessages.length - 1];
+      const unreadCount = parentMessages.filter(m => 
+        m.recipient_id === user?.id && !m.is_read
+      ).length;
+      
+      return {
+        id: parentId,
+        name: lastMessage?.sender_id === parentId ? 'Responsável' : 'Responsável',
+        lastMessage,
+        unreadCount,
+      };
+    }).sort((a, b) => {
+      if (!a.lastMessage || !b.lastMessage) return 0;
+      return new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime();
+    });
+  }, [messagesData, user?.id]);
 
-  // Get all parents (for new chat selection)
+  // Get all parents (for new chat selection) - TODO: fetch from API
   const allParents = useMemo(() => {
     const parentIdsWithConversations = new Set(conversationPartners.map(p => p.id));
-    return mockParents
-      .filter(p => !parentIdsWithConversations.has(p.id))
-      .map(parent => {
-        const children = mockChildren.filter(c => c.parent_id === parent.id);
-        return {
-          ...parent,
-          children,
-        };
-      });
-  }, [conversationPartners]);
+    return children
+      .filter(c => !parentIdsWithConversations.has(c.parent_id))
+      .map(child => ({
+        id: child.parent_id,
+        name: 'Responsável',
+        children: [child],
+      }));
+  }, [conversationPartners, children]);
 
   // Filter parents for new chat dialog
   const filteredNewChatParents = useMemo(() => {
@@ -101,13 +127,13 @@ export default function StaffMensagensPage() {
   // Get messages for selected parent
   const conversationMessages = useMemo(() => {
     if (!selectedParentId) return [];
-    return messages
+    return messagesData
       .filter(m => 
-        (m.sender_id === user?.id && m.receiver_id === selectedParentId) ||
-        (m.receiver_id === user?.id && m.sender_id === selectedParentId)
+        (m.sender_id === user?.id && m.recipient_id === selectedParentId) ||
+        (m.recipient_id === user?.id && m.sender_id === selectedParentId)
       )
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  }, [messages, selectedParentId, user?.id]);
+  }, [messagesData, selectedParentId, user?.id]);
 
   // Auto-select first conversation if none selected
   useEffect(() => {
@@ -124,47 +150,39 @@ export default function StaffMensagensPage() {
   // Mark messages as read when conversation is selected
   useEffect(() => {
     if (selectedParentId) {
-      setMessages(prev => prev.map(msg => 
-        msg.sender_id === selectedParentId && msg.receiver_id === user?.id && !msg.read
-          ? { ...msg, read: true }
-          : msg
-      ));
+      const unreadMessages = messagesData.filter(msg => 
+        msg.sender_id === selectedParentId && msg.recipient_id === user?.id && !msg.is_read
+      );
+      unreadMessages.forEach(msg => {
+        markReadMutation.mutate(msg.id);
+      });
     }
-  }, [selectedParentId, user?.id]);
+  }, [selectedParentId, user?.id, messagesData, markReadMutation]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!messageText.trim() || !selectedParentId) return;
 
-    const newMessage = {
-      id: `msg-${Date.now()}`,
-      sender_id: user?.id || '',
-      receiver_id: selectedParentId,
-      message: messageText.trim(),
-      read: false,
-      created_at: new Date().toISOString(),
-    };
-
-    setMessages([...messages, newMessage]);
-    setMessageText('');
-    
-    toast.success('Mensagem enviada', {
-      description: `Para ${mockParents.find(p => p.id === selectedParentId)?.name}`,
-      duration: 2000,
-    });
+    try {
+      await sendMutation.mutateAsync({
+        recipient_id: selectedParentId,
+        recipient_role: 'responsavel',
+        content: messageText.trim(),
+        message_type: 'general',
+      });
+      setMessageText('');
+    } catch (error) {
+      toast.error('Erro ao enviar mensagem');
+    }
   };
 
   const handleStartNewChat = (parentId: string) => {
     setSelectedParentId(parentId);
     setNewChatOpen(false);
     setNewChatSearch('');
-    toast.success('Nova conversa iniciada', {
-      description: `Com ${mockParents.find(p => p.id === parentId)?.name}`,
-      duration: 2000,
-    });
   };
 
-  const selectedParent = mockParents.find(p => p.id === selectedParentId);
-  const selectedParentChildren = mockChildren.filter(c => c.parent_id === selectedParentId);
+  const selectedParent = conversationPartners.find(p => p.id === selectedParentId);
+  const selectedParentChildren = children.filter(c => c.parent_id === selectedParentId);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);

@@ -8,7 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockChildren } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { childrenApi, dailyReportsApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
+import { toast } from 'sonner';
 import { ArrowLeft, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
@@ -30,10 +34,27 @@ export default function PreencherRelatorioPage() {
     }
   }, [user, loading, router]);
 
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Carregando...</div>;
-  if (!user) return null;
+  const queryClient = useQueryClient();
+  const { data: child, isLoading: childLoading } = useQuery({
+    queryKey: queryKeys.children.detail(childId),
+    queryFn: async () => {
+      const response = await childrenApi.get(childId);
+      return response.data;
+    },
+    enabled: !!childId && !!user,
+  });
 
-  const child = mockChildren.find(c => c.id === childId);
+  const createReportMutation = useMutation({
+    mutationFn: (data: any) => dailyReportsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dailyReports.all });
+      toast.success(messages.success.created);
+      router.push('/staff/dashboard');
+    },
+  });
+
+  if (loading || childLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">{messages.loading}</div>;
+  if (!user) return null;
   if (!child) return <div>Criança não encontrada</div>;
 
   const addActivity = (type: string) => {
@@ -42,9 +63,19 @@ export default function PreencherRelatorioPage() {
     setActivities([...activities, { type, time, data: {} }]);
   };
 
-  const handleSubmit = () => {
-    alert('Relatório salvo com sucesso!');
-    router.push('/staff/dashboard');
+  const handleSubmit = async () => {
+    const date = params.date as string;
+    try {
+      await createReportMutation.mutateAsync({
+        child_id: childId,
+        date,
+        mood,
+        notes: summaryNote,
+        activities: activities.map(a => a.type),
+      });
+    } catch (error) {
+      toast.error('Erro ao salvar relatório');
+    }
   };
 
   return (

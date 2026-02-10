@@ -10,7 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { mockInvoices, mockChildren, mockPayments, mockUsers } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { paymentsApi, childrenApi, invoicesApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
+import { toast } from 'sonner';
 import { Plus, Search, Calendar, DollarSign, FileText, Download, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
@@ -57,11 +61,9 @@ export default function PagamentosPage() {
   });
 
   const filteredPayments = payments.filter(payment => {
-    const child = mockChildren.find(c => c.id === payment.child_id);
-    const parent = mockUsers.find(u => u.id === payment.parent_id);
+    const child = children.find(c => c.id === payment.child_id);
     const matchesSearch = !searchTerm || 
       child?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      parent?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.reference_number?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMethod = filterMethod === 'all' || payment.payment_method === filterMethod;
     return matchesSearch && matchesMethod;
@@ -231,10 +233,20 @@ export default function PagamentosPage() {
 
       {/* Payments List */}
       <div className="space-y-4">
-        {filteredPayments.map(payment => {
-          const child = mockChildren.find(c => c.id === payment.child_id);
-          const parent = mockUsers.find(u => u.id === payment.parent_id);
-          const invoice = payment.invoice_id ? mockInvoices.find(i => i.id === payment.invoice_id) : null;
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <p className="text-sm text-gray-600">{messages.loading}</p>
+          </div>
+        ) : filteredPayments.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <p className="text-gray-500">Nenhum pagamento encontrado</p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredPayments.map(payment => {
+            const child = children.find(c => c.id === payment.child_id);
+            const invoice = payment.invoice_id ? invoices.find(i => i.id === payment.invoice_id) : null;
           
           return (
             <Card key={payment.id}>
@@ -248,7 +260,7 @@ export default function PagamentosPage() {
                       {getPaymentMethodBadge(payment.payment_method)}
                     </div>
                     <div className="space-y-1 text-sm text-gray-600">
-                      <p><strong>Responsável:</strong> {parent?.name || 'Não encontrado'}</p>
+                      <p><strong>Criança:</strong> {child?.name || 'Não encontrado'}</p>
                       <p><strong>Data:</strong> {new Date(payment.payment_date).toLocaleDateString('pt-BR')}</p>
                       <p><strong>Valor:</strong> MZM {payment.amount.toFixed(2).replace('.', ',')}</p>
                       {payment.reference_number && (
@@ -307,7 +319,7 @@ export default function PagamentosPage() {
                   <Select
                     value={formData.invoice_id}
                     onValueChange={(value) => {
-                      const invoice = mockInvoices.find(i => i.id === value);
+                      const invoice = invoices.find(i => i.id === value);
                       if (invoice) {
                         setFormData({
                           ...formData,
@@ -324,10 +336,10 @@ export default function PagamentosPage() {
                       <SelectValue placeholder="Selecione a fatura" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockInvoices
-                        .filter(inv => inv.status === 'pendente')
+                      {invoices
+                        .filter(inv => inv.status === 'pending')
                         .map((invoice) => {
-                          const child = mockChildren.find(c => c.id === invoice.child_id);
+                          const child = children.find(c => c.id === invoice.child_id);
                           return (
                             <SelectItem key={invoice.id} value={invoice.id}>
                               {child?.name} - MZM {invoice.amount.toFixed(2)} - Venc: {new Date(invoice.due_date).toLocaleDateString('pt-BR')}

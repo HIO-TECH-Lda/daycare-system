@@ -8,7 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { mockChildren } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { monthlyReportsApi, childrenApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
+import { toast } from 'sonner';
 import { CheckCircle2, XCircle, Eye, Calendar, Search } from 'lucide-react';
 
 type MonthlyReport = {
@@ -43,41 +47,33 @@ const months = [
   { value: 12, label: 'Dezembro' },
 ];
 
-// Mock data - in real app, fetch from database
-const mockMonthlyReports: MonthlyReport[] = [
-  {
-    id: 'mr-1',
-    child_id: 'child-1',
-    report_month: 10,
-    report_year: 2025,
-    physical_development: 'Lucas demonstrou grande progresso na coordenação motora. Consegue subir escadas alternando os pés e está melhorando o equilíbrio.',
-    cognitive_development: 'Mostra interesse crescente por histórias e consegue identificar cores básicas. Está desenvolvendo habilidades de contagem até 5.',
-    social_development: 'Interage bem com os colegas, compartilha brinquedos e participa ativamente das atividades em grupo.',
-    emotional_development: 'Expressa suas emoções de forma mais clara e está aprendendo a lidar melhor com frustrações.',
-    general_notes: 'Lucas teve um mês muito produtivo. Sua participação nas atividades aumentou significativamente.',
-    achievements: 'Aprendeu a amarrar os sapatos, melhorou a comunicação verbal e desenvolveu novas amizades.',
-    areas_for_improvement: 'Continuar trabalhando a paciência durante atividades que requerem mais tempo.',
-    status: 'submitted',
-    created_by: '2',
-  },
-  {
-    id: 'mr-2',
-    child_id: 'child-2',
-    report_month: 10,
-    report_year: 2025,
-    physical_development: 'Sofia está desenvolvendo habilidades motoras finas com destreza. Consegue usar tesoura com segurança.',
-    cognitive_development: 'Demonstra excelente memória e capacidade de concentração. Consegue seguir instruções complexas.',
-    social_development: 'É uma líder natural, ajuda os colegas e resolve conflitos de forma pacífica.',
-    emotional_development: 'Muito empática e expressiva. Consegue identificar emoções em si mesma e nos outros.',
-    general_notes: 'Sofia continua sendo uma criança exemplar. Seu desenvolvimento está acima da média para sua idade.',
-    achievements: 'Aprendeu a ler palavras simples, melhorou habilidades de escrita e desenvolveu interesse por ciências.',
-    areas_for_improvement: 'Trabalhar a moderação - às vezes se empolga demais e precisa aprender a esperar sua vez.',
-    status: 'validated',
-    created_by: '2',
-  },
-];
-
 export default function AdminRelatoriosMensaisPage() {
+  const queryClient = useQueryClient();
+  
+  const { data: reports = [], isLoading } = useQuery({
+    queryKey: queryKeys.monthlyReports.list(),
+    queryFn: async () => {
+      const response = await monthlyReportsApi.list();
+      return response.data || [];
+    },
+  });
+
+  const { data: children = [] } = useQuery({
+    queryKey: queryKeys.children.list(),
+    queryFn: async () => {
+      const response = await childrenApi.list();
+      return response.data || [];
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'validated' | 'rejected' }) =>
+      monthlyReportsApi.update(id, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.monthlyReports.all });
+      toast.success(messages.success.updated);
+    },
+  });
   const [reports, setReports] = useState<MonthlyReport[]>(mockMonthlyReports);
   const [selectedReport, setSelectedReport] = useState<MonthlyReport | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
@@ -232,26 +228,37 @@ export default function AdminRelatoriosMensaisPage() {
       </div>
 
       <div className="space-y-4">
-        {filteredReports.map(report => {
-          const child = mockChildren.find(c => c.id === report.child_id);
-          const monthLabel = months.find(m => m.value === report.report_month)?.label || '';
-          
-          return (
-            <Card key={report.id}>
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {child?.name || 'Criança não encontrada'}
-                      </h3>
-                      {getStatusBadge(report.status)}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>{monthLabel} {report.report_year}</span>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <p className="text-sm text-gray-600">{messages.loading}</p>
+          </div>
+        ) : filteredReports.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <p className="text-gray-500">Nenhum relatório encontrado</p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredReports.map(report => {
+            const child = children.find(c => c.id === report.child_id);
+            const monthLabel = months.find(m => m.value === report.month)?.label || '';
+            
+            return (
+              <Card key={report.id}>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {child?.name || 'Criança não encontrada'}
+                        </h3>
+                        {getStatusBadge(report.status)}
                       </div>
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          <span>{monthLabel} {report.year}</span>
+                        </div>
                       {report.rejection_reason && (
                         <span className="text-xs text-red-600">
                           Motivo: {report.rejection_reason}
@@ -318,7 +325,7 @@ export default function AdminRelatoriosMensaisPage() {
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Relatório Mensal - {selectedReport && mockChildren.find(c => c.id === selectedReport.child_id)?.name}
+              Relatório Mensal - {selectedReport && children.find(c => c.id === selectedReport.child_id)?.name}
             </DialogTitle>
           </DialogHeader>
           {selectedReport && (
@@ -326,7 +333,7 @@ export default function AdminRelatoriosMensaisPage() {
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Calendar className="w-4 h-4" />
                 <span>
-                  {months.find(m => m.value === selectedReport.report_month)?.label} {selectedReport.report_year}
+                  {months.find(m => m.value === selectedReport.month)?.label} {selectedReport.year}
                 </span>
                 {getStatusBadge(selectedReport.status)}
               </div>

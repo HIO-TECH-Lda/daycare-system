@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/lib/auth-context';
+import { messages } from '@/lib/messages';
 import { Sidebar } from './sidebar';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -20,7 +21,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600 mx-auto"></div>
-          <p className="text-sm text-gray-600">Carregando...</p>
+          <p className="text-sm text-gray-600">{messages.loading}</p>
         </div>
       </div>
     );

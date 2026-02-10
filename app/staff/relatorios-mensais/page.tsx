@@ -9,7 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { mockChildren, mockClasses } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { childrenApi, monthlyReportsApi, staffAssignmentsApi, classesApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
+import { toast } from 'sonner';
 import { Plus, Edit, Save, Send, Calendar } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
@@ -79,19 +83,17 @@ export default function RelatoriosMensaisPage() {
     areas_for_improvement: '',
   });
 
-  // Get children assigned to this staff member (in real app, filter by staff_classes)
-  const assignedChildren = mockChildren.filter(child => {
-    const classData = mockClasses.find(c => c.id === child.class_id);
-    return classData; // Simplified - in real app, check staff_classes
-  });
+  const assignedChildren = children.filter(child => 
+    staffAssignments.some(a => a.class_id === child.class_id)
+  );
 
   const handleOpenDialog = (report?: MonthlyReport) => {
     if (report) {
       setEditingReport(report);
       setFormData({
         child_id: report.child_id,
-        report_month: report.report_month,
-        report_year: report.report_year,
+        report_month: report.month,
+        report_year: report.year,
         physical_development: report.physical_development,
         cognitive_development: report.cognitive_development,
         social_development: report.social_development,
@@ -118,34 +120,33 @@ export default function RelatoriosMensaisPage() {
     setOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent, submitType: 'draft' | 'submit' = 'draft') => {
+  const handleSubmit = async (e: React.FormEvent, submitType: 'draft' | 'submit' = 'draft') => {
     e.preventDefault();
-    
-    if (editingReport) {
-      // Update existing report
-      setReports(reports.map(r => 
-        r.id === editingReport.id 
-          ? {
-              ...r,
-              ...formData,
-              status: submitType === 'submit' ? 'submitted' : 'draft',
-            }
-          : r
-      ));
-      alert(`Relatório ${submitType === 'submit' ? 'enviado' : 'salvo como rascunho'} com sucesso!`);
-    } else {
-      // Create new report
-      const newReport: MonthlyReport = {
-        id: `mr-${Date.now()}`,
-        ...formData,
+    try {
+      const reportData = {
+        child_id: formData.child_id,
+        month: formData.report_month,
+        year: formData.report_year,
         status: submitType === 'submit' ? 'submitted' : 'draft',
+        physical_development: formData.physical_development,
+        cognitive_development: formData.cognitive_development,
+        social_development: formData.social_development,
+        emotional_development: formData.emotional_development,
+        general_notes: formData.general_notes,
+        achievements: formData.achievements,
+        areas_for_improvement: formData.areas_for_improvement,
       };
-      setReports([...reports, newReport]);
-      alert(`Relatório ${submitType === 'submit' ? 'enviado' : 'salvo como rascunho'} com sucesso!`);
+
+      if (editingReport) {
+        await updateMutation.mutateAsync({ id: editingReport.id, data: reportData });
+      } else {
+        await createMutation.mutateAsync(reportData);
+      }
+      setOpen(false);
+      setEditingReport(null);
+    } catch (error) {
+      toast.error('Erro ao salvar relatório');
     }
-    
-    setOpen(false);
-    setEditingReport(null);
   };
 
   const getStatusBadge = (status: MonthlyReport['status']) => {
@@ -171,8 +172,8 @@ export default function RelatoriosMensaisPage() {
 
       <div className="space-y-4">
         {reports.map(report => {
-          const child = mockChildren.find(c => c.id === report.child_id);
-          const monthLabel = months.find(m => m.value === report.report_month)?.label || '';
+          const child = children.find(c => c.id === report.child_id);
+          const monthLabel = months.find(m => m.value === report.month)?.label || '';
           
           return (
             <Card key={report.id}>

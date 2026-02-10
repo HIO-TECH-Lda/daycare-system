@@ -15,6 +15,8 @@ All API calls go through one client:
 
 Use these helpers inside **query functions** and **mutation functions** (see below); do not call the API directly from components.
 
+**Language:** Code is in English; all user-facing feedback (toasts, errors, loading text) is in Portuguese (pt-BR). The frontend uses `lib/messages.ts` for these strings. When the API returns `message` or `error`, the frontend shows them as-is—the backend should return those in Portuguese (see [BACKEND-SPEC.md](BACKEND-SPEC.md#4-language)).
+
 ---
 
 ## 2. TanStack React Query

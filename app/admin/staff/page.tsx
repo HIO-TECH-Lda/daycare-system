@@ -8,7 +8,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockStaffAssignments, mockClasses } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { staffAssignmentsApi, classesApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
+import { toast } from 'sonner';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -48,12 +52,7 @@ export default function GestaoStaffPage() {
       });
     } else {
       setEditingStaff(null);
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        classIds: [],
-      });
+      setFormData({ name: '', email: '', phone: '', classIds: [] });
     }
     setOpen(true);
   };
@@ -67,56 +66,42 @@ export default function GestaoStaffPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingStaff) {
-      // Update existing staff
-      setStaff(staff.map(s => 
-        s.id === editingStaff.id 
-          ? { ...s, ...formData }
-          : s
-      ));
-      // Update assignments
-      const existingAssignments = assignments.filter(sa => sa.staff_id !== editingStaff.id);
-      const newAssignments = formData.classIds.map(classId => ({
-        id: `sa-${Date.now()}-${classId}`,
-        staff_id: editingStaff.id,
-        class_id: classId,
-      }));
-      setAssignments([...existingAssignments, ...newAssignments]);
-      alert('Staff atualizado com sucesso!');
-    } else {
-      // Create new staff
-      const newStaff: Staff = {
-        id: `staff-${Date.now()}`,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-      };
-      setStaff([...staff, newStaff]);
-      // Create assignments
-      const newAssignments = formData.classIds.map(classId => ({
-        id: `sa-${Date.now()}-${classId}`,
-        staff_id: newStaff.id,
-        class_id: classId,
-      }));
-      setAssignments([...assignments, ...newAssignments]);
-      alert('Staff criado com sucesso!');
+    try {
+      if (editingStaff) {
+        // Delete existing assignments and create new ones
+        const existingAssignments = assignments.filter(sa => sa.staff_id === editingStaff.id);
+        for (const assignment of existingAssignments) {
+          await deleteAssignmentMutation.mutateAsync(assignment.id);
+        }
+        for (const classId of formData.classIds) {
+          await createAssignmentMutation.mutateAsync({
+            staff_id: editingStaff.id,
+            class_id: classId,
+          });
+        }
+      } else {
+        // TODO: Create staff user first, then create assignments
+        toast.error('Criação de staff requer integração com API de usuários');
+      }
+      setOpen(false);
+      setEditingStaff(null);
+      setFormData({ name: '', email: '', phone: '', classIds: [] });
+    } catch (error) {
+      toast.error('Erro ao salvar');
     }
-    setOpen(false);
-    setEditingStaff(null);
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      classIds: [],
-    });
   };
 
-  const handleDelete = (staffId: string) => {
-    setStaff(staff.filter(s => s.id !== staffId));
-    setAssignments(assignments.filter(sa => sa.staff_id !== staffId));
-    alert('Staff excluído com sucesso!');
+  const handleDelete = async (staffId: string) => {
+    try {
+      const staffAssignments = assignments.filter(sa => sa.staff_id === staffId);
+      for (const assignment of staffAssignments) {
+        await deleteAssignmentMutation.mutateAsync(assignment.id);
+      }
+    } catch (error) {
+      toast.error('Erro ao excluir');
+    }
   };
 
   return (
@@ -198,7 +183,7 @@ export default function GestaoStaffPage() {
       <div className="space-y-3 sm:space-y-4">
         {staff.map(staffMember => {
           const staffAssignments = assignments.filter(sa => sa.staff_id === staffMember.id);
-          const assignedClasses = mockClasses.filter(c => staffAssignments.some(a => a.class_id === c.id));
+          const assignedClasses = classes.filter(c => staffAssignments.some(a => a.class_id === c.id));
 
           return (
             <Card key={staffMember.id}>

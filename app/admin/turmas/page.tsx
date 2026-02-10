@@ -6,7 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { mockClasses, mockChildren } from '@/lib/mock-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { classesApi, childrenApi } from '@/lib/api-services';
+import { queryKeys } from '@/lib/query-keys';
+import { messages } from '@/lib/messages';
+import { toast } from 'sonner';
 import { Plus, Users, Edit, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,7 +23,49 @@ type Class = {
 };
 
 export default function GestaoTurmasPage() {
-  const [classes, setClasses] = useState<Class[]>(mockClasses);
+  const queryClient = useQueryClient();
+  const { data: classes = [], isLoading } = useQuery({
+    queryKey: queryKeys.classes.list(),
+    queryFn: async () => {
+      const response = await classesApi.list();
+      return response.data || [];
+    },
+  });
+
+  const { data: children = [] } = useQuery({
+    queryKey: queryKeys.children.list(),
+    queryFn: async () => {
+      const response = await childrenApi.list();
+      return response.data || [];
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: { name: string; min_age_months: number; max_age_months: number; capacity: number }) =>
+      classesApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
+      toast.success(messages.success.created);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Class> }) =>
+      classesApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
+      toast.success(messages.success.updated);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => classesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
+      toast.success(messages.success.deleted);
+    },
+  });
+
   const [open, setOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [formData, setFormData] = useState({
@@ -50,47 +96,41 @@ export default function GestaoTurmasPage() {
     setOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingClass) {
-      // Update existing class
-      setClasses(classes.map(c => 
-        c.id === editingClass.id 
-          ? {
-              ...editingClass,
-              name: formData.name,
-              min_age_months: parseInt(formData.min_age_months),
-              max_age_months: parseInt(formData.max_age_months),
-              capacity: parseInt(formData.capacity),
-            }
-          : c
-      ));
-      alert('Turma atualizada com sucesso!');
-    } else {
-      // Create new class
-      const newClass: Class = {
-        id: `class-${Date.now()}`,
-        name: formData.name,
-        min_age_months: parseInt(formData.min_age_months),
-        max_age_months: parseInt(formData.max_age_months),
-        capacity: parseInt(formData.capacity),
-      };
-      setClasses([...classes, newClass]);
-      alert('Turma criada com sucesso!');
+    try {
+      if (editingClass) {
+        await updateMutation.mutateAsync({
+          id: editingClass.id,
+          data: {
+            name: formData.name,
+            min_age_months: parseInt(formData.min_age_months),
+            max_age_months: parseInt(formData.max_age_months),
+            capacity: parseInt(formData.capacity),
+          },
+        });
+      } else {
+        await createMutation.mutateAsync({
+          name: formData.name,
+          min_age_months: parseInt(formData.min_age_months),
+          max_age_months: parseInt(formData.max_age_months),
+          capacity: parseInt(formData.capacity),
+        });
+      }
+      setOpen(false);
+      setEditingClass(null);
+      setFormData({ name: '', min_age_months: '', max_age_months: '', capacity: '' });
+    } catch (error) {
+      toast.error('Erro ao salvar turma');
     }
-    setOpen(false);
-    setEditingClass(null);
-    setFormData({
-      name: '',
-      min_age_months: '',
-      max_age_months: '',
-      capacity: '',
-    });
   };
 
-  const handleDelete = (classId: string) => {
-    setClasses(classes.filter(c => c.id !== classId));
-    alert('Turma excluída com sucesso!');
+  const handleDelete = async (classId: string) => {
+    try {
+      await deleteMutation.mutateAsync(classId);
+    } catch (error) {
+      toast.error('Erro ao excluir turma');
+    }
   };
 
   return (
@@ -164,10 +204,18 @@ export default function GestaoTurmasPage() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {classes.map(classItem => {
-          const enrolled = mockChildren.filter(c => c.class_id === classItem.id).length;
-          const percentage = (enrolled / classItem.capacity) * 100;
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600 mx-auto"></div>
+            <p className="text-sm text-gray-600">{messages.loading}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {classes.map(classItem => {
+            const enrolled = children.filter(c => c.class_id === classItem.id).length;
+            const percentage = classItem.capacity > 0 ? (enrolled / classItem.capacity) * 100 : 0;
 
           return (
             <Card key={classItem.id}>
@@ -246,7 +294,8 @@ export default function GestaoTurmasPage() {
             </Card>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        .order-number {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: inline-block;
+            font-weight: bold;
+        }
+        .order-details {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .item:last-child {
+            border-bottom: none;
+        }
+        .total {
+            font-weight: bold;
+            font-size: 18px;
+            text-align: right;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #007bff;
+        }
+        .shipping-info {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .tracking {
+            background-color: #d4edda;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 5px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Txova Marketplace</div>
+            <h1>Order Confirmation</h1>
+            <div class="order-number">Order #{{orderNumber}}</div>
+        </div>
+
+        <p>Dear {{customerName}},</p>
+        
+        <p>Thank you for your order! We're excited to confirm that your order has been received and is being processed.</p>
+
+        <div class="order-details">
+            <h3>Order Details</h3>
+            <p><strong>Order Date:</strong> {{orderDate}}</p>
+            <p><strong>Order Number:</strong> #{{orderNumber}}</p>
+            
+            <h4>Items Ordered:</h4>
+            {{#each items}}
+            <div class="item">
+                <span>{{name}} (Qty: {{quantity}})</span>
+                <span>${{price}}</span>
+            </div>
+            {{/each}}
+            
+            <div class="total">
+                <strong>Total Amount: ${{totalAmount}}</strong>
+            </div>
+        </div>
+
+        <div class="shipping-info">
+            <h4>Shipping Address:</h4>
+            <p>{{shippingAddress}}</p>
+        </div>
+
+        {{#if trackingNumber}}
+        <div class="tracking">
+            <h4>📦 Tracking Information</h4>
+            <p><strong>Tracking Number:</strong> {{trackingNumber}}</p>
+            <p>You can track your package using the tracking number above.</p>
+        </div>
+        {{/if}}
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{@root.FRONTEND_URL}}/orders/{{orderNumber}}" class="btn">View Order Details</a>
+            <a href="{{@root.FRONTEND_URL}}/account" class="btn">My Account</a>
+        </div>
+
+        <p><strong>What's Next?</strong></p>
+        <ul>
+            <li>We'll send you an email when your order ships</li>
+            <li>You can track your order status in your account</li>
+            <li>Once delivered, you'll receive a review request</li>
+        </ul>
+
+        <p>If you have any questions about your order, please don't hesitate to contact our customer support team.</p>
+
+        <p>Thank you for choosing Txova Marketplace!</p>
+
+        <div class="footer">
+            <p>© 2024 Txova Marketplace. All rights reserved.</p>
+            <p>This email was sent to you because you placed an order on our website.</p>
+        </div>
+    </div>
+</body>
+</html>

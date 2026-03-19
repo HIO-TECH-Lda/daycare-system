@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório mensal validado — Sonho de Criança</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: Arial, sans-serif; color: #333; }
+    .wrapper { max-width: 600px; margin: 30px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+    .header { background: linear-gradient(135deg, #6366f1, #a78bfa); padding: 32px; text-align: center; }
+    .header h1 { margin: 0; color: #fff; font-size: 22px; }
+    .header p { margin: 6px 0 0; color: rgba(255,255,255,.9); font-size: 14px; }
+    .body { padding: 32px; }
+    .badge { display: inline-block; background: #ede9fe; color: #6366f1; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 16px; }
+    .cta { text-align: center; margin: 28px 0; }
+    .btn { display: inline-block; background: #6366f1; color: #fff; text-decoration: none; padding: 14px 34px; border-radius: 6px; font-size: 15px; font-weight: bold; }
+    .footer { background: #f8f5ff; padding: 20px 32px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #ede9fe; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>📊 Relatório mensal validado</h1>
+      <p>{{monthLabel}}</p>
+    </div>
+    <div class="body">
+      <p>Olá, <strong>{{parentName}}</strong>,</p>
+      <p>
+        O relatório mensal de <strong>{{childName}}</strong> referente a <strong>{{monthLabel}}</strong>
+        foi validado pela equipa pedagógica e já está disponível para consulta.
+      </p>
+      <div class="cta">
+        <a href="{{reportLink}}" class="btn">Ver relatório</a>
+      </div>
+      <p style="font-size:13px; color:#888; text-align:center;">
+        O relatório inclui a avaliação do desenvolvimento cognitivo, social e físico do seu filho.
+      </p>
+    </div>
+    <div class="footer">
+      <p>© {{year}} {{appName}}. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>

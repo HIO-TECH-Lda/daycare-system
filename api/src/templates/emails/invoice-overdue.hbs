@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fatura vencida — Sonho de Criança</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: Arial, sans-serif; color: #333; }
+    .wrapper { max-width: 600px; margin: 30px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+    .header { background: linear-gradient(135deg, #dc2626, #ef4444); padding: 32px; text-align: center; }
+    .header h1 { margin: 0; color: #fff; font-size: 22px; }
+    .body { padding: 32px; }
+    .alert { background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 14px 16px; margin: 18px 0; font-size: 14px; color: #b91c1c; }
+    .invoice-box { border: 1px solid #fecaca; border-radius: 8px; overflow: hidden; margin: 20px 0; }
+    .invoice-header { background: #fef2f2; padding: 12px 18px; font-weight: bold; font-size: 15px; color: #b91c1c; }
+    .invoice-row { display: flex; justify-content: space-between; padding: 10px 18px; border-bottom: 1px solid #fff5f5; font-size: 14px; }
+    .invoice-row:last-child { border-bottom: none; }
+    .invoice-row .label { color: #888; }
+    .invoice-row .value { font-weight: bold; }
+    .amount-row { background: #fff5f5; }
+    .amount-row .value { color: #dc2626; font-size: 17px; }
+    .cta { text-align: center; margin: 28px 0; }
+    .btn { display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 14px 34px; border-radius: 6px; font-size: 15px; font-weight: bold; }
+    .footer { background: #fef2f2; padding: 20px 32px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #fecaca; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>⚠️ Fatura vencida</h1>
+    </div>
+    <div class="body">
+      <p>Olá, <strong>{{parentName}}</strong>,</p>
+      <div class="alert">
+        A fatura de <strong>{{childName}}</strong> está em atraso. Regularize o pagamento o mais brevemente possível para evitar interrupções no serviço.
+      </div>
+
+      <div class="invoice-box">
+        <div class="invoice-header">Fatura em atraso</div>
+        <div class="invoice-row">
+          <span class="label">Número</span>
+          <span class="value">{{invoiceNumber}}</span>
+        </div>
+        <div class="invoice-row">
+          <span class="label">Aluno</span>
+          <span class="value">{{childName}}</span>
+        </div>
+        <div class="invoice-row">
+          <span class="label">Vencimento</span>
+          <span class="value">{{dueDate}}</span>
+        </div>
+        <div class="invoice-row amount-row">
+          <span class="label">Valor em dívida</span>
+          <span class="value">{{amount}}</span>
+        </div>
+      </div>
+
+      <div class="cta">
+        <a href="{{invoicesLink}}" class="btn">Pagar agora</a>
+      </div>
+    </div>
+    <div class="footer">
+      <p>© {{year}} {{appName}}. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>

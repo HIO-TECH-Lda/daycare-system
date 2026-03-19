@@ -29,14 +29,14 @@ export class MonthlyReportController {
       reports = result.reports;
       total = result.total;
     }
-    res.json(ApiResponse.paginated(reports, { page, limit, total }, 'Relatórios mensais recuperados com sucesso'));
+    return res.json(ApiResponse.paginated(reports, { page, limit, total }, 'Relatórios mensais recuperados com sucesso'));
   });
 
   static getByChildId = catchAsync(async (req: Request, res: Response) => {
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const { page, limit } = getPaginationParams(req);
     const { reports, total } = await MonthlyReportService.findByChildId(req.params.childId, year, page, limit);
-    res.json(ApiResponse.paginated(reports, { page, limit, total }, 'Relatórios mensais recuperados com sucesso'));
+    return res.json(ApiResponse.paginated(reports, { page, limit, total }, 'Relatórios mensais recuperados com sucesso'));
   });
 
   static getById = catchAsync(async (req: Request, res: Response) => {
@@ -44,7 +44,7 @@ export class MonthlyReportController {
     if (!report) {
       return res.status(404).json({ success: false, message: 'Relatório mensal não encontrado' });
     }
-    res.json(ApiResponse.success(report, 'Relatório mensal recuperado com sucesso'));
+    return res.json(ApiResponse.success(report, 'Relatório mensal recuperado com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -52,7 +52,7 @@ export class MonthlyReportController {
       ...req.body,
       created_by: req.user!.userId
     });
-    res.status(201).json(ApiResponse.success(report, 'Relatório mensal criado com sucesso', 201));
+    return res.status(201).json(ApiResponse.success(report, 'Relatório mensal criado com sucesso', 201));
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {
@@ -60,7 +60,7 @@ export class MonthlyReportController {
     if (!report) {
       return res.status(404).json({ success: false, message: 'Relatório mensal não encontrado' });
     }
-    res.json(ApiResponse.success(report, 'Relatório mensal atualizado com sucesso'));
+    return res.json(ApiResponse.success(report, 'Relatório mensal atualizado com sucesso'));
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -68,7 +68,7 @@ export class MonthlyReportController {
     if (!report) {
       return res.status(404).json({ success: false, message: 'Relatório mensal não encontrado' });
     }
-    res.json(ApiResponse.success(null, 'Relatório mensal excluído com sucesso'));
+    return res.json(ApiResponse.success(null, 'Relatório mensal excluído com sucesso'));
   });
 
   static validate = catchAsync(async (req: Request, res: Response) => {
@@ -98,6 +98,7 @@ export class MonthlyReportController {
         console.error('[MonthlyReportController] Notification error:', err);
       }
     })();
+    return;
   });
 
   static reject = catchAsync(async (req: Request, res: Response) => {
@@ -109,6 +110,6 @@ export class MonthlyReportController {
     if (!report) {
       return res.status(404).json({ success: false, message: 'Relatório mensal não encontrado' });
     }
-    res.json(ApiResponse.success(report, 'Relatório rejeitado com sucesso'));
+    return res.json(ApiResponse.success(report, 'Relatório rejeitado com sucesso'));
   });
 }

@@ -14,8 +14,11 @@ export class ReportPhotoService {
       uploaded_by: new mongoose.Types.ObjectId(data.uploaded_by)
     };
     const photo = await ReportPhoto.create(photoData);
-    return await photo.populate('daily_report_id', 'child_id date')
-      .populate('uploaded_by', 'firstName lastName');
+    await photo.populate([
+      { path: 'daily_report_id', select: 'child_id date' },
+      { path: 'uploaded_by', select: 'firstName lastName' }
+    ]);
+    return photo;
   }
 
   static async findByReportId(reportId: string): Promise<IReportPhotoDocument[]> {

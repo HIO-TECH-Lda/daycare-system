@@ -14,7 +14,7 @@ export class ReportPhotoController {
     if (!photo) {
       return res.status(404).json({ success: false, message: 'Foto não encontrada' });
     }
-    res.json(ApiResponse.success(photo, 'Foto recuperada com sucesso'));
+    return res.json(ApiResponse.success(photo, 'Foto recuperada com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -30,6 +30,6 @@ export class ReportPhotoController {
     if (!photo) {
       return res.status(404).json({ success: false, message: 'Foto não encontrada' });
     }
-    res.json(ApiResponse.success(null, 'Foto excluída com sucesso'));
+    return res.json(ApiResponse.success(null, 'Foto excluída com sucesso'));
   });
 }

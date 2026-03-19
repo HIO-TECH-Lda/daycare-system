@@ -42,9 +42,12 @@ export class InvoiceService {
       invoiceData.issue_date = typeof data.issue_date === 'string' ? new Date(data.issue_date) : data.issue_date;
     }
     const invoice = await Invoice.create(invoiceData);
-    return await invoice.populate('child_id', 'name birth_date')
-      .populate('parent_id', 'firstName lastName email')
-      .populate('created_by', 'firstName lastName');
+    await invoice.populate([
+      { path: 'child_id', select: 'name birth_date' },
+      { path: 'parent_id', select: 'firstName lastName email' },
+      { path: 'created_by', select: 'firstName lastName' }
+    ]);
+    return invoice;
   }
 
   static async findAll(parentId?: string, status?: string, page = 1, limit = 20): Promise<{ invoices: IInvoiceDocument[]; total: number }> {

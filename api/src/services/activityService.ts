@@ -17,7 +17,8 @@ export class ActivityService {
       activityData.class_id = new mongoose.Types.ObjectId(data.class_id);
     }
     const activity = await Activity.create(activityData);
-    return await activity.populate('class_id', 'name min_age_months max_age_months');
+    await activity.populate({ path: 'class_id', select: 'name min_age_months max_age_months' });
+    return activity;
   }
 
   static async findAll(classId?: string, activeOnly?: boolean, page = 1, limit = 20): Promise<{ activities: IActivityDocument[]; total: number }> {

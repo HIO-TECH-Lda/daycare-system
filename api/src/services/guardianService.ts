@@ -19,7 +19,8 @@ export class GuardianService {
       child_id: new mongoose.Types.ObjectId(data.child_id)
     };
     const guardian = await Guardian.create(guardianData);
-    return await guardian.populate('child_id', 'name birth_date');
+    await guardian.populate({ path: 'child_id', select: 'name birth_date' });
+    return guardian;
   }
 
   // Get all guardians for a child

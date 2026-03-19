@@ -10,6 +10,6 @@ export class UserController {
     const search = req.query.search as string | undefined;
     const { page, limit } = getPaginationParams(req);
     const { users, total } = await UserService.findAll(role, search, page, limit);
-    res.json(ApiResponse.paginated(users, { page, limit, total }, 'Usuários recuperados com sucesso'));
+    return res.json(ApiResponse.paginated(users, { page, limit, total }, 'Usuários recuperados com sucesso'));
   });
 }

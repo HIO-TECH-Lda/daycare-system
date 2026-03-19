@@ -19,7 +19,7 @@ export class CalendarEventController {
     if (!event) {
       return res.status(404).json({ success: false, message: 'Evento não encontrado' });
     }
-    res.json(ApiResponse.success(event, 'Evento recuperado com sucesso'));
+    return res.json(ApiResponse.success(event, 'Evento recuperado com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -35,7 +35,7 @@ export class CalendarEventController {
     if (!event) {
       return res.status(404).json({ success: false, message: 'Evento não encontrado' });
     }
-    res.json(ApiResponse.success(event, 'Evento atualizado com sucesso'));
+    return res.json(ApiResponse.success(event, 'Evento atualizado com sucesso'));
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -43,6 +43,6 @@ export class CalendarEventController {
     if (!event) {
       return res.status(404).json({ success: false, message: 'Evento não encontrado' });
     }
-    res.json(ApiResponse.success(null, 'Evento excluído com sucesso'));
+    return res.json(ApiResponse.success(null, 'Evento excluído com sucesso'));
   });
 }

@@ -17,7 +17,7 @@ export class ExpenseCategoryController {
     if (!category) {
       return res.status(404).json({ success: false, message: 'Categoria não encontrada' });
     }
-    res.json(ApiResponse.success(category, 'Categoria recuperada com sucesso'));
+    return res.json(ApiResponse.success(category, 'Categoria recuperada com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -30,7 +30,7 @@ export class ExpenseCategoryController {
     if (!category) {
       return res.status(404).json({ success: false, message: 'Categoria não encontrada' });
     }
-    res.json(ApiResponse.success(category, 'Categoria atualizada com sucesso'));
+    return res.json(ApiResponse.success(category, 'Categoria atualizada com sucesso'));
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -38,6 +38,6 @@ export class ExpenseCategoryController {
     if (!category) {
       return res.status(404).json({ success: false, message: 'Categoria não encontrada' });
     }
-    res.json(ApiResponse.success(null, 'Categoria excluída com sucesso'));
+    return res.json(ApiResponse.success(null, 'Categoria excluída com sucesso'));
   });
 }

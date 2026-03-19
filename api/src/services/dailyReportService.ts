@@ -21,8 +21,11 @@ export class DailyReportService {
       date: typeof data.date === 'string' ? new Date(data.date) : data.date
     };
     const report = await DailyReport.create(reportData);
-    return await report.populate('child_id', 'name birth_date')
-      .populate('created_by', 'firstName lastName');
+    await report.populate([
+      { path: 'child_id', select: 'name birth_date' },
+      { path: 'created_by', select: 'firstName lastName' }
+    ]);
+    return report;
   }
 
   static async findByChildId(childId: string, startDate?: Date, endDate?: Date): Promise<IDailyReportDocument[]> {

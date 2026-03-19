@@ -24,8 +24,11 @@ export class AttendanceService {
       attendanceData.check_out = typeof data.check_out === 'string' ? new Date(data.check_out) : data.check_out;
     }
     const attendance = await Attendance.create(attendanceData);
-    return await attendance.populate('child_id', 'name birth_date')
-      .populate('recorded_by', 'firstName lastName');
+    await attendance.populate([
+      { path: 'child_id', select: 'name birth_date' },
+      { path: 'recorded_by', select: 'firstName lastName' }
+    ]);
+    return attendance;
   }
 
   static async findByChildId(childId: string, startDate?: Date, endDate?: Date, page = 1, limit = 20): Promise<{ attendances: IAttendanceDocument[]; total: number }> {

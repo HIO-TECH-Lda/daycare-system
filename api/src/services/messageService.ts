@@ -22,9 +22,12 @@ export class MessageService {
       messageData.child_id = new mongoose.Types.ObjectId(data.child_id);
     }
     const message = await Message.create(messageData);
-    return await message.populate('sender_id', 'firstName lastName email')
-      .populate('recipient_id', 'firstName lastName email')
-      .populate('child_id', 'name');
+    await message.populate([
+      { path: 'sender_id', select: 'firstName lastName email' },
+      { path: 'recipient_id', select: 'firstName lastName email' },
+      { path: 'child_id', select: 'name' }
+    ]);
+    return message;
   }
 
   static async findInbox(userId: string, role: string, unreadOnly?: boolean, page = 1, limit = 20): Promise<{ messages: IMessageDocument[]; total: number }> {

@@ -20,8 +20,11 @@ export class MonthlyReportService {
       created_by: new mongoose.Types.ObjectId(data.created_by)
     };
     const report = await MonthlyReport.create(reportData);
-    return await report.populate('child_id', 'name birth_date')
-      .populate('created_by', 'firstName lastName');
+    await report.populate([
+      { path: 'child_id', select: 'name birth_date' },
+      { path: 'created_by', select: 'firstName lastName' }
+    ]);
+    return report;
   }
 
   static async findByChildId(childId: string, year?: number, page = 1, limit = 20): Promise<{ reports: IMonthlyReportDocument[]; total: number }> {

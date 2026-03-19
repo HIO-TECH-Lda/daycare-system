@@ -40,10 +40,13 @@ export class PaymentService {
       }
     }
     
-    return await payment.populate('invoice_id', 'invoice_number amount status')
-      .populate('parent_id', 'firstName lastName email')
-      .populate('child_id', 'name birth_date')
-      .populate('recorded_by', 'firstName lastName');
+    await payment.populate([
+      { path: 'invoice_id', select: 'invoice_number amount status' },
+      { path: 'parent_id', select: 'firstName lastName email' },
+      { path: 'child_id', select: 'name birth_date' },
+      { path: 'recorded_by', select: 'firstName lastName' }
+    ]);
+    return payment;
   }
 
   static async findByInvoiceId(invoiceId: string): Promise<IPaymentDocument[]> {

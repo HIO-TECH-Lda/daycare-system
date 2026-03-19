@@ -17,7 +17,8 @@ export class PickupPersonService {
       child_id: new mongoose.Types.ObjectId(data.child_id)
     };
     const pickupPerson = await PickupPerson.create(pickupPersonData);
-    return await pickupPerson.populate('child_id', 'name birth_date');
+    await pickupPerson.populate({ path: 'child_id', select: 'name birth_date' });
+    return pickupPerson;
   }
 
   static async findByChildId(childId: string): Promise<IPickupPersonDocument[]> {

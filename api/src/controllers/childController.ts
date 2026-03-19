@@ -40,7 +40,7 @@ export class ChildController {
       });
     }
 
-    res.json(ApiResponse.success(child, 'Criança recuperada com sucesso'));
+    return res.json(ApiResponse.success(child, 'Criança recuperada com sucesso'));
   });
 
   // Create child
@@ -60,7 +60,7 @@ export class ChildController {
       });
     }
 
-    res.json(ApiResponse.success(child, 'Criança atualizada com sucesso'));
+    return res.json(ApiResponse.success(child, 'Criança atualizada com sucesso'));
   });
 
   // Delete child
@@ -74,6 +74,6 @@ export class ChildController {
       });
     }
 
-    res.json(ApiResponse.success(null, 'Criança excluída com sucesso'));
+    return res.json(ApiResponse.success(null, 'Criança excluída com sucesso'));
   });
 }

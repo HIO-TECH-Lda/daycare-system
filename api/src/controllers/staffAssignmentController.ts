@@ -31,7 +31,7 @@ export class StaffAssignmentController {
       });
     }
 
-    res.json(ApiResponse.paginated(assignments, { page, limit, total }, 'Atribuições recuperadas com sucesso'));
+    return res.json(ApiResponse.paginated(assignments, { page, limit, total }, 'Atribuições recuperadas com sucesso'));
   });
 
   // Get assignment by ID
@@ -49,9 +49,7 @@ export class StaffAssignmentController {
     const userId = req.user?.userId || '';
 
     if (userRole === 'staff') {
-      const staffId = typeof assignment.staff_id === 'object' && assignment.staff_id !== null
-        ? assignment.staff_id._id.toString()
-        : assignment.staff_id.toString();
+      const staffId = (assignment.staff_id as any)?._id?.toString() ?? (assignment.staff_id as any).toString();
       if (staffId !== userId) {
         return res.status(403).json({
           success: false,
@@ -60,7 +58,7 @@ export class StaffAssignmentController {
       }
     }
 
-    res.json(ApiResponse.success(assignment, 'Atribuição recuperada com sucesso'));
+    return res.json(ApiResponse.success(assignment, 'Atribuição recuperada com sucesso'));
   });
 
   // Create assignment (admin only)
@@ -81,6 +79,6 @@ export class StaffAssignmentController {
       });
     }
 
-    res.json(ApiResponse.success(null, 'Atribuição removida com sucesso'));
+    return res.json(ApiResponse.success(null, 'Atribuição removida com sucesso'));
   });
 }

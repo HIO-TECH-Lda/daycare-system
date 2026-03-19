@@ -24,7 +24,7 @@ export class ClassController {
       });
     }
 
-    res.json(ApiResponse.success(classDoc, 'Turma recuperada com sucesso'));
+    return res.json(ApiResponse.success(classDoc, 'Turma recuperada com sucesso'));
   });
 
   // Create class
@@ -44,7 +44,7 @@ export class ClassController {
       });
     }
 
-    res.json(ApiResponse.success(classDoc, Messages.USER.UPDATED.replace('Usuário', 'Turma')));
+    return res.json(ApiResponse.success(classDoc, Messages.USER.UPDATED.replace('Usuário', 'Turma')));
   });
 
   // Delete class
@@ -58,6 +58,6 @@ export class ClassController {
       });
     }
 
-    res.json(ApiResponse.success(null, 'Turma excluída com sucesso'));
+    return res.json(ApiResponse.success(null, 'Turma excluída com sucesso'));
   });
 }

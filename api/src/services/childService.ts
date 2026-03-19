@@ -85,18 +85,14 @@ export class ChildService {
 
     // Check access
     if (userRole === 'responsavel') {
-      const parentId = typeof child.parent_id === 'object' && child.parent_id !== null 
-        ? child.parent_id._id.toString() 
-        : child.parent_id.toString();
+      const parentId = (child.parent_id as any)?._id?.toString() ?? (child.parent_id as any).toString();
       if (parentId !== userId) {
         return null; // Not their child
       }
     } else if (userRole === 'staff') {
       // Check if child's class is in assigned classes
       if (assignedClassIds && assignedClassIds.length > 0) {
-        const childClassId = typeof child.class_id === 'object' && child.class_id !== null
-          ? child.class_id._id.toString()
-          : child.class_id.toString();
+        const childClassId = (child.class_id as any)?._id?.toString() ?? (child.class_id as any).toString();
         if (!assignedClassIds.includes(childClassId)) {
           return null; // Not in assigned class
         }

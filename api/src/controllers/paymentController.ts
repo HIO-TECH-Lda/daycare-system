@@ -32,7 +32,7 @@ export class PaymentController {
     if (!payment) {
       return res.status(404).json({ success: false, message: 'Pagamento não encontrado' });
     }
-    res.json(ApiResponse.success(payment, 'Pagamento recuperado com sucesso'));
+    return res.json(ApiResponse.success(payment, 'Pagamento recuperado com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -48,6 +48,6 @@ export class PaymentController {
     if (!payment) {
       return res.status(404).json({ success: false, message: 'Pagamento não encontrado' });
     }
-    res.json(ApiResponse.success(null, 'Pagamento excluído com sucesso'));
+    return res.json(ApiResponse.success(null, 'Pagamento excluído com sucesso'));
   });
 }

@@ -20,8 +20,11 @@ export class ExpenseService {
       expenseData.expense_date = typeof data.expense_date === 'string' ? new Date(data.expense_date) : data.expense_date;
     }
     const expense = await Expense.create(expenseData);
-    return await expense.populate('category_id', 'name')
-      .populate('recorded_by', 'firstName lastName');
+    await expense.populate([
+      { path: 'category_id', select: 'name' },
+      { path: 'recorded_by', select: 'firstName lastName' }
+    ]);
+    return expense;
   }
 
   static async findAll(categoryId?: string, startDate?: Date, endDate?: Date, page = 1, limit = 20): Promise<{ expenses: IExpenseDocument[]; total: number }> {

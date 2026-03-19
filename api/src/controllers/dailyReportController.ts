@@ -9,7 +9,7 @@ import User from '../models/User';
 
 export class DailyReportController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
-    let childId = req.query.child_id as string | undefined;
+    const childId = req.query.child_id as string | undefined;
     const startDate = req.query.start_date ? new Date(req.query.start_date as string) : undefined;
     const endDate = req.query.end_date ? new Date(req.query.end_date as string) : undefined;
     const { page, limit } = getPaginationParams(req);
@@ -18,17 +18,14 @@ export class DailyReportController {
     const { reports, total } = await DailyReportService.findAllScoped(
       role, userId, childId, startDate, endDate, page, limit
     );
-    res.json(ApiResponse.paginated(reports, { page, limit, total }, 'Relatórios diários recuperados com sucesso'));
+    return res.json(ApiResponse.paginated(reports, { page, limit, total }, 'Relatórios diários recuperados com sucesso'));
   });
 
   static getByChildId = catchAsync(async (req: Request, res: Response) => {
     const startDate = req.query.start_date ? new Date(req.query.start_date as string) : undefined;
     const endDate = req.query.end_date ? new Date(req.query.end_date as string) : undefined;
-    const { page, limit } = getPaginationParams(req);
     const reports = await DailyReportService.findByChildId(req.params.childId, startDate, endDate);
-    // For child-specific queries, we might want to return all or paginate
-    // Keeping non-paginated for now but can add pagination if needed
-    res.json(ApiResponse.success(reports, 'Relatórios diários recuperados com sucesso'));
+    return res.json(ApiResponse.success(reports, 'Relatórios diários recuperados com sucesso'));
   });
 
   static getById = catchAsync(async (req: Request, res: Response) => {
@@ -36,7 +33,7 @@ export class DailyReportController {
     if (!report) {
       return res.status(404).json({ success: false, message: 'Relatório diário não encontrado' });
     }
-    res.json(ApiResponse.success(report, 'Relatório diário recuperado com sucesso'));
+    return res.json(ApiResponse.success(report, 'Relatório diário recuperado com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -73,7 +70,7 @@ export class DailyReportController {
     if (!report) {
       return res.status(404).json({ success: false, message: 'Relatório diário não encontrado' });
     }
-    res.json(ApiResponse.success(report, 'Relatório diário atualizado com sucesso'));
+    return res.json(ApiResponse.success(report, 'Relatório diário atualizado com sucesso'));
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -81,6 +78,6 @@ export class DailyReportController {
     if (!report) {
       return res.status(404).json({ success: false, message: 'Relatório diário não encontrado' });
     }
-    res.json(ApiResponse.success(null, 'Relatório diário excluído com sucesso'));
+    return res.json(ApiResponse.success(null, 'Relatório diário excluído com sucesso'));
   });
 }

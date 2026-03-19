@@ -18,7 +18,7 @@ export class ActivityController {
     if (!activity) {
       return res.status(404).json({ success: false, message: 'Atividade não encontrada' });
     }
-    res.json(ApiResponse.success(activity, 'Atividade recuperada com sucesso'));
+    return res.json(ApiResponse.success(activity, 'Atividade recuperada com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -31,7 +31,7 @@ export class ActivityController {
     if (!activity) {
       return res.status(404).json({ success: false, message: 'Atividade não encontrada' });
     }
-    res.json(ApiResponse.success(activity, 'Atividade atualizada com sucesso'));
+    return res.json(ApiResponse.success(activity, 'Atividade atualizada com sucesso'));
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -39,6 +39,6 @@ export class ActivityController {
     if (!activity) {
       return res.status(404).json({ success: false, message: 'Atividade não encontrada' });
     }
-    res.json(ApiResponse.success(null, 'Atividade excluída com sucesso'));
+    return res.json(ApiResponse.success(null, 'Atividade excluída com sucesso'));
   });
 }

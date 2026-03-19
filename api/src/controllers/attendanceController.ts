@@ -30,7 +30,7 @@ export class AttendanceController {
         total = result.total;
       }
     }
-    res.json(ApiResponse.paginated(attendances, { page, limit, total }, 'Registros de presença recuperados com sucesso'));
+    return res.json(ApiResponse.paginated(attendances, { page, limit, total }, 'Registros de presença recuperados com sucesso'));
   });
 
   static getByChildId = catchAsync(async (req: Request, res: Response) => {
@@ -38,7 +38,7 @@ export class AttendanceController {
     const endDate = req.query.end_date ? new Date(req.query.end_date as string) : undefined;
     const { page, limit } = getPaginationParams(req);
     const { attendances, total } = await AttendanceService.findByChildId(req.params.childId, startDate, endDate, page, limit);
-    res.json(ApiResponse.paginated(attendances, { page, limit, total }, 'Registros de presença recuperados com sucesso'));
+    return res.json(ApiResponse.paginated(attendances, { page, limit, total }, 'Registros de presença recuperados com sucesso'));
   });
 
   static getById = catchAsync(async (req: Request, res: Response) => {
@@ -46,7 +46,7 @@ export class AttendanceController {
     if (!attendance) {
       return res.status(404).json({ success: false, message: 'Registro de presença não encontrado' });
     }
-    res.json(ApiResponse.success(attendance, 'Registro de presença recuperado com sucesso'));
+    return res.json(ApiResponse.success(attendance, 'Registro de presença recuperado com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -123,6 +123,7 @@ export class AttendanceController {
         }
       })();
     }
+    return;
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -130,6 +131,6 @@ export class AttendanceController {
     if (!attendance) {
       return res.status(404).json({ success: false, message: 'Registro de presença não encontrado' });
     }
-    res.json(ApiResponse.success(null, 'Registro de presença excluído com sucesso'));
+    return res.json(ApiResponse.success(null, 'Registro de presença excluído com sucesso'));
   });
 }

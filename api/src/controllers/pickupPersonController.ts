@@ -23,7 +23,7 @@ export class PickupPersonController {
     if (!pickupPerson) {
       return res.status(404).json({ success: false, message: 'Pessoa autorizada não encontrada' });
     }
-    res.json(ApiResponse.success(pickupPerson, 'Pessoa autorizada recuperada com sucesso'));
+    return res.json(ApiResponse.success(pickupPerson, 'Pessoa autorizada recuperada com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -36,7 +36,7 @@ export class PickupPersonController {
     if (!pickupPerson) {
       return res.status(404).json({ success: false, message: 'Pessoa autorizada não encontrada' });
     }
-    res.json(ApiResponse.success(pickupPerson, 'Pessoa autorizada atualizada com sucesso'));
+    return res.json(ApiResponse.success(pickupPerson, 'Pessoa autorizada atualizada com sucesso'));
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -44,6 +44,6 @@ export class PickupPersonController {
     if (!pickupPerson) {
       return res.status(404).json({ success: false, message: 'Pessoa autorizada não encontrada' });
     }
-    res.json(ApiResponse.success(null, 'Pessoa autorizada excluída com sucesso'));
+    return res.json(ApiResponse.success(null, 'Pessoa autorizada excluída com sucesso'));
   });
 }

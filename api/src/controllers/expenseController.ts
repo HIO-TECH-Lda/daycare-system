@@ -19,7 +19,7 @@ export class ExpenseController {
     if (!expense) {
       return res.status(404).json({ success: false, message: 'Despesa não encontrada' });
     }
-    res.json(ApiResponse.success(expense, 'Despesa recuperada com sucesso'));
+    return res.json(ApiResponse.success(expense, 'Despesa recuperada com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -35,7 +35,7 @@ export class ExpenseController {
     if (!expense) {
       return res.status(404).json({ success: false, message: 'Despesa não encontrada' });
     }
-    res.json(ApiResponse.success(expense, 'Despesa atualizada com sucesso'));
+    return res.json(ApiResponse.success(expense, 'Despesa atualizada com sucesso'));
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -43,6 +43,6 @@ export class ExpenseController {
     if (!expense) {
       return res.status(404).json({ success: false, message: 'Despesa não encontrada' });
     }
-    res.json(ApiResponse.success(null, 'Despesa excluída com sucesso'));
+    return res.json(ApiResponse.success(null, 'Despesa excluída com sucesso'));
   });
 }

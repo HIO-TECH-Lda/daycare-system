@@ -36,9 +36,7 @@ export class GuardianController {
     const userId = req.user?.userId || '';
     
     if (userRole === 'responsavel') {
-      const childId = typeof guardian.child_id === 'object' && guardian.child_id !== null
-        ? guardian.child_id._id.toString()
-        : guardian.child_id.toString();
+      const childId = (guardian.child_id as any)?._id?.toString() ?? (guardian.child_id as any).toString();
       const child = await ChildService.findById(childId, userRole, userId);
       if (!child) {
         return res.status(403).json({
@@ -48,7 +46,7 @@ export class GuardianController {
       }
     }
 
-    res.json(ApiResponse.success(guardian, 'Responsável recuperado com sucesso'));
+    return res.json(ApiResponse.success(guardian, 'Responsável recuperado com sucesso'));
   });
 
   // Create guardian
@@ -68,7 +66,7 @@ export class GuardianController {
       });
     }
 
-    res.json(ApiResponse.success(guardian, 'Responsável atualizado com sucesso'));
+    return res.json(ApiResponse.success(guardian, 'Responsável atualizado com sucesso'));
   });
 
   // Delete guardian
@@ -82,6 +80,6 @@ export class GuardianController {
       });
     }
 
-    res.json(ApiResponse.success(null, 'Responsável excluído com sucesso'));
+    return res.json(ApiResponse.success(null, 'Responsável excluído com sucesso'));
   });
 }

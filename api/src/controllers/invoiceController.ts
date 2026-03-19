@@ -13,13 +13,12 @@ export class InvoiceController {
     const status = req.query.status as string | undefined;
     const { page, limit } = getPaginationParams(req);
 
-    // Responsavel can only see their own invoices
     if (req.user!.role === 'responsavel') {
       parentId = req.user!.userId;
     }
 
     const { invoices, total } = await InvoiceService.findAll(parentId, status, page, limit);
-    res.json(ApiResponse.paginated(invoices, { page, limit, total }, 'Faturas recuperadas com sucesso'));
+    return res.json(ApiResponse.paginated(invoices, { page, limit, total }, 'Faturas recuperadas com sucesso'));
   });
 
   static getById = catchAsync(async (req: Request, res: Response) => {
@@ -33,7 +32,7 @@ export class InvoiceController {
         return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
     }
-    res.json(ApiResponse.success(invoice, 'Fatura recuperada com sucesso'));
+    return res.json(ApiResponse.success(invoice, 'Fatura recuperada com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -72,7 +71,7 @@ export class InvoiceController {
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Fatura não encontrada' });
     }
-    res.json(ApiResponse.success(invoice, 'Fatura atualizada com sucesso'));
+    return res.json(ApiResponse.success(invoice, 'Fatura atualizada com sucesso'));
   });
 
   static updateStatus = catchAsync(async (req: Request, res: Response) => {
@@ -118,6 +117,7 @@ export class InvoiceController {
         }
       })();
     }
+    return;
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -125,6 +125,6 @@ export class InvoiceController {
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Fatura não encontrada' });
     }
-    res.json(ApiResponse.success(null, 'Fatura excluída com sucesso'));
+    return res.json(ApiResponse.success(null, 'Fatura excluída com sucesso'));
   });
 }

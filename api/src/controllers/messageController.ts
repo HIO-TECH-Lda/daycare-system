@@ -13,15 +13,14 @@ export class MessageController {
     const role = req.user!.role;
     const { page, limit } = getPaginationParams(req);
 
-    // All roles: inbox = messages sent directly to the user OR broadcast to their role
     const result = await MessageService.findInbox(userId, role, unreadOnly, page, limit);
-    res.json(ApiResponse.paginated(result.messages, { page, limit, total: result.total }, 'Mensagens recuperadas com sucesso'));
+    return res.json(ApiResponse.paginated(result.messages, { page, limit, total: result.total }, 'Mensagens recuperadas com sucesso'));
   });
 
   static getSent = catchAsync(async (req: Request, res: Response) => {
     const { page, limit } = getPaginationParams(req);
     const { messages, total } = await MessageService.findBySender(req.user!.userId, page, limit);
-    res.json(ApiResponse.paginated(messages, { page, limit, total }, 'Mensagens enviadas recuperadas com sucesso'));
+    return res.json(ApiResponse.paginated(messages, { page, limit, total }, 'Mensagens enviadas recuperadas com sucesso'));
   });
 
   static getById = catchAsync(async (req: Request, res: Response) => {
@@ -42,7 +41,7 @@ export class MessageController {
     if (!message.is_read && recipientId === userId) {
       await MessageService.markAsRead(req.params.id);
     }
-    res.json(ApiResponse.success(message, 'Mensagem recuperada com sucesso'));
+    return res.json(ApiResponse.success(message, 'Mensagem recuperada com sucesso'));
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
@@ -90,7 +89,7 @@ export class MessageController {
       return res.status(403).json({ success: false, message: 'Acesso negado' });
     }
     const message = await MessageService.markAsRead(req.params.id);
-    res.json(ApiResponse.success(message, 'Mensagem marcada como lida'));
+    return res.json(ApiResponse.success(message, 'Mensagem marcada como lida'));
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
@@ -106,6 +105,6 @@ export class MessageController {
       return res.status(403).json({ success: false, message: 'Acesso negado' });
     }
     await MessageService.delete(req.params.id);
-    res.json(ApiResponse.success(null, 'Mensagem excluída com sucesso'));
+    return res.json(ApiResponse.success(null, 'Mensagem excluída com sucesso'));
   });
 }

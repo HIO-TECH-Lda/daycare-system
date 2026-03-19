@@ -24,8 +24,11 @@ export class CalendarEventService {
       eventData.class_id = new mongoose.Types.ObjectId(data.class_id);
     }
     const event = await CalendarEvent.create(eventData);
-    return await event.populate('class_id', 'name')
-      .populate('created_by', 'firstName lastName');
+    await event.populate([
+      { path: 'class_id', select: 'name' },
+      { path: 'created_by', select: 'firstName lastName' }
+    ]);
+    return event;
   }
 
   static async findAll(startDate?: Date, endDate?: Date, classId?: string, page = 1, limit = 20): Promise<{ events: ICalendarEventDocument[]; total: number }> {

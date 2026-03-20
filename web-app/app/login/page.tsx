@@ -56,6 +56,7 @@ export default function LoginPage() {
                 placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
                 required
               />
             </div>
@@ -67,6 +68,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 required
               />
             </div>
@@ -78,11 +80,59 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 p-3 bg-gray-50 rounded-lg text-xs space-y-1.5">
-            <p className="font-medium text-gray-700">Contas de teste:</p>
-            <p className="text-gray-600">responsavel@creche.com</p>
-            <p className="text-gray-600">staff@creche.com</p>
-            <p className="text-gray-600">admin@creche.com</p>
+          <div className="mt-6 p-3 bg-gray-50 rounded-lg text-xs space-y-2">
+            <p className="font-medium text-gray-700">Contas demo <span className="text-gray-500 font-normal">(senha: Demo@2026)</span></p>
+            <div className="space-y-1">
+              <p className="text-gray-500 font-medium uppercase tracking-wide" style={{fontSize: '10px'}}>Administrador</p>
+              <button
+                type="button"
+                onClick={() => { setEmail('admin@sonhodecrianca.mz'); setPassword('Demo@2026'); }}
+                className="text-green-700 hover:text-green-900 hover:underline block text-left"
+              >
+                admin@sonhodecrianca.mz
+              </button>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-500 font-medium uppercase tracking-wide" style={{fontSize: '10px'}}>Staff</p>
+              <button
+                type="button"
+                onClick={() => { setEmail('maria@sonhodecrianca.mz'); setPassword('Demo@2026'); }}
+                className="text-green-700 hover:text-green-900 hover:underline block text-left"
+              >
+                maria@sonhodecrianca.mz
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('joao@sonhodecrianca.mz'); setPassword('Demo@2026'); }}
+                className="text-green-700 hover:text-green-900 hover:underline block text-left"
+              >
+                joao@sonhodecrianca.mz
+              </button>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-500 font-medium uppercase tracking-wide" style={{fontSize: '10px'}}>Responsável</p>
+              <button
+                type="button"
+                onClick={() => { setEmail('ana.silva@demo.com'); setPassword('Demo@2026'); }}
+                className="text-green-700 hover:text-green-900 hover:underline block text-left"
+              >
+                ana.silva@demo.com
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('carlos.santos@demo.com'); setPassword('Demo@2026'); }}
+                className="text-green-700 hover:text-green-900 hover:underline block text-left"
+              >
+                carlos.santos@demo.com
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('patricia.oliveira@demo.com'); setPassword('Demo@2026'); }}
+                className="text-green-700 hover:text-green-900 hover:underline block text-left"
+              >
+                patricia.oliveira@demo.com
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>

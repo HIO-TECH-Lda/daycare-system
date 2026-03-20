@@ -106,6 +106,7 @@ export default function GestaoAlunosPage() {
     medications: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
+    photo_url: '',
   });
 
   const filteredChildren = children.filter(child =>
@@ -128,6 +129,7 @@ export default function GestaoAlunosPage() {
         medications: child.medications,
         emergency_contact_name: child.emergency_contact_name,
         emergency_contact_phone: child.emergency_contact_phone,
+        photo_url: child.photo_url || '',
       });
     } else {
       setEditingChild(null);
@@ -136,6 +138,7 @@ export default function GestaoAlunosPage() {
         name: '', birth_date: '', class_id: '', parent_id: '',
         parentName: '', parentEmail: '', parentPhone: '',
         allergies: '', medications: '', emergency_contact_name: '', emergency_contact_phone: '',
+        photo_url: '',
       });
     }
     setOpen(true);
@@ -157,6 +160,7 @@ export default function GestaoAlunosPage() {
         medications: formData.medications || 'Nenhum',
         emergency_contact_name: formData.emergency_contact_name,
         emergency_contact_phone: formData.emergency_contact_phone,
+        ...(formData.photo_url && { photo_url: formData.photo_url }),
       };
 
       if (editingChild) {
@@ -170,6 +174,7 @@ export default function GestaoAlunosPage() {
         name: '', birth_date: '', class_id: '', parent_id: '',
         parentName: '', parentEmail: '', parentPhone: '',
         allergies: '', medications: '', emergency_contact_name: '', emergency_contact_phone: '',
+        photo_url: '',
       });
     } catch (error) {
       toast.error('Erro ao salvar aluno');
@@ -208,6 +213,27 @@ export default function GestaoAlunosPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="photo_url">URL da Foto</Label>
+                <Input
+                  id="photo_url"
+                  type="url"
+                  value={formData.photo_url}
+                  onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
+                  placeholder="https://..."
+                />
+                {formData.photo_url && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <img
+                      src={formData.photo_url}
+                      alt="Pré-visualização"
+                      className="w-12 h-12 rounded-full object-cover border"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                    <span className="text-xs text-gray-500">Pré-visualização</span>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="birth_date">Data de Nascimento</Label>

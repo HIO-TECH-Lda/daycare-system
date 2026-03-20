@@ -1,3 +1,19 @@
+/**
+ * Database Seeder — Sonho de Criança
+ *
+ * Usage:
+ *   npm run seed          → safe mode: skips if demo data already exists
+ *   npm run seed:fresh    → drops all collections first, then seeds
+ *
+ * Demo credentials (all passwords: Demo@2026):
+ *   admin@sonhodecrianca.mz     — Administrador
+ *   maria@sonhodecrianca.mz     — Staff (Educadora)
+ *   joao@sonhodecrianca.mz      — Staff (Professor)
+ *   ana.silva@demo.com          — Responsável (2 filhos)
+ *   carlos.santos@demo.com      — Responsável (1 filho)
+ *   patricia.oliveira@demo.com  — Responsável (1 filho)
+ */
+
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { connectDB, disconnectDB } from '../src/config/database';
@@ -21,332 +37,363 @@ import MonthlyReport from '../src/models/MonthlyReport';
 
 dotenv.config();
 
-const TEST_PASSWORD = 'test1234';
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const DEMO_PASSWORD = 'Demo@2026';
+const isFresh = process.argv.includes('--fresh');
+
+/** Returns a Date set to the given hour/minute of today */
+function todayAt(hour: number, minute = 0): Date {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
+
+/** Returns a Date N days relative to today */
+function daysFromNow(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** First day of current month */
+function startOfMonth(): Date {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+const now = new Date();
+const currentMonth = now.getMonth() + 1; // 1-12
+const currentYear = now.getFullYear();
+const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+const prevMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function seedDatabase() {
   try {
-    console.log('🌱 Starting database seeding...\n');
-    
-    // Connect to database
+    console.log('\n🌱 Sonho de Criança — Database Seeder');
+    console.log('─'.repeat(50));
     await connectDB();
-    
-    // Clear existing data (optional - comment out if you want to keep existing data)
-    console.log('🗑️  Clearing existing data...');
-    await Promise.all([
-      User.deleteMany({}),
-      Class.deleteMany({}),
-      Child.deleteMany({}),
-      StaffAssignment.deleteMany({}),
-      Guardian.deleteMany({}),
-      PickupPerson.deleteMany({}),
-      DailyReport.deleteMany({}),
-      Activity.deleteMany({}),
-      ReportPhoto.deleteMany({}),
-      Attendance.deleteMany({}),
-      CalendarEvent.deleteMany({}),
-      Invoice.deleteMany({}),
-      Payment.deleteMany({}),
-      ExpenseCategory.deleteMany({}),
-      Expense.deleteMany({}),
-      Message.deleteMany({}),
-      MonthlyReport.deleteMany({})
-    ]);
-    console.log('✅ Existing data cleared\n');
-    
-    // 1. Create Users
+
+    if (isFresh) {
+      console.log('\n🗑️  --fresh flag detected — clearing all collections...');
+      await Promise.all([
+        User.deleteMany({}),
+        Class.deleteMany({}),
+        Child.deleteMany({}),
+        StaffAssignment.deleteMany({}),
+        Guardian.deleteMany({}),
+        PickupPerson.deleteMany({}),
+        DailyReport.deleteMany({}),
+        Activity.deleteMany({}),
+        ReportPhoto.deleteMany({}),
+        Attendance.deleteMany({}),
+        CalendarEvent.deleteMany({}),
+        Invoice.deleteMany({}),
+        Payment.deleteMany({}),
+        ExpenseCategory.deleteMany({}),
+        Expense.deleteMany({}),
+        Message.deleteMany({}),
+        MonthlyReport.deleteMany({})
+      ]);
+      console.log('✅ Collections cleared\n');
+    } else {
+      // Safe mode: skip if demo admin already exists
+      const existing = await User.findOne({ email: 'admin@sonhodecrianca.mz' });
+      if (existing) {
+        console.log('\n⚠️  Demo data already exists.');
+        console.log('   Run  npm run seed:fresh  to wipe and re-seed.\n');
+        await disconnectDB();
+        return;
+      }
+    }
+
+    // ── 1. Users ────────────────────────────────────────────────────────────
     console.log('👥 Creating users...');
+
     const admin = await User.create({
       firstName: 'Admin',
       lastName: 'Sistema',
-      email: 'admin@daycare.com',
-      password: TEST_PASSWORD,
+      email: 'admin@sonhodecrianca.mz',
+      password: DEMO_PASSWORD,
       role: 'administrador',
-      phone: '+5511999999999',
+      phone: '+258841000001',
       status: 'active',
       emailVerified: true
     });
-    
+
     const staff1 = await User.create({
       firstName: 'Maria',
       lastName: 'Educadora',
-      email: 'maria@daycare.com',
-      password: TEST_PASSWORD,
+      email: 'maria@sonhodecrianca.mz',
+      password: DEMO_PASSWORD,
       role: 'staff',
-      phone: '+5511888888888',
+      phone: '+258841000002',
       status: 'active',
       emailVerified: true
     });
-    
+
     const staff2 = await User.create({
       firstName: 'João',
       lastName: 'Professor',
-      email: 'joao@daycare.com',
-      password: TEST_PASSWORD,
+      email: 'joao@sonhodecrianca.mz',
+      password: DEMO_PASSWORD,
       role: 'staff',
-      phone: '+5511777777777',
+      phone: '+258841000003',
       status: 'active',
       emailVerified: true
     });
-    
+
     const responsavel1 = await User.create({
       firstName: 'Ana',
       lastName: 'Silva',
-      email: 'ana.silva@example.com',
-      password: TEST_PASSWORD,
+      email: 'ana.silva@demo.com',
+      password: DEMO_PASSWORD,
       role: 'responsavel',
-      phone: '+5511666666666',
+      phone: '+258841000004',
       status: 'active',
       emailVerified: true
     });
-    
+
     const responsavel2 = await User.create({
       firstName: 'Carlos',
       lastName: 'Santos',
-      email: 'carlos.santos@example.com',
-      password: TEST_PASSWORD,
+      email: 'carlos.santos@demo.com',
+      password: DEMO_PASSWORD,
       role: 'responsavel',
-      phone: '+5511555555555',
+      phone: '+258841000005',
       status: 'active',
       emailVerified: true
     });
-    
+
     const responsavel3 = await User.create({
       firstName: 'Patricia',
       lastName: 'Oliveira',
-      email: 'patricia.oliveira@example.com',
-      password: TEST_PASSWORD,
+      email: 'patricia.oliveira@demo.com',
+      password: DEMO_PASSWORD,
       role: 'responsavel',
-      phone: '+5511444444444',
+      phone: '+258841000006',
       status: 'active',
       emailVerified: true
     });
-    
-    console.log(`✅ Created ${6} users\n`);
-    
-    // 2. Create Classes
+
+    console.log('✅ 6 users created\n');
+
+    // ── 2. Classes ──────────────────────────────────────────────────────────
     console.log('🏫 Creating classes...');
-    const berçario = await Class.create({
+
+    const bercario = await Class.create({
       name: 'Berçário A',
       min_age_months: 0,
       max_age_months: 12,
       capacity: 10
     });
-    
+
     const maternal1 = await Class.create({
       name: 'Maternal I',
       min_age_months: 12,
       max_age_months: 24,
       capacity: 12
     });
-    
+
     const maternal2 = await Class.create({
       name: 'Maternal II',
       min_age_months: 24,
       max_age_months: 36,
       capacity: 15
     });
-    
+
     const jardim1 = await Class.create({
       name: 'Jardim I',
       min_age_months: 36,
       max_age_months: 48,
       capacity: 18
     });
-    
-    const jardim2 = await Class.create({
+
+    await Class.create({
       name: 'Jardim II',
       min_age_months: 48,
       max_age_months: 60,
       capacity: 20
     });
-    
-    console.log(`✅ Created ${5} classes\n`);
-    
-    // 3. Create Staff Assignments
+
+    console.log('✅ 5 classes created\n');
+
+    // ── 3. Staff Assignments ─────────────────────────────────────────────────
     console.log('👨‍🏫 Creating staff assignments...');
-    await StaffAssignment.create({
-      staff_id: staff1._id,
-      class_id: berçario._id
-    });
-    
-    await StaffAssignment.create({
-      staff_id: staff1._id,
-      class_id: maternal1._id
-    });
-    
-    await StaffAssignment.create({
-      staff_id: staff2._id,
-      class_id: maternal2._id
-    });
-    
-    await StaffAssignment.create({
-      staff_id: staff2._id,
-      class_id: jardim1._id
-    });
-    
-    console.log(`✅ Created ${4} staff assignments\n`);
-    
-    // 4. Create Children
+
+    await StaffAssignment.create({ staff_id: staff1._id, class_id: bercario._id });
+    await StaffAssignment.create({ staff_id: staff1._id, class_id: maternal1._id });
+    await StaffAssignment.create({ staff_id: staff2._id, class_id: maternal2._id });
+    await StaffAssignment.create({ staff_id: staff2._id, class_id: jardim1._id });
+
+    console.log('✅ 4 staff assignments created\n');
+
+    // ── 4. Children ──────────────────────────────────────────────────────────
     console.log('👶 Creating children...');
+
     const child1 = await Child.create({
       name: 'Lucas Silva',
-      birth_date: new Date('2023-06-15'),
-      class_id: berçario._id,
+      birth_date: daysFromNow(-270),    // ~9 months old
+      class_id: bercario._id,
       parent_id: responsavel1._id,
       gender: 'Masculino',
       allergies: 'Nenhuma',
-      medications: '',
       emergency_contact_name: 'Ana Silva',
-      emergency_contact_phone: '+5511666666666',
-      nationality: 'Brasileira',
-      address: 'Rua das Flores, 123',
+      emergency_contact_phone: '+258841000004',
+      nationality: 'Moçambicana',
+      address: 'Av. Eduardo Mondlane, 123, Maputo',
       languages_spoken: 'Português',
       image_usage_authorized: true,
-      enrollment_date: new Date('2024-01-15')
+      enrollment_date: daysFromNow(-60)
     });
-    
+
     const child2 = await Child.create({
       name: 'Sofia Santos',
-      birth_date: new Date('2022-03-20'),
+      birth_date: daysFromNow(-540),    // ~18 months old
       class_id: maternal1._id,
       parent_id: responsavel2._id,
       gender: 'Feminino',
-      allergies: 'Lactose',
-      medications: '',
+      allergies: 'Intolerância à lactose',
       emergency_contact_name: 'Carlos Santos',
-      emergency_contact_phone: '+5511555555555',
-      nationality: 'Brasileira',
-      address: 'Avenida Principal, 456',
+      emergency_contact_phone: '+258841000005',
+      nationality: 'Moçambicana',
+      address: 'Rua da Missão, 456, Maputo',
       languages_spoken: 'Português',
       image_usage_authorized: true,
-      enrollment_date: new Date('2024-02-01')
+      enrollment_date: daysFromNow(-90)
     });
-    
+
     const child3 = await Child.create({
       name: 'Pedro Oliveira',
-      birth_date: new Date('2021-09-10'),
+      birth_date: daysFromNow(-900),    // ~30 months old
       class_id: maternal2._id,
       parent_id: responsavel3._id,
       gender: 'Masculino',
       allergies: 'Nenhuma',
-      medications: '',
       emergency_contact_name: 'Patricia Oliveira',
-      emergency_contact_phone: '+5511444444444',
-      nationality: 'Brasileira',
-      address: 'Rua dos Pássaros, 789',
+      emergency_contact_phone: '+258841000006',
+      nationality: 'Moçambicana',
+      address: 'Av. 25 de Setembro, 789, Maputo',
       languages_spoken: 'Português',
       image_usage_authorized: true,
-      enrollment_date: new Date('2023-08-15')
+      enrollment_date: daysFromNow(-365)
     });
-    
+
     const child4 = await Child.create({
       name: 'Isabella Silva',
-      birth_date: new Date('2020-11-25'),
+      birth_date: daysFromNow(-1350),   // ~45 months old
       class_id: jardim1._id,
       parent_id: responsavel1._id,
       gender: 'Feminino',
       allergies: 'Nenhuma',
-      medications: '',
       emergency_contact_name: 'Ana Silva',
-      emergency_contact_phone: '+5511666666666',
-      nationality: 'Brasileira',
-      address: 'Rua das Flores, 123',
+      emergency_contact_phone: '+258841000004',
+      nationality: 'Moçambicana',
+      address: 'Av. Eduardo Mondlane, 123, Maputo',
       languages_spoken: 'Português, Inglês',
       image_usage_authorized: true,
-      enrollment_date: new Date('2023-01-10')
+      enrollment_date: daysFromNow(-400)
     });
-    
-    console.log(`✅ Created ${4} children\n`);
-    
-    // 5. Create Guardians
+
+    console.log('✅ 4 children created\n');
+
+    // ── 5. Guardians ─────────────────────────────────────────────────────────
     console.log('👨‍👩‍👧 Creating guardians...');
+
     await Guardian.create({
       child_id: child1._id,
       name: 'Ana Silva',
       profession: 'Médica',
-      workplace: 'Hospital Central',
+      workplace: 'Hospital Central de Maputo',
       relationship: 'Mãe',
-      phone: '+5511666666666',
-      email: 'ana.silva@example.com',
-      address: 'Rua das Flores, 123',
+      phone: '+258841000004',
+      email: 'ana.silva@demo.com',
+      address: 'Av. Eduardo Mondlane, 123, Maputo',
       guardian_type: 1
     });
-    
+
     await Guardian.create({
       child_id: child1._id,
       name: 'Roberto Silva',
       profession: 'Engenheiro',
-      workplace: 'Construtora XYZ',
+      workplace: 'Construções do Sul',
       relationship: 'Pai',
-      phone: '+5511999888777',
-      email: 'roberto.silva@example.com',
-      address: 'Rua das Flores, 123',
+      phone: '+258841000010',
+      email: 'roberto.silva@demo.com',
+      address: 'Av. Eduardo Mondlane, 123, Maputo',
       guardian_type: 1
     });
-    
+
     await Guardian.create({
       child_id: child2._id,
       name: 'Carlos Santos',
       profession: 'Advogado',
-      workplace: 'Escritório Jurídico',
+      workplace: 'Escritório Jurídico Santos',
       relationship: 'Pai',
-      phone: '+5511555555555',
-      email: 'carlos.santos@example.com',
-      address: 'Avenida Principal, 456',
+      phone: '+258841000005',
+      email: 'carlos.santos@demo.com',
+      address: 'Rua da Missão, 456, Maputo',
       guardian_type: 1
     });
-    
+
     await Guardian.create({
       child_id: child3._id,
       name: 'Patricia Oliveira',
       profession: 'Professora',
-      workplace: 'Escola Municipal',
+      workplace: 'Escola Primária da Polana',
       relationship: 'Mãe',
-      phone: '+5511444444444',
-      email: 'patricia.oliveira@example.com',
-      address: 'Rua dos Pássaros, 789',
+      phone: '+258841000006',
+      email: 'patricia.oliveira@demo.com',
+      address: 'Av. 25 de Setembro, 789, Maputo',
       guardian_type: 1
     });
-    
-    console.log(`✅ Created ${4} guardians\n`);
-    
-    // 6. Create Pickup Persons
+
+    console.log('✅ 4 guardians created\n');
+
+    // ── 6. Pickup Persons ────────────────────────────────────────────────────
     console.log('🚗 Creating pickup persons...');
+
     await PickupPerson.create({
       child_id: child1._id,
       name: 'Tia Maria',
       relationship: 'Tia',
-      phone: '+5511999777666',
-      email: 'tia.maria@example.com',
+      phone: '+258841000020',
+      email: 'tia.maria@demo.com',
       id_document: '12345678900',
       is_authorized: true
     });
-    
+
     await PickupPerson.create({
       child_id: child2._id,
       name: 'Avó Rosa',
       relationship: 'Avó',
-      phone: '+5511888777666',
+      phone: '+258841000021',
       id_document: '98765432100',
       is_authorized: true
     });
-    
-    console.log(`✅ Created ${2} pickup persons\n`);
-    
-    // 7. Create Activities
+
+    console.log('✅ 2 pickup persons created\n');
+
+    // ── 7. Activities ────────────────────────────────────────────────────────
     console.log('🎨 Creating activities...');
-    const activity1 = await Activity.create({
+
+    await Activity.create({
       name: 'Brincadeira com blocos',
       description: 'Atividade de coordenação motora com blocos de madeira',
-      class_id: berçario._id,
+      class_id: bercario._id,
       age_group: '0-12 meses',
       duration_minutes: 30,
       materials_needed: ['Blocos de madeira', 'Tapete'],
       learning_objectives: ['Coordenação motora', 'Criatividade'],
       is_active: true
     });
-    
-    const activity2 = await Activity.create({
+
+    await Activity.create({
       name: 'Contação de histórias',
       description: 'Desenvolvimento da linguagem através de histórias',
       class_id: maternal1._id,
@@ -356,507 +403,593 @@ async function seedDatabase() {
       learning_objectives: ['Linguagem', 'Imaginação'],
       is_active: true
     });
-    
-    console.log(`✅ Created ${2} activities\n`);
-    
-    // 8. Create Daily Reports
+
+    await Activity.create({
+      name: 'Pintura com dedos',
+      description: 'Expressão artística e coordenação',
+      class_id: maternal2._id,
+      age_group: '24-36 meses',
+      duration_minutes: 40,
+      materials_needed: ['Tintas laváveis', 'Papel kraft'],
+      learning_objectives: ['Criatividade', 'Expressão artística'],
+      is_active: true
+    });
+
+    console.log('✅ 3 activities created\n');
+
+    // ── 8. Daily Reports ─────────────────────────────────────────────────────
     console.log('📝 Creating daily reports...');
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    const napStart1 = new Date(today);
-    napStart1.setHours(13, 0, 0, 0);
-    const napEnd1 = new Date(today);
-    napEnd1.setHours(15, 0, 0, 0);
-    
+
     const report1 = await DailyReport.create({
       child_id: child1._id,
-      date: today,
+      date: new Date(),
       created_by: staff1._id,
       meals: {
         breakfast: 'Leite e biscoito',
-        lunch: 'Arroz, feijão e frango',
-        snack: 'Frutas',
+        lunch: 'Arroz, feijão e frango grelhado',
+        snack: 'Banana e iogurte',
         dinner: ''
       },
-      activities: ['Brincadeira livre', 'Música'],
+      activities: ['Brincadeira com blocos', 'Música e movimento'],
       nap_time: {
-        start: napStart1,
-        end: napEnd1,
+        start: todayAt(13, 0),
+        end: todayAt(15, 0),
         duration_minutes: 120
       },
       mood: 'Feliz',
-      notes: 'Dia tranquilo, criança interagiu bem',
-      behavior_notes: 'Boa interação com outras crianças',
+      notes: 'Dia tranquilo, criança interagiu muito bem com os colegas.',
+      behavior_notes: 'Boa interação social, sem intercorrências.',
       health_notes: ''
     });
-    
-    const napStart2 = new Date(today);
-    napStart2.setHours(14, 0, 0, 0);
-    const napEnd2 = new Date(today);
-    napEnd2.setHours(16, 0, 0, 0);
-    
+
     const report2 = await DailyReport.create({
       child_id: child2._id,
-      date: today,
+      date: new Date(),
       created_by: staff1._id,
       meals: {
-        breakfast: 'Leite e mingau',
+        breakfast: 'Leite (sem lactose) e fruta',
         lunch: 'Sopa de legumes',
-        snack: 'Iogurte',
+        snack: 'Iogurte de soja',
         dinner: ''
       },
       activities: ['Contação de histórias', 'Brincadeira no parque'],
       nap_time: {
-        start: napStart2,
-        end: napEnd2,
+        start: todayAt(14, 0),
+        end: todayAt(16, 0),
         duration_minutes: 120
       },
       mood: 'Sonolento',
-      notes: 'Criança um pouco sonolenta após o almoço',
-      behavior_notes: 'Calma e tranquila',
-      health_notes: ''
+      notes: 'Um pouco sonolenta após o almoço, mas participou bem.',
+      behavior_notes: 'Calma e tranquila.',
+      health_notes: 'Reforçar dieta sem lactose conforme orientação dos pais.'
     });
-    
+
     const report3 = await DailyReport.create({
       child_id: child3._id,
-      date: yesterday,
+      date: daysFromNow(-1),
       created_by: staff2._id,
       meals: {
-        breakfast: 'Leite e pão',
-        lunch: 'Arroz, feijão e carne',
-        snack: 'Biscoito',
+        breakfast: 'Leite e pão com manteiga',
+        lunch: 'Arroz, feijão e carne assada',
+        snack: 'Biscoito integral',
         dinner: ''
       },
-      activities: ['Atividades físicas', 'Desenho'],
+      activities: ['Pintura com dedos', 'Exercícios físicos no pátio'],
       mood: 'Alegre',
-      notes: 'Muito ativo hoje',
-      behavior_notes: 'Excelente participação',
+      notes: 'Muito ativo e participativo hoje.',
+      behavior_notes: 'Excelente participação em todas as atividades.',
       health_notes: ''
     });
-    
-    console.log(`✅ Created ${3} daily reports\n`);
-    
-    // 9. Create Report Photos
+
+    console.log('✅ 3 daily reports created\n');
+
+    // ── 9. Report Photos ─────────────────────────────────────────────────────
     console.log('📸 Creating report photos...');
+
     await ReportPhoto.create({
       daily_report_id: report1._id,
-      photo_url: 'https://example.com/photos/report1.jpg',
-      caption: 'Brincando no parque',
+      photo_url: 'https://placehold.co/800x600/f59e0b/fff?text=Lucas+brincando',
+      caption: 'Lucas brincando com os blocos coloridos',
       uploaded_by: staff1._id
     });
-    
+
     await ReportPhoto.create({
       daily_report_id: report2._id,
-      photo_url: 'https://example.com/photos/report2.jpg',
-      caption: 'Hora da soneca',
+      photo_url: 'https://placehold.co/800x600/6366f1/fff?text=Sofia+soneca',
+      caption: 'Hora da soneca da Sofia',
       uploaded_by: staff1._id
     });
-    
-    console.log(`✅ Created ${2} report photos\n`);
-    
-    // 10. Create Attendance
+
+    await ReportPhoto.create({
+      daily_report_id: report3._id,
+      photo_url: 'https://placehold.co/800x600/10b981/fff?text=Pedro+pintura',
+      caption: 'Pedro na atividade de pintura',
+      uploaded_by: staff2._id
+    });
+
+    console.log('✅ 3 report photos created\n');
+
+    // ── 10. Attendance ───────────────────────────────────────────────────────
     console.log('✅ Creating attendance records...');
-    const checkIn1 = new Date(today);
-    checkIn1.setHours(8, 0, 0, 0);
-    const checkOut1 = new Date(today);
-    checkOut1.setHours(17, 0, 0, 0);
-    
+
+    // Today — present with check-in and check-out
     await Attendance.create({
       child_id: child1._id,
-      date: today,
-      check_in: checkIn1,
-      check_out: checkOut1,
+      date: new Date(),
+      check_in: todayAt(7, 55),
+      check_out: todayAt(17, 0),
       status: 'present',
       notes: '',
       recorded_by: staff1._id
     });
-    
-    const checkIn2 = new Date(today);
-    checkIn2.setHours(8, 30, 0, 0);
-    const checkOut2 = new Date(today);
-    checkOut2.setHours(17, 30, 0, 0);
-    
+
     await Attendance.create({
       child_id: child2._id,
-      date: today,
-      check_in: checkIn2,
-      check_out: checkOut2,
+      date: new Date(),
+      check_in: todayAt(8, 10),
+      check_out: todayAt(17, 30),
       status: 'present',
       notes: '',
       recorded_by: staff1._id
     });
-    
-    const checkIn3 = new Date(today);
-    checkIn3.setHours(7, 45, 0, 0);
-    const checkOut3 = new Date(today);
-    checkOut3.setHours(16, 30, 0, 0);
-    
+
     await Attendance.create({
       child_id: child3._id,
-      date: today,
-      check_in: checkIn3,
-      check_out: checkOut3,
+      date: new Date(),
+      check_in: todayAt(7, 45),
       status: 'present',
       notes: '',
       recorded_by: staff2._id
     });
-    
-    const checkIn4 = new Date(today);
-    checkIn4.setHours(8, 15, 0, 0);
-    
+
     await Attendance.create({
       child_id: child4._id,
-      date: today,
-      check_in: checkIn4,
+      date: new Date(),
+      check_in: todayAt(8, 20),
       status: 'late',
-      notes: 'Chegou 15 minutos atrasado',
+      notes: 'Chegou 20 minutos após o início das atividades.',
       recorded_by: staff2._id
     });
-    
-    console.log(`✅ Created ${4} attendance records\n`);
-    
-    // 11. Create Calendar Events
+
+    // Yesterday — absent
+    await Attendance.create({
+      child_id: child3._id,
+      date: daysFromNow(-1),
+      status: 'absent',
+      notes: 'Falta justificada por doença.',
+      recorded_by: staff2._id
+    });
+
+    console.log('✅ 5 attendance records created\n');
+
+    // ── 11. Calendar Events ──────────────────────────────────────────────────
     console.log('📅 Creating calendar events...');
+
+    const nextWeekFriday = daysFromNow(7 - now.getDay() + 5);
     await CalendarEvent.create({
-      title: 'Festa de Aniversário Coletiva',
-      description: 'Celebração dos aniversariantes do mês',
-      start_date: new Date('2025-02-15T10:00:00Z'),
-      end_date: new Date('2025-02-15T12:00:00Z'),
+      title: 'Festa de Aniversários do Mês',
+      description: 'Celebração coletiva dos aniversariantes. Pais são bem-vindos!',
+      start_date: new Date(new Date(nextWeekFriday).setHours(10, 0, 0, 0)),
+      end_date: new Date(new Date(nextWeekFriday).setHours(12, 0, 0, 0)),
       is_all_day: false,
       event_type: 'activity',
-      class_id: null,
       created_by: admin._id
     });
-    
+
     await CalendarEvent.create({
-      title: 'Reunião de Pais',
-      description: 'Reunião mensal com os responsáveis',
-      start_date: new Date('2025-02-20T19:00:00Z'),
-      end_date: new Date('2025-02-20T21:00:00Z'),
+      title: 'Reunião de Pais e Responsáveis',
+      description: 'Reunião mensal para acompanhamento do desenvolvimento das crianças.',
+      start_date: new Date(new Date(daysFromNow(14)).setHours(18, 30, 0, 0)),
+      end_date: new Date(new Date(daysFromNow(14)).setHours(20, 0, 0, 0)),
       is_all_day: false,
       event_type: 'meeting',
-      class_id: null,
       created_by: admin._id
     });
-    
+
     await CalendarEvent.create({
-      title: 'Feriado - Carnaval',
-      description: 'Centro fechado',
-      start_date: new Date('2025-03-03'),
-      end_date: new Date('2025-03-05'),
+      title: 'Dia da Família — Gincana',
+      description: 'Atividade ao ar livre com famílias.',
+      start_date: daysFromNow(21),
+      end_date: daysFromNow(21),
+      is_all_day: true,
+      event_type: 'activity',
+      created_by: admin._id
+    });
+
+    await CalendarEvent.create({
+      title: 'Formação de Educadores',
+      description: 'Centro encerrado — formação interna da equipa.',
+      start_date: daysFromNow(30),
+      end_date: daysFromNow(30),
       is_all_day: true,
       event_type: 'holiday',
-      class_id: null,
       created_by: admin._id
     });
-    
-    console.log(`✅ Created ${3} calendar events\n`);
-    
-    // 12. Create Invoices
+
+    console.log('✅ 4 calendar events created\n');
+
+    // ── 12. Invoices ─────────────────────────────────────────────────────────
     console.log('💰 Creating invoices...');
+
+    const dueDate = new Date(startOfMonth());
+    dueDate.setDate(10); // due on the 10th of current month
+
     const invoice1 = await Invoice.create({
-      invoice_number: 'INV-2025-0001',
+      invoice_number: `INV-${currentYear}-0001`,
       child_id: child1._id,
       parent_id: responsavel1._id,
-      issue_date: new Date('2025-01-01'),
-      due_date: new Date('2025-01-31'),
-      amount: 500.00,
+      issue_date: startOfMonth(),
+      due_date: dueDate,
+      amount: 4500.00,
       status: 'pending',
       items: [
         {
-          description: 'Mensalidade Janeiro 2025',
+          description: `Mensalidade ${getMonthName(currentMonth)} ${currentYear}`,
           quantity: 1,
-          unit_price: 500.00,
-          total: 500.00
+          unit_price: 4500.00,
+          total: 4500.00
         }
       ],
       notes: '',
       created_by: admin._id
     });
-    
+
     const invoice2 = await Invoice.create({
-      invoice_number: 'INV-2025-0002',
+      invoice_number: `INV-${currentYear}-0002`,
+      child_id: child4._id,
+      parent_id: responsavel1._id,
+      issue_date: startOfMonth(),
+      due_date: dueDate,
+      amount: 4500.00,
+      status: 'pending',
+      items: [
+        {
+          description: `Mensalidade ${getMonthName(currentMonth)} ${currentYear}`,
+          quantity: 1,
+          unit_price: 4500.00,
+          total: 4500.00
+        }
+      ],
+      notes: '',
+      created_by: admin._id
+    });
+
+    const invoice3 = await Invoice.create({
+      invoice_number: `INV-${currentYear}-0003`,
       child_id: child2._id,
       parent_id: responsavel2._id,
-      issue_date: new Date('2025-01-01'),
-      due_date: new Date('2025-01-31'),
-      amount: 500.00,
-      status: 'pending',
-      items: [
-        {
-          description: 'Mensalidade Janeiro 2025',
-          quantity: 1,
-          unit_price: 500.00,
-          total: 500.00
-        }
-      ],
-      notes: '',
-      created_by: admin._id
-    });
-    
-    const invoice3 = await Invoice.create({
-      invoice_number: 'INV-2025-0003',
-      child_id: child3._id,
-      parent_id: responsavel3._id,
-      issue_date: new Date('2025-01-01'),
-      due_date: new Date('2025-01-31'),
-      amount: 500.00,
+      issue_date: startOfMonth(),
+      due_date: dueDate,
+      amount: 4500.00,
       status: 'paid',
       items: [
         {
-          description: 'Mensalidade Janeiro 2025',
+          description: `Mensalidade ${getMonthName(currentMonth)} ${currentYear}`,
           quantity: 1,
-          unit_price: 500.00,
-          total: 500.00
+          unit_price: 4500.00,
+          total: 4500.00
         }
       ],
       notes: '',
       created_by: admin._id
     });
-    
-    console.log(`✅ Created ${3} invoices\n`);
-    
-    // 13. Create Payments
+
+    const prevDueDate = new Date(currentYear, prevMonth - 1, 10);
+    const invoice4 = await Invoice.create({
+      invoice_number: `INV-${prevMonthYear}-0004`,
+      child_id: child3._id,
+      parent_id: responsavel3._id,
+      issue_date: new Date(prevMonthYear, prevMonth - 1, 1),
+      due_date: prevDueDate,
+      amount: 4500.00,
+      status: 'overdue',
+      items: [
+        {
+          description: `Mensalidade ${getMonthName(prevMonth)} ${prevMonthYear}`,
+          quantity: 1,
+          unit_price: 4500.00,
+          total: 4500.00
+        }
+      ],
+      notes: 'Fatura em atraso.',
+      created_by: admin._id
+    });
+
+    console.log('✅ 4 invoices created\n');
+
+    // ── 13. Payments ─────────────────────────────────────────────────────────
     console.log('💳 Creating payments...');
+
     await Payment.create({
       invoice_id: invoice3._id,
-      parent_id: responsavel3._id,
-      child_id: child3._id,
-      amount: 500.00,
-      payment_date: new Date('2025-01-10'),
+      parent_id: responsavel2._id,
+      child_id: child2._id,
+      amount: 4500.00,
+      payment_date: new Date(new Date(startOfMonth()).setDate(5)),
       payment_method: 'bank_transfer',
-      payment_method_details: 'Transferência bancária',
-      reference_number: 'TXN123456',
-      notes: 'Pagamento em dia',
+      payment_method_details: 'Transferência bancária — BIM',
+      reference_number: `TXN${currentYear}001`,
+      notes: 'Pagamento na data prevista.',
       recorded_by: admin._id
     });
-    
+
+    // Partial payment on invoice1
     await Payment.create({
       invoice_id: invoice1._id,
       parent_id: responsavel1._id,
       child_id: child1._id,
-      amount: 250.00,
-      payment_date: new Date('2025-01-15'),
+      amount: 2000.00,
+      payment_date: new Date(new Date(startOfMonth()).setDate(8)),
       payment_method: 'cash',
       reference_number: '',
-      notes: 'Parcial',
+      notes: 'Pagamento parcial.',
       recorded_by: admin._id
     });
-    
-    console.log(`✅ Created ${2} payments\n`);
-    
-    // 14. Create Expense Categories
+
+    console.log('✅ 2 payments created\n');
+
+    // ── 14. Expense Categories ───────────────────────────────────────────────
     console.log('📂 Creating expense categories...');
+
     const catLimpeza = await ExpenseCategory.create({
       name: 'Material de Limpeza',
       description: 'Produtos de limpeza e higiene',
       is_active: true
     });
-    
+
     const catAlimentacao = await ExpenseCategory.create({
       name: 'Alimentação',
       description: 'Alimentos e bebidas',
       is_active: true
     });
-    
-    const catMaterial = await ExpenseCategory.create({
+
+    const catPedagogico = await ExpenseCategory.create({
       name: 'Material Pedagógico',
       description: 'Materiais para atividades educacionais',
       is_active: true
     });
-    
-    const catManutencao = await ExpenseCategory.create({
+
+    await ExpenseCategory.create({
       name: 'Manutenção',
-      description: 'Reparos e manutenção',
+      description: 'Reparos e manutenção das instalações',
       is_active: true
     });
-    
-    console.log(`✅ Created ${4} expense categories\n`);
-    
-    // 15. Create Expenses
+
+    await ExpenseCategory.create({
+      name: 'Utilities',
+      description: 'Água, energia e internet',
+      is_active: true
+    });
+
+    console.log('✅ 5 expense categories created\n');
+
+    // ── 15. Expenses ─────────────────────────────────────────────────────────
     console.log('💸 Creating expenses...');
+
     await Expense.create({
       category_id: catLimpeza._id,
-      amount: 150.00,
-      description: 'Compra de material de limpeza',
-      expense_date: new Date('2025-01-05'),
-      receipt_url: 'https://example.com/receipts/001.pdf',
-      vendor: 'Supermercado XYZ',
+      amount: 1500.00,
+      description: 'Material de limpeza mensal',
+      expense_date: new Date(new Date(startOfMonth()).setDate(3)),
+      vendor: 'Supermercado Shoprite',
       recorded_by: admin._id
     });
-    
+
     await Expense.create({
       category_id: catAlimentacao._id,
-      amount: 300.00,
-      description: 'Compra de alimentos para o mês',
-      expense_date: new Date('2025-01-10'),
-      receipt_url: 'https://example.com/receipts/002.pdf',
-      vendor: 'Atacadista ABC',
+      amount: 8000.00,
+      description: 'Compra mensal de alimentos',
+      expense_date: new Date(new Date(startOfMonth()).setDate(2)),
+      vendor: 'Makro Maputo',
       recorded_by: admin._id
     });
-    
+
     await Expense.create({
-      category_id: catMaterial._id,
-      amount: 200.00,
-      description: 'Material pedagógico',
-      expense_date: new Date('2025-01-12'),
-      vendor: 'Papelaria Educativa',
+      category_id: catPedagogico._id,
+      amount: 2500.00,
+      description: 'Tintas, papel e materiais para actividades do mês',
+      expense_date: new Date(new Date(startOfMonth()).setDate(4)),
+      vendor: 'Papelaria Central',
       recorded_by: admin._id
     });
-    
-    console.log(`✅ Created ${3} expenses\n`);
-    
-    // 16. Create Messages
+
+    console.log('✅ 3 expenses created\n');
+
+    // ── 16. Messages ─────────────────────────────────────────────────────────
     console.log('💬 Creating messages...');
+
+    // Admin → responsavel1 (individual, unread)
     await Message.create({
       sender_id: admin._id,
       recipient_id: responsavel1._id,
       subject: 'Lembrete: Reunião de Pais',
-      content: 'A reunião de pais será no dia 20/02 às 19h. Por favor, confirmar presença.',
+      content: `Olá Ana,\n\nLembramos que a reunião de pais está agendada para daqui a 14 dias às 18h30. A sua presença é muito importante para acompanhar o desenvolvimento do Lucas e da Isabella.\n\nCumprimentos,\nEquipa Sonho de Criança`,
       message_type: 'reminder',
       child_id: child1._id,
       is_read: false
     });
-    
+
+    // Admin → all responsáveis (broadcast, unread)
     await Message.create({
       sender_id: admin._id,
       recipient_role: 'responsavel',
-      subject: 'Aviso: Feriado',
-      content: 'Lembramos que nos dias 03, 04 e 05/03 o centro estará fechado devido ao feriado de Carnaval.',
-      message_type: 'announcement',
+      subject: 'Informação: Novos horários de verão',
+      content: `Caros responsáveis,\n\nInformamos que a partir do próximo mês o centro funcionará em horário alargado das 07h00 às 18h00.\n\nObrigado pela vossa compreensão.`,
+      message_type: 'info',
       is_read: false
     });
-    
+
+    // responsavel1 → staff1 (read)
     await Message.create({
       sender_id: responsavel1._id,
       recipient_id: staff1._id,
-      subject: 'Dúvida sobre relatório',
-      content: 'Gostaria de saber mais detalhes sobre o relatório mensal do Lucas.',
-      message_type: 'direct',
+      subject: 'Dúvida sobre o relatório do Lucas',
+      content: `Olá Maria,\n\nGostaria de perceber melhor os detalhes do relatório diário do Lucas de ontem. Ele chegou a casa um pouco agitado.\n\nObrigada,\nAna`,
+      message_type: 'general',
       child_id: child1._id,
       is_read: true
     });
-    
-    console.log(`✅ Created ${3} messages\n`);
-    
-    // 17. Create Monthly Reports
+
+    // staff1 → admin (alert)
+    await Message.create({
+      sender_id: staff1._id,
+      recipient_id: admin._id,
+      subject: 'Alerta: Material pedagógico em falta',
+      content: `Bom dia,\n\nFicámos sem papel kraft e tintas para as actividades desta semana. Preciso de autorização para fazer uma compra urgente.\n\nMaria`,
+      message_type: 'alert',
+      is_read: false
+    });
+
+    console.log('✅ 4 messages created\n');
+
+    // ── 17. Monthly Reports ──────────────────────────────────────────────────
     console.log('📊 Creating monthly reports...');
+
+    // Previous month — validated (visible to responsavel)
     await MonthlyReport.create({
       child_id: child1._id,
-      month: 1,
-      year: 2025,
+      month: prevMonth,
+      year: prevMonthYear,
       created_by: staff1._id,
-      status: 'submitted',
+      status: 'validated',
+      validated_by: admin._id,
+      validated_at: new Date(prevMonthYear, prevMonth - 1, 28),
       attendance_summary: {
         total_days: 22,
         present_days: 20,
         absent_days: 2,
         late_days: 0
       },
-      physical_development: 'Desenvolvimento motor adequado para a idade',
-      cognitive_development: 'Boa evolução cognitiva, demonstra curiosidade',
-      social_development: 'Interage bem com outras crianças e adultos',
-      emotional_development: 'Estável emocionalmente',
-      general_notes: 'Ótimo mês de desenvolvimento',
-      achievements: 'Aprendeu a sentar sozinho',
-      areas_for_improvement: 'Continuar estimulando a fala'
+      physical_development: 'Desenvolvimento motor excelente para a faixa etária.',
+      cognitive_development: 'Demonstra muita curiosidade e interesse no ambiente.',
+      social_development: 'Interage bem com os educadores e colegas.',
+      emotional_development: 'Estável e bem-humorado na maior parte do tempo.',
+      general_notes: 'Excelente mês de adaptação e desenvolvimento.',
+      achievements: 'Começou a dar os primeiros passos.',
+      areas_for_improvement: 'Continuar a estimular a comunicação verbal.'
     });
-    
+
     await MonthlyReport.create({
       child_id: child2._id,
-      month: 1,
-      year: 2025,
+      month: prevMonth,
+      year: prevMonthYear,
       created_by: staff1._id,
-      status: 'draft',
+      status: 'validated',
+      validated_by: admin._id,
+      validated_at: new Date(prevMonthYear, prevMonth - 1, 28),
       attendance_summary: {
         total_days: 22,
         present_days: 21,
         absent_days: 1,
         late_days: 0
       },
-      physical_development: 'Desenvolvimento normal',
-      cognitive_development: 'Excelente desenvolvimento',
-      social_development: 'Muito sociável',
-      emotional_development: 'Calma e tranquila',
-      general_notes: 'Em desenvolvimento',
+      physical_development: 'Desenvolvimento adequado.',
+      cognitive_development: 'Excelente capacidade de atenção.',
+      social_development: 'Muito sociável, faz amigos com facilidade.',
+      emotional_development: 'Calma e tranquila.',
+      general_notes: 'Muito bom mês.',
+      achievements: 'Aprendeu a nomear 10 animais em português.',
+      areas_for_improvement: 'Reforçar a dieta sem lactose com os pais.'
+    });
+
+    // Current month — draft (not yet visible to responsavel)
+    await MonthlyReport.create({
+      child_id: child3._id,
+      month: currentMonth,
+      year: currentYear,
+      created_by: staff2._id,
+      status: 'draft',
+      attendance_summary: {
+        total_days: now.getDate(),
+        present_days: now.getDate() - 1,
+        absent_days: 1,
+        late_days: 0
+      },
+      physical_development: 'Excelente desenvolvimento motor.',
+      cognitive_development: 'Criativo e muito participativo.',
+      social_development: 'Liderança natural no grupo.',
+      emotional_development: 'Alegre e expressivo.',
+      general_notes: 'Em rascunho — aguarda revisão antes de submissão.',
       achievements: '',
       areas_for_improvement: ''
     });
-    
+
+    // Current month — submitted (awaiting admin validation)
     await MonthlyReport.create({
-      child_id: child3._id,
-      month: 1,
-      year: 2025,
+      child_id: child4._id,
+      month: currentMonth,
+      year: currentYear,
       created_by: staff2._id,
-      status: 'validated',
-      validated_by: admin._id,
-      validated_at: new Date('2025-02-01'),
+      status: 'submitted',
       attendance_summary: {
-        total_days: 22,
-        present_days: 22,
-        absent_days: 0,
-        late_days: 0
+        total_days: now.getDate(),
+        present_days: now.getDate() - 2,
+        absent_days: 1,
+        late_days: 1
       },
-      physical_development: 'Excelente desenvolvimento motor',
-      cognitive_development: 'Muito criativo e participativo',
-      social_development: 'Liderança natural',
-      emotional_development: 'Muito alegre e expressivo',
-      general_notes: 'Excelente mês',
-      achievements: 'Aprendeu novas palavras e expressões',
-      areas_for_improvement: 'Continuar estimulando'
+      physical_development: 'Desenvolvimento motor avançado para a idade.',
+      cognitive_development: 'Muito curiosa, faz muitas perguntas.',
+      social_development: 'Boa integração com o grupo.',
+      emotional_development: 'Às vezes impaciente, mas melhora progressivamente.',
+      general_notes: 'Aguarda validação pelo administrador.',
+      achievements: 'Reconhece todas as letras do alfabeto.',
+      areas_for_improvement: 'Trabalhar a paciência e a espera pela vez.'
     });
-    
-    console.log(`✅ Created ${3} monthly reports\n`);
-    
-    console.log('✅ Database seeding completed successfully!\n');
-    console.log('📋 Summary:');
-    console.log(`   - Users: 6 (1 admin, 2 staff, 3 responsáveis)`);
-    console.log(`   - Classes: 5`);
-    console.log(`   - Children: 4`);
-    console.log(`   - Staff Assignments: 4`);
-    console.log(`   - Guardians: 4`);
-    console.log(`   - Pickup Persons: 2`);
-    console.log(`   - Activities: 2`);
-    console.log(`   - Daily Reports: 3`);
-    console.log(`   - Report Photos: 2`);
-    console.log(`   - Attendance Records: 4`);
-    console.log(`   - Calendar Events: 3`);
-    console.log(`   - Invoices: 3`);
-    console.log(`   - Payments: 2`);
-    console.log(`   - Expense Categories: 4`);
-    console.log(`   - Expenses: 3`);
-    console.log(`   - Messages: 3`);
-    console.log(`   - Monthly Reports: 3\n`);
-    console.log('🔑 All users have password: test1234\n');
-    console.log('👤 Test Users:');
-    console.log('   Admin: admin@daycare.com');
-    console.log('   Staff 1: maria@daycare.com');
-    console.log('   Staff 2: joao@daycare.com');
-    console.log('   Responsável 1: ana.silva@example.com');
-    console.log('   Responsável 2: carlos.santos@example.com');
-    console.log('   Responsável 3: patricia.oliveira@example.com\n');
-    
+
+    console.log('✅ 4 monthly reports created\n');
+
+    // ── Summary ──────────────────────────────────────────────────────────────
+    console.log('─'.repeat(50));
+    console.log('🎉 Database seeded successfully!\n');
+    console.log('📊 Summary:');
+    console.log('   Users              6   (1 admin · 2 staff · 3 responsáveis)');
+    console.log('   Classes            5');
+    console.log('   Staff assignments  4');
+    console.log('   Children           4');
+    console.log('   Guardians          4');
+    console.log('   Pickup persons     2');
+    console.log('   Activities         3');
+    console.log('   Daily reports      3');
+    console.log('   Report photos      3');
+    console.log('   Attendance         5');
+    console.log('   Calendar events    4');
+    console.log('   Invoices           4   (pending · paid · overdue)');
+    console.log('   Payments           2');
+    console.log('   Expense categories 5');
+    console.log('   Expenses           3');
+    console.log('   Messages           4');
+    console.log('   Monthly reports    4   (validated · draft · submitted)');
+    console.log('\n🔑 Password for all accounts: ' + DEMO_PASSWORD);
+    console.log('\n👤 Demo accounts:');
+    console.log('   ┌──────────────────────────────────────┬──────────────────┐');
+    console.log('   │ Email                                 │ Role             │');
+    console.log('   ├──────────────────────────────────────┼──────────────────┤');
+    console.log('   │ admin@sonhodecrianca.mz               │ Administrador    │');
+    console.log('   │ maria@sonhodecrianca.mz               │ Staff            │');
+    console.log('   │ joao@sonhodecrianca.mz                │ Staff            │');
+    console.log('   │ ana.silva@demo.com                    │ Responsável      │');
+    console.log('   │ carlos.santos@demo.com                │ Responsável      │');
+    console.log('   │ patricia.oliveira@demo.com            │ Responsável      │');
+    console.log('   └──────────────────────────────────────┴──────────────────┘\n');
+
   } catch (error) {
-    console.error('❌ Error seeding database:', error);
+    console.error('\n❌ Seeding failed:', error);
     throw error;
   } finally {
     await disconnectDB();
   }
 }
 
-// Run the seed function
+function getMonthName(month: number): string {
+  const names = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return names[month - 1] ?? String(month);
+}
+
 if (require.main === module) {
   seedDatabase()
-    .then(() => {
-      console.log('✅ Seed script completed');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Seed script failed:', error);
-      process.exit(1);
-    });
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
 }
 
 export default seedDatabase;

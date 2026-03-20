@@ -12,7 +12,8 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "seed": "ts-node scripts/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
+    "seed:fresh": "ts-node -r tsconfig-paths/register scripts/seed.ts --fresh"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.11",

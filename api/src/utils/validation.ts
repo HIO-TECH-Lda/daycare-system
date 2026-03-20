@@ -325,9 +325,8 @@ export const createReportPhotoSchema = Joi.object({
   daily_report_id: Joi.string().required().messages({
     'any.required': 'ID do relatório é obrigatório'
   }),
-  photo_url: Joi.string().required().messages({
-    'any.required': 'URL da foto é obrigatória'
-  }),
+  // Optional when a file is uploaded directly; controller validates that at least one is present
+  photo_url: Joi.string().optional().allow(''),
   caption: Joi.string().optional().allow('')
 });
 

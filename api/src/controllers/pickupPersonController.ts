@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PickupPersonService } from '../services/pickupPersonService';
 import { ChildService } from '../services/childService';
+import { CloudinaryService } from '../services/cloudinaryService';
 import { catchAsync } from '../utils/catchAsync';
 import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
@@ -27,11 +28,21 @@ export class PickupPersonController {
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
+    if ((req as any).file) {
+      const file = (req as any).file as Express.Multer.File;
+      const { url } = await CloudinaryService.upload(file.buffer, 'pickup-persons');
+      req.body.photo_url = url;
+    }
     const pickupPerson = await PickupPersonService.create(req.body);
     res.status(201).json(ApiResponse.success(pickupPerson, 'Pessoa autorizada criada com sucesso', 201));
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {
+    if ((req as any).file) {
+      const file = (req as any).file as Express.Multer.File;
+      const { url } = await CloudinaryService.upload(file.buffer, 'pickup-persons');
+      req.body.photo_url = url;
+    }
     const pickupPerson = await PickupPersonService.update(req.params.id, req.body);
     if (!pickupPerson) {
       return res.status(404).json({ success: false, message: 'Pessoa autorizada não encontrada' });

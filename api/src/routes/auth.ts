@@ -1,4 +1,3 @@
-import { Request, Response, NextFunction } from 'express';
 import { Router } from 'express';
 import { AuthController } from '../controllers/authController';
 import { authenticateToken } from '../middleware/auth';
@@ -14,14 +13,6 @@ import {
 
 const router = Router();
 
-const normalizeProfileBody = (req: Request, _res: Response, next: NextFunction) => {
-  if ((req as any).file) {
-    const file = (req as any).file;
-    (req as any).body.avatar = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-  }
-  next();
-};
-
 router.post('/register', validateRequest(registerSchema), AuthController.register);
 router.post('/login', validateRequest(loginSchema), AuthController.login);
 router.post('/refresh', validateRequest(refreshTokenSchema), AuthController.refreshToken);
@@ -30,7 +21,6 @@ router.put(
   '/me',
   authenticateToken,
   uploadAvatar,
-  normalizeProfileBody,
   validateRequest(updateProfileSchema),
   AuthController.updateProfile
 );

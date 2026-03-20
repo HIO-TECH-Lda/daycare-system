@@ -46,7 +46,7 @@ const requiredEnvVars: RequiredEnvVars = {
   CLOUDINARY_FOLDER_NAME: {
     required: false,
     description: 'Cloudinary base folder name',
-    defaultValue: 'api-starter'
+    defaultValue: 'sonho-de-crianca'
   },
   SMTP_HOST: { required: false, description: 'SMTP host', defaultValue: 'smtp.gmail.com' },
   SMTP_PORT: { required: false, description: 'SMTP port', defaultValue: '587' },

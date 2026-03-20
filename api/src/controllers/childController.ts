@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ChildService } from '../services/childService';
 import { StaffAssignmentService } from '../services/staffAssignmentService';
+import { CloudinaryService } from '../services/cloudinaryService';
 import { catchAsync } from '../utils/catchAsync';
 import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
@@ -45,12 +46,22 @@ export class ChildController {
 
   // Create child
   static create = catchAsync(async (req: Request, res: Response) => {
+    if ((req as any).file) {
+      const file = (req as any).file as Express.Multer.File;
+      const { url } = await CloudinaryService.upload(file.buffer, 'children');
+      req.body.photo_url = url;
+    }
     const child = await ChildService.create(req.body);
     res.status(201).json(ApiResponse.success(child, 'Criança criada com sucesso', 201));
   });
 
   // Update child
   static update = catchAsync(async (req: Request, res: Response) => {
+    if ((req as any).file) {
+      const file = (req as any).file as Express.Multer.File;
+      const { url } = await CloudinaryService.upload(file.buffer, 'children');
+      req.body.photo_url = url;
+    }
     const child = await ChildService.update(req.params.id, req.body);
     
     if (!child) {

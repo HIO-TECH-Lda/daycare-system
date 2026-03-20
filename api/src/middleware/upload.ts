@@ -1,34 +1,48 @@
 import multer from 'multer';
 
-// Configure multer to handle multipart/form-data
-// We use memory storage since we upload directly to Cloudinary
 const storage = multer.memoryStorage();
 
-// File filter for images
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Allow images
+const imageFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed'));
+    cb(new Error('Apenas arquivos de imagem são permitidos'));
   }
 };
 
-// Multer configuration
-export const upload = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+const imageOrPdfFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+    cb(null, true);
+  } else {
+    cb(new Error('Apenas arquivos de imagem ou PDF são permitidos'));
   }
+};
+
+const uploadImage = multer({
+  storage,
+  fileFilter: imageFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// Middleware for single image upload (field name: 'image')
-export const uploadSingleImage = upload.single('image');
+const uploadFile = multer({
+  storage,
+  fileFilter: imageOrPdfFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
 
-// Middleware for avatar upload (field name: 'avatar')
-export const uploadAvatar = upload.single('avatar');
+/** Single image upload — field name: `avatar` (for user profile) */
+export const uploadAvatar = uploadImage.single('avatar');
 
-// Middleware for multiple images (field name: 'images')
-export const uploadMultipleImages = upload.array('images', 10);
+/** Single image upload — field name: `photo` (for children, pickup persons, report photos) */
+export const uploadPhoto = uploadImage.single('photo');
 
+/** Single image or PDF upload — field name: `receipt` (for expenses) */
+export const uploadReceipt = uploadFile.single('receipt');
+
+/** Generic single image — field name: `image` */
+export const uploadSingleImage = uploadImage.single('image');
+
+/** Generic multiple images — field name: `images` */
+export const uploadMultipleImages = uploadImage.array('images', 10);
+
+export const upload = uploadImage;

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthService, formatUserForFrontend } from '../services/authService';
 import { NotificationService } from '../services/notificationService';
+import { CloudinaryService } from '../services/cloudinaryService';
 import Messages from '../utils/messages';
 
 export class AuthController {
@@ -115,6 +116,13 @@ export class AuthController {
   // Update user profile
   static async updateProfile(req: Request, res: Response) {
     try {
+      // If a file was uploaded, push it to Cloudinary and use the returned URL
+      if ((req as any).file) {
+        const file = (req as any).file as Express.Multer.File;
+        const { url } = await CloudinaryService.upload(file.buffer, 'avatars');
+        req.body.avatar = url;
+      }
+
       const updatedUser = await AuthService.updateUserProfile(req.user!.userId, req.body);
       
       if (!updatedUser) {

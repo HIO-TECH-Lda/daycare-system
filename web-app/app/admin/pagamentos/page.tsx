@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { paymentsApi, childrenApi, invoicesApi } from '@/lib/api-services';
+import { paymentsApi, childrenApi, invoicesApi, usersApi } from '@/lib/api-services';
 import { queryKeys } from '@/lib/query-keys';
 import { messages } from '@/lib/messages';
 import { toast } from 'sonner';
@@ -44,7 +44,7 @@ const paymentMethods = [
 
 export default function PagamentosPage() {
   const { user } = useAuth();
-  const [payments, setPayments] = useState<Payment[]>(mockPayments);
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMethod, setFilterMethod] = useState<string>('all');
@@ -58,6 +58,53 @@ export default function PagamentosPage() {
     payment_method_details: '',
     reference_number: '',
     notes: '',
+  });
+
+  const { data: payments = [], isLoading } = useQuery({
+    queryKey: queryKeys.payments.list(),
+    queryFn: async () => {
+      const response = await paymentsApi.list();
+      return (response.data || []) as Payment[];
+    },
+  });
+
+  const { data: children = [] } = useQuery({
+    queryKey: queryKeys.children.list(),
+    queryFn: async () => {
+      const response = await childrenApi.list();
+      return response.data || [];
+    },
+  });
+
+  const { data: invoices = [] } = useQuery({
+    queryKey: queryKeys.invoices.list(),
+    queryFn: async () => {
+      const response = await invoicesApi.list();
+      return response.data || [];
+    },
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: queryKeys.users.list(),
+    queryFn: async () => {
+      const response = await usersApi.list({ role: 'responsavel' });
+      return response.data || [];
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: Parameters<typeof paymentsApi.create>[0]) => paymentsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+      toast.success(messages.success.created);
+      setOpen(false);
+      setFormData({
+        invoice_id: '', parent_id: '', child_id: '', amount: '',
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_method: 'cash', payment_method_details: '', reference_number: '', notes: '',
+      });
+    },
+    onError: () => toast.error('Erro ao registrar pagamento'),
   });
 
   const filteredPayments = payments.filter(payment => {
@@ -98,25 +145,17 @@ export default function PagamentosPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const newPayment: Payment = {
-      id: `pay-${Date.now()}`,
+    createMutation.mutate({
       invoice_id: formData.invoice_id || undefined,
       parent_id: formData.parent_id,
       child_id: formData.child_id,
       amount: parseFloat(formData.amount),
       payment_date: formData.payment_date,
-      payment_method: formData.payment_method,
+      payment_method: formData.payment_method as Parameters<typeof paymentsApi.create>[0]['payment_method'],
       payment_method_details: formData.payment_method_details || undefined,
       reference_number: formData.reference_number || undefined,
       notes: formData.notes || undefined,
-      recorded_by: user?.id || '',
-      created_at: new Date().toISOString(),
-    };
-
-    setPayments([newPayment, ...payments]);
-    alert('Pagamento registrado com sucesso!');
-    setOpen(false);
+    });
   };
 
   const getPaymentMethodLabel = (method: Payment['payment_method']) => {
@@ -124,14 +163,15 @@ export default function PagamentosPage() {
   };
 
   const getPaymentMethodBadge = (method: Payment['payment_method']) => {
-    const colors: Record<Payment['payment_method'], string> = {
+    const colors: Record<string, string> = {
       cash: 'bg-green-100 text-green-700',
+      card: 'bg-yellow-100 text-yellow-700',
       bank_transfer: 'bg-blue-100 text-blue-700',
       check: 'bg-purple-100 text-purple-700',
       mobile_money: 'bg-orange-100 text-orange-700',
       other: 'bg-gray-100 text-gray-700',
     };
-    return <Badge className={colors[method]}>{getPaymentMethodLabel(method)}</Badge>;
+    return <Badge className={colors[method] || 'bg-gray-100 text-gray-700'}>{getPaymentMethodLabel(method)}</Badge>;
   };
 
   return (
@@ -289,7 +329,8 @@ export default function PagamentosPage() {
               </CardContent>
             </Card>
           );
-        })}
+        }))
+        }
 
         {filteredPayments.length === 0 && (
           <Card>
@@ -364,11 +405,9 @@ export default function PagamentosPage() {
                         <SelectValue placeholder="Selecione o responsável" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockUsers
-                          .filter(u => u.role === 'responsavel')
-                          .map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.name}
+                        {users.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name}
                             </SelectItem>
                           ))}
                       </SelectContent>
@@ -386,7 +425,7 @@ export default function PagamentosPage() {
                         <SelectValue placeholder="Selecione a criança" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockChildren
+                        {children
                           .filter(c => c.parent_id === formData.parent_id)
                           .map((child) => (
                             <SelectItem key={child.id} value={child.id}>

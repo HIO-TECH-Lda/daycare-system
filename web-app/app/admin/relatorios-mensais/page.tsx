@@ -119,7 +119,7 @@ export default function AdminRelatoriosMensaisPage() {
   };
 
   const getStatusBadge = (status: MonthlyReport['status']) => {
-    const variants: Record<MonthlyReport['status'], { label: string; className: string }> = {
+    const variants = {
       draft: { label: 'Rascunho', className: 'bg-gray-100 text-gray-700' },
       submitted: { label: 'Aguardando Validação', className: 'bg-blue-100 text-blue-700' },
       validated: { label: 'Validado', className: 'bg-green-100 text-green-700' },
@@ -305,7 +305,8 @@ export default function AdminRelatoriosMensaisPage() {
               </CardContent>
             </Card>
           );
-        })}
+        }))
+        }
 
       </div>
 

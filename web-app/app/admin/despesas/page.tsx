@@ -44,7 +44,7 @@ const paymentMethods = [
 
 export default function DespesasPage() {
   const { user } = useAuth();
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -61,10 +61,36 @@ export default function DespesasPage() {
     notes: '',
   });
 
+  const { data: expenses = [], isLoading } = useQuery({
+    queryKey: queryKeys.expenses.list(),
+    queryFn: async () => {
+      const response = await expensesApi.list();
+      return (response.data || []) as Expense[];
+    },
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: queryKeys.expenseCategories.list(),
+    queryFn: async () => {
+      const response = await expenseCategoriesApi.list();
+      return response.data || [];
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: { category_id: string; description: string; amount: number; expense_date: string; vendor?: string }) =>
+      expensesApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all });
+      toast.success(messages.success.created);
+    },
+    onError: () => toast.error('Erro ao registrar despesa'),
+  });
+
   const filteredExpenses = expenses.filter(expense => {
     const matchesSearch = !searchTerm || 
       expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expense.vendor?.toLowerCase().includes(searchTerm.toLowerCase());
+      expense.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'all' || expense.category_id === filterCategory;
     return matchesSearch && matchesCategory;
   });
@@ -113,8 +139,8 @@ export default function DespesasPage() {
         payment_method: 'cash', payment_method_details: '', reference_number: '',
         supplier_name: '', notes: '',
       });
-    } catch (error) {
-      toast.error('Erro ao registrar despesa');
+    } catch {
+      // error handled by mutation onError
     }
   };
 
@@ -123,7 +149,7 @@ export default function DespesasPage() {
   };
 
   const getPaymentMethodBadge = (method: Expense['payment_method']) => {
-    const colors: Record<Expense['payment_method'], string> = {
+    const colors = {
       cash: 'bg-green-100 text-green-700',
       bank_transfer: 'bg-blue-100 text-blue-700',
       check: 'bg-purple-100 text-purple-700',
@@ -134,7 +160,7 @@ export default function DespesasPage() {
   };
 
   const getCategoryName = (categoryId: string) => {
-    return mockExpenseCategories.find(c => c.id === categoryId)?.name || 'Categoria não encontrada';
+    return categories.find(c => c.id === categoryId)?.name || 'Categoria não encontrada';
   };
 
   return (
@@ -224,7 +250,7 @@ export default function DespesasPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as Categorias</SelectItem>
-              {mockExpenseCategories.map((category) => (
+              {categories.map((category) => (
                 <SelectItem key={category.id} value={category.id}>
                   {category.name}
                 </SelectItem>
@@ -309,6 +335,7 @@ export default function DespesasPage() {
           </Card>
         )}
       </div>
+      )}
 
       {/* Record Expense Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { childrenApi, dailyReportsApi, reportPhotosApi } from '@/lib/api-services';
 import { queryKeys } from '@/lib/query-keys';
 import { messages } from '@/lib/messages';
-import { Utensils, Moon, Baby, BookOpen, SmilePlus, Image as ImageIcon } from 'lucide-react';
+import { BookOpen, SmilePlus, Image as ImageIcon } from 'lucide-react';
 import { useParams } from 'next/navigation';
 
 export default function ChildReportPage() {
@@ -46,51 +46,6 @@ export default function ChildReportPage() {
 
   if (childLoading || reportsLoading) return <div className="flex items-center justify-center h-64">{messages.loading}</div>;
   if (!child) return <div>Criança não encontrada</div>;
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'feeding':
-        return <Utensils className="w-5 h-5" />;
-      case 'nap':
-        return <Moon className="w-5 h-5" />;
-      case 'diaper':
-        return <Baby className="w-5 h-5" />;
-      case 'pedagogical':
-        return <BookOpen className="w-5 h-5" />;
-      default:
-        return null;
-    }
-  };
-
-  const getActivityLabel = (type: string) => {
-    switch (type) {
-      case 'feeding':
-        return 'Alimentação';
-      case 'nap':
-        return 'Soneca';
-      case 'diaper':
-        return 'Troca de Fralda';
-      case 'pedagogical':
-        return 'Atividade Pedagógica';
-      default:
-        return type;
-    }
-  };
-
-  const getActivityColor = (type: string) => {
-    switch (type) {
-      case 'feeding':
-        return 'bg-orange-100 text-orange-700';
-      case 'nap':
-        return 'bg-purple-100 text-purple-700';
-      case 'diaper':
-        return 'bg-blue-100 text-blue-700';
-      case 'pedagogical':
-        return 'bg-green-100 text-green-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -143,7 +98,7 @@ export default function ChildReportPage() {
                     report.activities.map((activityName, index) => (
                       <div key={index} className="flex gap-4">
                         <div className="flex flex-col items-center">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-green-100 text-green-700`}>
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-green-100 text-green-700">
                             <BookOpen className="w-5 h-5" />
                           </div>
                           {index < report.activities.length - 1 && (
@@ -155,30 +110,11 @@ export default function ChildReportPage() {
                             {activityName}
                           </span>
                         </div>
-
-                        <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 space-y-1">
-                          {activity.activity_type === 'feeding' && (
-                            <>
-                              <p><span className="font-medium">Item:</span> {activity.food_item}</p>
-                              <p><span className="font-medium">Quantidade:</span> {activity.amount}</p>
-                            </>
-                          )}
-
-                          {activity.activity_type === 'nap' && (
-                            <p><span className="font-medium">Duração:</span> {activity.duration_minutes} minutos</p>
-                          )}
-
-                          {activity.activity_type === 'diaper' && (
-                            <p><span className="font-medium">Condição:</span> {activity.diaper_condition}</p>
-                          )}
-
-                          {activity.activity_type === 'pedagogical' && (
-                            <p>{activity.description}</p>
-                          )}
-                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">Nenhuma atividade registrada</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

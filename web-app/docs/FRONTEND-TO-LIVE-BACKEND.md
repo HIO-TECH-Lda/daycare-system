@@ -757,6 +757,13 @@ The following issues reported by the frontend team were fixed on the backend. Ch
 | 16 | Invoices | Invoice number generation is now atomic (race condition under concurrent requests fixed) | None |
 | 17 | Auth | Access tokens and refresh tokens now use separate secrets (`JWT_REFRESH_SECRET`) | None on the frontend — backend `.env` must be updated |
 
+### 2026-03-18 — Notifications + populate fix (no action required)
+
+| Area | What changed | Frontend action |
+|------|-------------|-----------------|
+| All | Email and WhatsApp notifications wired to backend events (register, invoice, daily report, monthly report, message, attendance). Purely backend — no API contract change. | None |
+| Invoices, Daily Reports, Monthly Reports, Messages, Attendance, Payments, Expenses, Activities, Calendar, Guardians, Pickup persons | `POST` (create) endpoints now correctly return populated sub-documents (`child_id`, `parent_id`, `created_by`, etc.) instead of bare ObjectId strings. This was a Mongoose bug — the endpoints always documented populated responses but were silently returning raw IDs. | None — response shape is now consistent with what was documented. If your code was working around missing nested fields (e.g. `invoice.child_id.name`), it will now work without the workaround. |
+
 ### Items requiring frontend code changes (summary)
 
 1. **Add `usersApi`** to `lib/api-services.ts` — needed for parent selection in enrollment and recipient picker in messaging (Section 7).

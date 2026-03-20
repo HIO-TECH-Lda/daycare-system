@@ -21,7 +21,8 @@ type CalendarEvent = {
   id: string;
   title: string;
   description: string;
-  event_date: string;
+  event_date?: string;
+  start_date?: string;
   event_type: string;
   class_id: string | null;
 };
@@ -87,7 +88,7 @@ export default function GestaoEventosPage() {
       setFormData({
         title: event.title,
         description: event.description,
-        event_date: event.start_date.split('T')[0],
+        event_date: (event.start_date || event.event_date || '').split('T')[0],
         event_type: event.event_type,
         class_id: event.class_id || '',
       });
@@ -307,7 +308,6 @@ export default function GestaoEventosPage() {
           );
         })}
         </div>
-      )}
     </div>
   );
 }

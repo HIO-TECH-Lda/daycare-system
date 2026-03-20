@@ -65,7 +65,6 @@ export default function EventosPage() {
             </Card>
           ))}
           </div>
-        )}
     </div>
   );
 }

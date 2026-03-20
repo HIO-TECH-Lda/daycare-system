@@ -230,7 +230,7 @@ export default function GestaoAlunosPage() {
                     <SelectValue placeholder="Selecione a turma" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockClasses.map((classItem) => (
+                    {classes.map((classItem) => (
                       <SelectItem key={classItem.id} value={classItem.id}>
                         {classItem.name} ({classItem.min_age_months}-{classItem.max_age_months} meses)
                       </SelectItem>
@@ -468,6 +468,7 @@ export default function GestaoAlunosPage() {
           );
         })}
       </div>
+      )}
 
       {/* Child Details Dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>

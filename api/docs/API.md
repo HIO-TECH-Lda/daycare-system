@@ -44,6 +44,17 @@ The Sonho de Criança API is a RESTful backend for a daycare management system. 
 **Rate limit:** 1 000 requests per 15 minutes per IP.  
 **Body size limit:** 10 MB.
 
+### File Uploads (Cloudinary)
+
+Endpoints that receive files use `multipart/form-data`. The API uploads the received file to Cloudinary and saves **only the resulting URL** in MongoDB.
+
+Cloudinary sub-folders used by this API:
+- `avatars` (user `avatar`)
+- `children` (child `photo_url`)
+- `pickup-persons` (pickup person `photo_url`)
+- `report-photos` (report photo `photo_url`)
+- `receipts` (expense `receipt_url`, supports images and PDFs)
+
 ---
 
 ## Authentication
@@ -247,7 +258,9 @@ Get the profile of the currently authenticated user.
 
 #### `PUT /auth/me` 🔒
 
-Update the authenticated user's profile. Supports multipart form upload for the `avatar` file field; the file is base64-encoded automatically.
+Update the authenticated user's profile.
+
+Supports `multipart/form-data` upload for the `avatar` file field. The uploaded file is sent to Cloudinary and the returned URL is stored in `avatar` in the database (no base64 storage).
 
 **Body (JSON or multipart)**
 
@@ -256,7 +269,7 @@ Update the authenticated user's profile. Supports multipart form upload for the 
 | `firstName` | string | 2–50 chars |
 | `lastName` | string | 2–50 chars |
 | `phone` | string | |
-| `avatar` | string / file | Base64 data-URI or file upload |
+| `avatar` | string / file | Send a Cloudinary URL as a string (JSON) or upload a file via multipart (field name `avatar`) |
 
 **Response `200`** — Updated user object.
 
@@ -492,7 +505,8 @@ Access is denied if the requesting user does not have permission to view the chi
 | `birth_date` | date | ✅ | |
 | `class_id` | ObjectId | ✅ | |
 | `parent_id` | ObjectId | ✅ | |
-| `photo_url` | string | — | URI |
+| `photo_url` | string | — | Cloudinary URL (if you do not upload a file) |
+| `photo` | file | — | Multipart image (field name `photo`); uploaded to Cloudinary and stored as `photo_url` |
 | `gender` | string | — | `Masculino` \| `Feminino` |
 | `allergies` | string | — | |
 | `medications` | string | — | |
@@ -519,7 +533,7 @@ Access is denied if the requesting user does not have permission to view the chi
 
 #### `PUT /children/:id` 🔒 (admin)
 
-Same fields as `POST`, all optional.
+Same fields as `POST`, all optional. For photo updates, upload multipart with field name `photo`.
 
 **Response `200`**
 
@@ -714,7 +728,8 @@ Returns all pickup persons for the given child.
 | `relationship` | string | — |
 | `email` | string | — |
 | `id_document` | string | — |
-| `photo_url` | string | — URI |
+| `photo_url` | string | — Cloudinary URL (if you do not upload a file) |
+| `photo` | file | — Multipart image (field name `photo`); uploaded to Cloudinary and stored as `photo_url` |
 | `is_authorized` | boolean | — defaults to `true` |
 
 **Response `201`**
@@ -722,6 +737,8 @@ Returns all pickup persons for the given child.
 ---
 
 #### `PUT /pickup-persons/:id` 🔒 (admin)
+
+Supports the same multipart file upload as `POST` (`photo` → Cloudinary → `photo_url`). All other fields are optional.
 
 **Response `200`**
 
@@ -934,8 +951,11 @@ Returns all photos associated with a specific daily report.
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `daily_report_id` | ObjectId | ✅ | |
-| `photo_url` | string | ✅ | URL of the hosted photo |
+| `photo_url` | string | — | Cloudinary URL (if you do not upload a file) |
+| `photo` | file | — | Multipart image (field name `photo`); uploaded to Cloudinary and stored as `photo_url` |
 | `caption` | string | — | |
+
+> At least one of `photo` or `photo_url` must be provided.
 
 **Response `201`**
 
@@ -1392,7 +1412,8 @@ All routes require authentication.
 | `amount` | number | ✅ |
 | `description` | string | ✅ |
 | `expense_date` | date | — |
-| `receipt_url` | string | — URI |
+| `receipt_url` | string | — Cloudinary URL (if you do not upload a file) |
+| `receipt` | file | — Multipart file (field name `receipt`); supports images or PDFs and is uploaded to Cloudinary as `receipts` |
 | `vendor` | string | — |
 
 **Response `201`**
@@ -1400,6 +1421,8 @@ All routes require authentication.
 ---
 
 #### `PUT /expenses/:id` 🔒 (admin)
+
+Supports multipart upload with field name `receipt` (image or PDF) to update `receipt_url`.
 
 **Response `200`**
 

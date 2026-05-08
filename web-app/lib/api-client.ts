@@ -190,18 +190,27 @@ async function request<T>(
     }
   }
 
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...extraHeaders,
   };
+
+  // Default to JSON unless the caller explicitly provides FormData.
+  // Browsers will automatically set the correct multipart boundary header.
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const requestBody = body !== undefined ? (isFormData ? body : JSON.stringify(body)) : undefined;
+
   const res = await fetch(url, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: requestBody,
   });
 
   let json: ApiResponseBody<T> | null = null;
@@ -225,7 +234,7 @@ async function request<T>(
         const retryRes = await fetch(url, {
           method,
           headers,
-          body: body !== undefined ? JSON.stringify(body) : undefined,
+          body: requestBody,
         });
 
         let retryJson: ApiResponseBody<T> | null = null;

@@ -16,7 +16,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { messages } from '@/lib/messages';
 import { toast } from 'sonner';
 import { Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Note: Parents should be fetched from API or users with role 'responsavel'
 
@@ -109,11 +109,25 @@ export default function GestaoAlunosPage() {
     photo_url: '',
   });
 
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreviewUrl('');
+      return;
+    }
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
+
   const filteredChildren = children.filter(child =>
     child.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleOpenDialog = (child?: Child) => {
+    setPhotoFile(null);
     if (child) {
       setEditingChild(child);
       setParentType('existing');
@@ -164,12 +178,37 @@ export default function GestaoAlunosPage() {
       };
 
       if (editingChild) {
-        await updateMutation.mutateAsync({ id: editingChild.id, data: childData });
+        // Backend expects multipart/form-data for photo updates (`photo` field).
+        // We also send multipart when only `photo_url` is provided.
+        const shouldSendMultipart = Boolean(photoFile) || Boolean(formData.photo_url);
+        const payload = shouldSendMultipart
+          ? (() => {
+              const fd = new FormData();
+              Object.entries(childData).forEach(([key, value]) => {
+                fd.append(key, String(value));
+              });
+              if (photoFile) fd.append('photo', photoFile);
+              return fd;
+            })()
+          : childData;
+
+        await updateMutation.mutateAsync({ id: editingChild.id, data: payload });
       } else {
-        await createMutation.mutateAsync(childData);
+        // For create, JSON works with `photo_url`, but if user uploads a file we must use multipart.
+        if (photoFile) {
+          const fd = new FormData();
+          Object.entries(childData).forEach(([key, value]) => {
+            fd.append(key, String(value));
+          });
+          fd.append('photo', photoFile);
+          await createMutation.mutateAsync(fd);
+        } else {
+          await createMutation.mutateAsync(childData);
+        }
       }
       setOpen(false);
       setEditingChild(null);
+      setPhotoFile(null);
       setFormData({
         name: '', birth_date: '', class_id: '', parent_id: '',
         parentName: '', parentEmail: '', parentPhone: '',
@@ -223,10 +262,10 @@ export default function GestaoAlunosPage() {
                   onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
                   placeholder="https://..."
                 />
-                {formData.photo_url && (
+                {(photoPreviewUrl || formData.photo_url) && (
                   <div className="mt-1 flex items-center gap-2">
                     <img
-                      src={formData.photo_url}
+                      src={photoPreviewUrl || formData.photo_url}
                       alt="Pré-visualização"
                       className="w-12 h-12 rounded-full object-cover border"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -234,6 +273,15 @@ export default function GestaoAlunosPage() {
                     <span className="text-xs text-gray-500">Pré-visualização</span>
                   </div>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="photo">Foto (arquivo)</Label>
+                <Input
+                  id="photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="birth_date">Data de Nascimento</Label>

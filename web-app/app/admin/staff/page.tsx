@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { staffAssignmentsApi, classesApi } from '@/lib/api-services';
+import { staffAssignmentsApi, classesApi, usersApi } from '@/lib/api-services';
 import { queryKeys } from '@/lib/query-keys';
 import { messages } from '@/lib/messages';
 import { toast } from 'sonner';
@@ -23,14 +23,33 @@ type Staff = {
   phone: string;
 };
 
-const initialMockStaff: Staff[] = [
-  { id: '2', name: 'Ana Santos', email: 'ana@creche.com', phone: '(+258) 98765-1234' },
-  { id: '7', name: 'Carlos Lima', email: 'carlos@creche.com', phone: '(+258) 98765-5555' },
-];
-
 export default function GestaoStaffPage() {
-  const [staff, setStaff] = useState<Staff[]>(initialMockStaff);
-  const [assignments, setAssignments] = useState(mockStaffAssignments);
+  const queryClient = useQueryClient();
+
+  const { data: staff = [] } = useQuery({
+    queryKey: queryKeys.users.list({ role: 'staff' }),
+    queryFn: async () => {
+      const res = await usersApi.list({ role: 'staff' });
+      return res.data || [];
+    },
+  });
+
+  const { data: classes = [] } = useQuery({
+    queryKey: queryKeys.classes.list(),
+    queryFn: async () => {
+      const res = await classesApi.list();
+      return res.data || [];
+    },
+  });
+
+  const { data: assignments = [] } = useQuery({
+    queryKey: queryKeys.staffAssignments.all,
+    queryFn: async () => {
+      const res = await staffAssignmentsApi.list();
+      return res.data || [];
+    },
+  });
+
   const [open, setOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [formData, setFormData] = useState({
@@ -38,6 +57,23 @@ export default function GestaoStaffPage() {
     email: '',
     phone: '',
     classIds: [] as string[],
+  });
+
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: (id: string) => staffAssignmentsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.staffAssignments.all });
+      toast.success(messages.success.deleted);
+    },
+  });
+
+  const createAssignmentMutation = useMutation({
+    mutationFn: ({ staff_id, class_id }: { staff_id: string; class_id: string }) =>
+      staffAssignmentsApi.create({ staff_id, class_id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.staffAssignments.all });
+      toast.success(messages.success.created);
+    },
   });
 
   const handleOpenDialog = (staffMember?: Staff) => {
@@ -152,7 +188,7 @@ export default function GestaoStaffPage() {
               <div className="space-y-2">
                 <Label>Atribuir Turmas</Label>
                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-                  {mockClasses.map(classItem => (
+                  {classes.map(classItem => (
                     <div key={classItem.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={`class-${classItem.id}`}

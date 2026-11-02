@@ -35,12 +35,18 @@ export function OfflineBanner() {
       {offline ? (
         <div role="status" className="flex items-center gap-2 bg-sun-tint px-4 py-2 text-sm text-[#6b4a1e] sm:px-6 lg:px-10">
           <CloudOff className="size-4 shrink-0 text-sun-text" aria-hidden />
-          <span>
+          <span className="flex-1">
             {browserOffline ? 'Sem internet.' : 'Sem ligação ao servidor.'}{' '}
             {waiting.length > 0
               ? `${records(waiting.length)} guardado${waiting.length === 1 ? '' : 's'} neste aparelho, enviado${waiting.length === 1 ? '' : 's'} quando a ligação voltar.`
               : 'O que registar fica guardado neste aparelho.'}
           </span>
+          {/* The server may be back before the next automatic try (every 30 s) */}
+          {!browserOffline && waiting.length > 0 && !syncing && (
+            <Button size="sm" variant="ghost" className="h-8 text-[#6b4a1e]" onClick={() => void flushQueue()}>
+              Tentar agora
+            </Button>
+          )}
         </div>
       ) : (
         waiting.length > 0 && (

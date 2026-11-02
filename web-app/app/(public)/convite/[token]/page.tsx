@@ -68,7 +68,7 @@ function AcceptInvite() {
         <h1 className="text-2xl font-bold">Convite indisponível</h1>
         <p className="text-sm text-muted-foreground">
           {invite.error instanceof ApiRequestError && invite.error.status === 400
-            ? 'Este convite expirou ou já foi usado. Peça um novo à administração do centro, ou use “Esqueceu-se da senha?” se já activou a conta.'
+            ? 'Este convite expirou ou já foi usado. Peça um novo à administração do centro, ou use “Esqueceu-se da palavra-passe?” se já activou a conta.'
             : 'Não foi possível abrir o convite. Verifique a ligação e tente novamente.'}
         </p>
         <Button asChild variant="outline" size="touch">
@@ -84,7 +84,7 @@ function AcceptInvite() {
       <div className="space-y-1 text-center">
         <h1 className="text-2xl font-bold">Olá, {firstName}!</h1>
         <p className="text-sm text-muted-foreground">
-          Bem-vindo(a) ao portal, com o perfil <strong>{ROLE_LABELS[role]}</strong>. Escolha a sua senha para activar a conta.
+          Bem-vindo(a) ao portal, com o perfil <strong>{ROLE_LABELS[role]}</strong>. Escolha a sua palavra-passe para activar a conta.
         </p>
       </div>
 

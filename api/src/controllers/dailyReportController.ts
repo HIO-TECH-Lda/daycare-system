@@ -41,16 +41,18 @@ export class DailyReportController {
     return res.json(ApiResponse.success(report, 'Relatório diário recuperado com sucesso'));
   });
 
-  // Offline-safe like attendance: one report per child per day, newest write wins
+  // Offline-safe like attendance: one report per child per day, newest write wins; a conflict
+  // only when someone else wrote it last (the app autosaves the same report many times)
   static create = catchAsync(async (req: Request, res: Response) => {
     const { child_id, date, client_id, ...fields } = req.body;
     const { doc: report, outcome, previous } = await DailyReportService.record(
       child_id, date ?? new Date(), { ...fields, created_by: req.user!.userId }, client_id
     );
+    const conflict = outcome === 'merged' && String(previous?.created_by) !== req.user!.userId;
     res.status(outcome === 'created' ? 201 : 200).json({
       ...ApiResponse.success(report, 'Relatório diário guardado'),
       sync: outcome,
-      ...(outcome === 'merged' && { conflict: true, previous })
+      ...(conflict && { conflict: true, previous })
     });
 
     // "New report" message to the family only when the day's report is first created

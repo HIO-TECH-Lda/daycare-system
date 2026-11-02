@@ -2,7 +2,7 @@
  * Staff writes that work offline. They return once the write is saved on the device; it is sent
  * to the API now or as soon as the connection returns (see `queue.ts`).
  */
-import { useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { enqueueWrite, getQueueSnapshot, getServerQueueSnapshot, subscribeQueue, type QueuedWrite, type WriteKind } from './queue';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
@@ -53,7 +53,13 @@ export function useSyncQueue() {
 /** Writes still waiting for one kind of record (optionally one child and day), for "por enviar" badges. */
 export function usePendingWrites(kind: WriteKind, filter: { childId?: string; day?: string } = {}): QueuedWrite[] {
   const { writes } = useSyncQueue();
-  return writes.filter(
-    (write) => write.kind === kind && (!filter.childId || write.childId === filter.childId) && (!filter.day || write.day === filter.day)
+  const { childId, day } = filter;
+  // Same array until the queue changes, so callers can memoise on it
+  return useMemo(
+    () =>
+      writes.filter(
+        (write) => write.kind === kind && !write.error && (!childId || write.childId === childId) && (!day || write.day === day)
+      ),
+    [writes, kind, childId, day]
   );
 }

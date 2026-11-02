@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { LogOut, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { initials } from '@/lib/format';
 import { NAV, ROLE_LABELS, type NavItem } from '@/lib/roles';
 import { useAuth } from '@/lib/auth/auth-context';
 import type { Role } from '@/lib/api/auth';
@@ -20,10 +21,6 @@ import { useSyncQueue } from '@/lib/offline/writes';
 
 function isActive(item: NavItem, home: string, pathname: string): boolean {
   return item.href === home ? pathname === home : pathname === item.href || pathname.startsWith(`${item.href}/`);
-}
-
-function initials(name: string): string {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
 }
 
 /**

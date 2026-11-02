@@ -79,16 +79,18 @@ export class AttendanceController {
   });
 
   // Offline-safe: a replayed client_id returns the saved record; an existing record for the
-  // child and day is updated (newest write wins) and the previous values are returned
+  // child and day is updated (newest write wins). It's a conflict only when someone else wrote
+  // it last (an educator's own check-out after their check-in is the normal sequence).
   static create = catchAsync(async (req: Request, res: Response) => {
     const { child_id, date, client_id, ...fields } = req.body;
     const { doc: attendance, outcome, previous } = await AttendanceService.record(
       child_id, date, { ...fields, recorded_by: req.user!.userId }, client_id
     );
+    const conflict = outcome === 'merged' && String(previous?.recorded_by) !== req.user!.userId;
     res.status(outcome === 'created' ? 201 : 200).json({
       ...ApiResponse.success(attendance, 'Registro de presença guardado'),
       sync: outcome,
-      ...(outcome === 'merged' && { conflict: true, previous })
+      ...(conflict && { conflict: true, previous })
     });
 
     // Tell the family about a check-in/check-out only the first time it's recorded

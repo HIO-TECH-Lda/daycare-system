@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const schema = z.object({
   identifier: identifierRule,
-  password: z.string().min(1, 'Indique a sua senha')
+  password: z.string().min(1, 'Indique a sua palavra-passe')
 });
 type Values = z.infer<typeof schema>;
 
@@ -89,9 +89,9 @@ function LoginForm() {
 
         <Field data-invalid={!!errors.password}>
           <div className="flex items-center justify-between">
-            <FieldLabel htmlFor="password">Senha</FieldLabel>
+            <FieldLabel htmlFor="password">Palavra-passe</FieldLabel>
             <Link href="/recuperar-senha" className="text-sm text-teal-text underline-offset-4 hover:underline">
-              Esqueceu-se da senha?
+              Esqueceu-se da palavra-passe?
             </Link>
           </div>
           <Input

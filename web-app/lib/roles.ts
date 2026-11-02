@@ -18,10 +18,10 @@ import {
 } from 'lucide-react';
 import type { Role } from './api/auth';
 
-/** Mozambican Portuguese labels (glossary to be confirmed with the client). */
+/** Mozambican Portuguese labels (glossary approved by the client, 2026-11-02). */
 export const ROLE_LABELS: Record<Role, string> = {
   administrador: 'Administração',
-  staff: 'Educador(a)',
+  staff: 'Educador',
   responsavel: 'Encarregado de Educação'
 };
 
@@ -72,6 +72,6 @@ export const NAV: Record<Role, NavItem[]> = {
     { href: '/responsavel/mensagens', label: 'Mensagens', icon: MessageCircle, tab: true, description: 'Conversas com a equipa e a administração.' },
     { href: '/responsavel/facturacao', label: 'Facturação', icon: Receipt, tab: true, description: 'Facturas e pagamentos.' },
     { href: '/responsavel/eventos', label: 'Eventos', icon: CalendarDays, description: 'Calendário do centro e da turma.' },
-    { href: '/responsavel/perfil', label: 'Perfil', icon: UserCircle, description: 'Os seus contactos, senha e notificações.' }
+    { href: '/responsavel/perfil', label: 'Perfil', icon: UserCircle, description: 'Os seus contactos, palavra-passe e notificações.' }
   ]
 };

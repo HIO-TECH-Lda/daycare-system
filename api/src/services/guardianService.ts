@@ -62,8 +62,8 @@ export class GuardianService {
   }
 
   // Get all guardians (with optional child filter)
-  static async findAll(childId?: string, page = 1, limit = 20): Promise<{ guardians: IGuardianDocument[]; total: number }> {
-    const query = childId ? { child_id: new mongoose.Types.ObjectId(childId) } : {};
+  static async findAll(childId?: string, page = 1, limit = 20, scope: Record<string, unknown> = {}): Promise<{ guardians: IGuardianDocument[]; total: number }> {
+    const query = childId ? { ...scope, child_id: new mongoose.Types.ObjectId(childId) } : scope;
     const skip = (page - 1) * limit;
     const [guardians, total] = await Promise.all([
       Guardian.find(query)

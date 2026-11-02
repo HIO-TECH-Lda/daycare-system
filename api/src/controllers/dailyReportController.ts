@@ -7,6 +7,7 @@ import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
 import Child from '../models/Child';
 import User from '../models/User';
+import { AccessService } from '../services/accessService';
 
 export class DailyReportController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
@@ -15,6 +16,7 @@ export class DailyReportController {
     const endDate = req.query.end_date ? new Date(req.query.end_date as string) : undefined;
     const { page, limit } = getPaginationParams(req);
     const { role, userId } = req.user!;
+    if (childId) AccessService.assertChild(await AccessService.scopeFor(req), childId);
 
     const { reports, total } = await DailyReportService.findAllScoped(
       role, userId, childId, startDate, endDate, page, limit

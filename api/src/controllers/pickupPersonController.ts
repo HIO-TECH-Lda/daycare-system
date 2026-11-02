@@ -4,12 +4,15 @@ import { CloudinaryService } from '../services/cloudinaryService';
 import { catchAsync } from '../utils/catchAsync';
 import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
+import { AccessService } from '../services/accessService';
 
 export class PickupPersonController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
     const childId = req.query.child_id as string | undefined;
     const { page, limit } = getPaginationParams(req);
-    const { pickupPersons, total } = await PickupPersonService.findAll(childId, page, limit);
+    const scope = await AccessService.scopeFor(req);
+    if (childId) AccessService.assertChild(scope, childId);
+    const { pickupPersons, total } = await PickupPersonService.findAll(childId, page, limit, AccessService.childFilter(scope));
     res.json(ApiResponse.paginated(pickupPersons, { page, limit, total }, 'Pessoas autorizadas recuperadas com sucesso'));
   });
 

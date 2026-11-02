@@ -144,14 +144,28 @@ In production the auth limits are stored in MongoDB (collection `ratelimits`), s
 
 ## Roles & Permissions
 
-| Role | Label | Description |
-|------|-------|-------------|
-| `administrador` | Admin | Full access to all resources |
-| `staff` | Staff | Can manage children in assigned classes, write reports, record attendance |
-| `responsavel` | Parent/Guardian | Read-only access to data about their own children |
+| Role | Label | Sees |
+|------|-------|------|
+| `administrador` | Admin | Everything |
+| `staff` | Staff | The children in the classes they are assigned to (none while unassigned), and those children's records |
+| `responsavel` | Parent | Their own children and those children's records; their own invoices and payments |
 
-The middleware enforces the following hierarchy for route guards:  
-`requireAdmin` → `requireStaff` (staff + admin) → `authenticateToken` (any logged-in user)
+Route guards: `requireAdmin` → `requireStaff` (staff + admin) → `authenticateToken` (any logged-in user).
+
+### What each role can read
+
+Records that belong to a child follow the child: **attendance, daily reports, report photos, monthly reports, guardians, pickup persons**.
+
+- **Lists** only contain records in the caller's scope. A `child_id` filter for a child outside it answers `404`.
+- **Single records**, and the `/child/:childId` routes, answer `404` outside the scope, the same as a missing record, so their existence isn't revealed.
+- **Staff writes** (attendance, daily and monthly reports, photos) are limited to children in their classes. Updates can't move a record to another child.
+- **Monthly reports:** parents only see `validated` ones.
+- **Invoices and payments:** admins see all; parents only their own; staff get `403`.
+- **Expenses and expense categories:** admin only (`403` for others).
+- **Staff assignments:** staff and admins only.
+- **Calendar events:** centre-wide events (no `class_id`) are visible to everyone. Class events are only visible to that class's families and staff, and to admins.
+- **`GET /users`:** staff see staff, admins, and the parents of children in their classes.
+- **Classes and activities:** visible to every logged-in user.
 
 ---
 

@@ -7,15 +7,18 @@ import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
 import Child from '../models/Child';
 import User from '../models/User';
+import { AccessService } from '../services/accessService';
 
 export class AttendanceController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
     const childId = req.query.child_id as string | undefined;
     const date = req.query.date ? new Date(req.query.date as string) : undefined;
     const { page, limit } = getPaginationParams(req);
+    const scope = await AccessService.scopeFor(req);
+    if (childId) AccessService.assertChild(scope, childId);
     let attendances: any[], total: number;
     if (date) {
-      const result = await AttendanceService.findByDate(date, page, limit);
+      const result = await AttendanceService.findByDate(date, page, limit, AccessService.childFilter(scope));
       attendances = result.attendances;
       total = result.total;
     } else {
@@ -26,7 +29,7 @@ export class AttendanceController {
         attendances = result.attendances;
         total = result.total;
       } else {
-        const result = await AttendanceService.findAll(page, limit);
+        const result = await AttendanceService.findAll(page, limit, AccessService.childFilter(scope));
         attendances = result.attendances;
         total = result.total;
       }

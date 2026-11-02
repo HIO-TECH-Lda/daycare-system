@@ -6,8 +6,8 @@ import { validateRequest, createExpenseCategorySchema, updateExpenseCategorySche
 const router = Router();
 router.use(authenticateToken);
 
-router.get('/', ExpenseCategoryController.getAll);
-router.get('/:id', ExpenseCategoryController.getById);
+router.get('/', requireAdmin, ExpenseCategoryController.getAll);
+router.get('/:id', requireAdmin, ExpenseCategoryController.getById);
 router.post('/', requireAdmin, validateRequest(createExpenseCategorySchema), ExpenseCategoryController.create);
 router.put('/:id', requireAdmin, validateRequest(updateExpenseCategorySchema), ExpenseCategoryController.update);
 router.delete('/:id', requireAdmin, ExpenseCategoryController.delete);

@@ -10,7 +10,10 @@ const inter = Inter({ variable: '--font-inter', subsets: ['latin'] });
 export const metadata: Metadata = {
   title: { default: 'Sonho de Criança', template: '%s · Sonho de Criança' },
   description: 'Portal do Centro Infantil Sonho de Criança para famílias, educadores e administração.',
-  applicationName: 'Sonho de Criança'
+  applicationName: 'Sonho de Criança',
+  // iPhone/iPad: open full screen from the home screen, under the system status bar
+  appleWebApp: { capable: true, title: 'Sonho de Criança', statusBarStyle: 'default' },
+  formatDetection: { telephone: false }
 };
 
 export const viewport: Viewport = {

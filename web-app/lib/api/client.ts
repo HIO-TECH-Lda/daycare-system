@@ -8,6 +8,8 @@
 
 const TOKEN_KEY = 'sdc.token';
 const REFRESH_KEY = 'sdc.refresh';
+// The signed-in user, so the app still opens offline (the API can't confirm the session then)
+const USER_KEY = 'sdc.user';
 
 export interface ApiEnvelope<T> {
   success: boolean;
@@ -54,9 +56,22 @@ export const session = {
     write(TOKEN_KEY, tokens.token);
     if (tokens.refreshToken) write(REFRESH_KEY, tokens.refreshToken);
   },
+  /** The last user the API confirmed for this session (JSON), or null */
+  cachedUser: <T>(): T | null => {
+    try {
+      const raw = read(USER_KEY);
+      return raw ? (JSON.parse(raw) as T) : null;
+    } catch {
+      return null;
+    }
+  },
+  cacheUser(user: unknown) {
+    write(USER_KEY, JSON.stringify(user));
+  },
   clear() {
     write(TOKEN_KEY, null);
     write(REFRESH_KEY, null);
+    write(USER_KEY, null);
   }
 };
 
@@ -78,6 +93,8 @@ interface RequestOptions {
   params?: Params;
   /** false for public endpoints (login, invites, password reset) */
   auth?: boolean;
+  /** Abort (e.g. a timeout); an aborted request fails like a network error */
+  signal?: AbortSignal;
 }
 
 let refreshing: Promise<boolean> | null = null;
@@ -107,15 +124,15 @@ async function send<T>(method: Method, path: string, options: RequestOptions = {
 
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
-  const token = options.auth === false ? null : session.token();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const token = options.auth === false ? null : session.token();  if (token) headers.Authorization = `Bearer ${token}`;
 
   let response: Response;
   try {
     response = await fetch(url, {
       method,
       headers,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: options.signal
     });
   } catch {
     throw new ApiRequestError(0, 'Sem ligação ao servidor. Verifique a sua ligação à internet.');
@@ -149,7 +166,7 @@ export async function request<T>(method: Method, path: string, options: RequestO
 
 export const api = {
   get: <T>(path: string, params?: Params) => request<T>('GET', path, { params }),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, { body }),
+  post: <T>(path: string, body?: unknown, options?: Pick<RequestOptions, 'signal'>) => request<T>('POST', path, { body, ...options }),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, { body }),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, { body }),
   delete: <T>(path: string) => request<T>('DELETE', path)

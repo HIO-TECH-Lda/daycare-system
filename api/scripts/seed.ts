@@ -33,6 +33,7 @@ import ExpenseCategory from '../src/models/ExpenseCategory';
 import Expense from '../src/models/Expense';
 import Message from '../src/models/Message';
 import MonthlyReport from '../src/models/MonthlyReport';
+import { startOfCentreDay } from '../src/utils/dates';
 
 dotenv.config();
 
@@ -421,7 +422,7 @@ async function seedDatabase() {
 
     const report1 = await DailyReport.create({
       child_id: child1._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       created_by: staff1._id,
       meals: {
         breakfast: 'Leite e biscoito',
@@ -443,7 +444,7 @@ async function seedDatabase() {
 
     const report2 = await DailyReport.create({
       child_id: child2._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       created_by: staff1._id,
       meals: {
         breakfast: 'Leite (sem lactose) e fruta',
@@ -465,7 +466,7 @@ async function seedDatabase() {
 
     const report3 = await DailyReport.create({
       child_id: child3._id,
-      date: daysFromNow(-1),
+      date: startOfCentreDay(daysFromNow(-1)),
       created_by: staff2._id,
       meals: {
         breakfast: 'Leite e pão com manteiga',
@@ -514,7 +515,7 @@ async function seedDatabase() {
     // Today — present with check-in and check-out
     await Attendance.create({
       child_id: child1._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       check_in: todayAt(7, 55),
       check_out: todayAt(17, 0),
       status: 'present',
@@ -524,7 +525,7 @@ async function seedDatabase() {
 
     await Attendance.create({
       child_id: child2._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       check_in: todayAt(8, 10),
       check_out: todayAt(17, 30),
       status: 'present',
@@ -534,7 +535,7 @@ async function seedDatabase() {
 
     await Attendance.create({
       child_id: child3._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       check_in: todayAt(7, 45),
       status: 'present',
       notes: '',
@@ -543,7 +544,7 @@ async function seedDatabase() {
 
     await Attendance.create({
       child_id: child4._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       check_in: todayAt(8, 20),
       status: 'late',
       notes: 'Chegou 20 minutos após o início das atividades.',
@@ -553,7 +554,7 @@ async function seedDatabase() {
     // Yesterday — absent
     await Attendance.create({
       child_id: child3._id,
-      date: daysFromNow(-1),
+      date: startOfCentreDay(daysFromNow(-1)),
       status: 'absent',
       notes: 'Falta justificada por doença.',
       recorded_by: staff2._id

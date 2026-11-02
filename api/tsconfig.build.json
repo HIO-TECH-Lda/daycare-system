@@ -1,0 +1,10 @@
+{
+  // Production build (npm run build → dist/app.js, run by npm start). Tests and scripts are left out.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/__tests__"]
+}

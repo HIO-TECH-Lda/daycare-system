@@ -43,6 +43,8 @@ npm run dev                # http://localhost:3000
 | api | `npm test` | Jest tests against an in-memory MongoDB (no local database needed) |
 | api | `npm run lint` / `npx tsc --noEmit` | Lint / typecheck |
 | api | `npm run seed` / `npm run seed:fresh` | Load demo data |
+| api | `npm run create-admin -- --first … --last … --email …` | Create the first administrator (prints an invite link) |
+| api | `npm run build` / `npm start` | Production build (`dist/`, with email templates) / run it |
 | web-app | `npm run dev` / `npm run build` | Dev server / production build |
 | web-app | `npm run lint` / `npm run typecheck` | Lint / typecheck |
 
@@ -63,7 +65,7 @@ GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on ev
 
 | Piece | Platform |
 |---|---|
-| API | Vercel (`api/vercel.json`) |
+| API | Vercel (`api/vercel.json`: Cape Town region, 30 s functions, email templates bundled, daily overdue-invoice cron) |
 | Web app | Netlify |
 | Database | MongoDB Atlas |
 | Files | Cloudinary |

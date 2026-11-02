@@ -1,43 +1,33 @@
+// Vercel serverless entry point: every request goes through the Express app.
 // Vercel types are provided at runtime by @vercel/node
-// Using any to avoid type errors during local development
 type VercelRequest = any;
 type VercelResponse = any;
 import { app } from '../src/app';
-
-// Initialize database connection
 import { connectDB } from '../src/config/database';
 import { validateEnvironmentVariables } from '../src/utils/envValidation';
 
-let dbConnected = false;
+// Checked once per function instance (logs what's missing)
+const environmentValid = validateEnvironmentVariables();
 
-// Connect to database on first request
-const ensureDbConnection = async () => {
-  if (!dbConnected) {
-    if (validateEnvironmentVariables()) {
-      await connectDB();
-      dbConnected = true;
-    }
-  }
-};
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
-  try {
-    // Ensure database is connected
-    await ensureDbConnection();
-    
-    // Handle the request with Express app
-    // The Express app is compatible with Vercel's request/response objects
-    return app(req as any, res as any);
-  } catch (error) {
-    console.error('Handler error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? String(error) : 'Something went wrong'
-    });
-  }
+// Plain Node response (doesn't rely on Vercel's res.status()/res.json() helpers)
+function sendError(res: VercelResponse, status: number, message: string) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.end(JSON.stringify({ success: false, message }));
 }
 
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!environmentValid) {
+    return sendError(res, 500, 'Servidor mal configurado');
+  }
+
+  try {
+    // Reuses the connection of a warm instance
+    await connectDB();
+  } catch (error) {
+    console.error('❌ MongoDB connection failed:', error);
+    return sendError(res, 503, 'Serviço temporariamente indisponível. Tente novamente.');
+  }
+
+  return app(req, res);
+}

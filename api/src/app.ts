@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import multer from 'multer';
+import { MAX_UPLOAD_MB } from './middleware/upload';
 import { connectDB } from './config/database';
 import { corsOptions } from './config/cors';
 import { ApiError } from './utils/ApiError';
@@ -151,6 +153,12 @@ app.use('*', (req: Request, res: Response) => {
 app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof ApiError) {
     return res.status(err.statusCode).json({ success: false, message: err.message });
+  }
+  // Uploads: too large, or unexpected form fields
+  if (err instanceof multer.MulterError) {
+    return err.code === 'LIMIT_FILE_SIZE'
+      ? res.status(413).json({ success: false, message: `Ficheiro demasiado grande (máximo ${MAX_UPLOAD_MB} MB)` })
+      : res.status(400).json({ success: false, message: 'Pedido de envio de ficheiro inválido' });
   }
   // Malformed ObjectId in a URL, e.g. /users/not-an-id
   if (err.name === 'CastError') {

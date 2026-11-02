@@ -48,6 +48,5 @@ classSchema.pre('save', function (next) {
   }
 });
 
-classSchema.index({ name: 1 }, { unique: true });
 
 export default mongoose.model<IClassDocument>('Class', classSchema);

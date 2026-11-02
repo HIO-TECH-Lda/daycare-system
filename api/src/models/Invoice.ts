@@ -79,7 +79,6 @@ const invoiceSchema = new Schema<IInvoiceDocument>(
   { timestamps: true }
 );
 
-invoiceSchema.index({ invoice_number: 1 }, { unique: true });
 invoiceSchema.index({ child_id: 1 });
 invoiceSchema.index({ parent_id: 1 });
 invoiceSchema.index({ status: 1 });

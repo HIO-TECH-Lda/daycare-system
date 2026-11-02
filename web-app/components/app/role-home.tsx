@@ -4,15 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Construction } from 'lucide-react';
 import { useAuth } from '@/lib/auth/auth-context';
+import { greeting } from '@/lib/format';
 import { NAV } from '@/lib/roles';
 import type { Role } from '@/lib/api/auth';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-function greeting(): string {
-  const hour = Number(new Intl.DateTimeFormat('pt-PT', { hour: 'numeric', hour12: false, timeZone: 'Africa/Maputo' }).format(new Date()));
-  return hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-}
 
 /**
  * Home of each role while the screens are being built (Phase 3): a greeting and the

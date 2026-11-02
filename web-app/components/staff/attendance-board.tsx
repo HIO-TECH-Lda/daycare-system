@@ -300,7 +300,13 @@ function collectorsFor(child: Child, people: PickupPerson[]): Collector[] {
   const guardian = typeof child.parent_id === 'object' && child.parent_id ? child.parent_id : null;
   return [
     ...(guardian ? [{ id: guardian._id, name: personName(guardian), relationship: 'Encarregado de Educação', phone: guardian.phone }] : []),
-    ...people.map((person) => ({ id: person._id, name: person.name, relationship: person.relationship || 'Pessoa autorizada', phone: person.phone, photo: person.photo_url }))
+    ...people.map((person) => ({
+      id: person._id,
+      name: person.name,
+      relationship: `${person.relationship || 'Pessoa autorizada'}${person.valid_on ? ' · só hoje, indicada pelo encarregado' : ''}`,
+      phone: person.phone,
+      photo: person.photo_url
+    }))
   ];
 }
 

@@ -59,6 +59,11 @@ export const authApi = {
     await publicApi.post<null>('/auth/reset-password', { token, newPassword, confirmNewPassword: newPassword });
   },
 
+  /** Name, phone and WhatsApp consent (email and role are the administration's). */
+  async updateProfile(input: { firstName: string; lastName: string; phone: string; whatsappOptIn: boolean }): Promise<User> {
+    return (await api.put<{ user: User }>('/auth/me', input)).data.user;
+  },
+
   /** Ends every other session; this one continues with the new tokens. */
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     const res = await api.put<{ token: string; refreshToken: string }>('/auth/change-password', {

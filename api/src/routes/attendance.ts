@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AttendanceController } from '../controllers/attendanceController';
-import { authenticateToken, requireStaff } from '../middleware/auth';
-import { validateRequest, createAttendanceSchema, updateAttendanceSchema } from '../utils/validation';
+import { authenticateToken, requireRole, requireStaff } from '../middleware/auth';
+import { validateRequest, absenceNoticeSchema, createAttendanceSchema, updateAttendanceSchema } from '../utils/validation';
 import { childParam, childInBody, recordAccess } from '../middleware/access';
 import Attendance from '../models/Attendance';
 
@@ -15,6 +15,7 @@ router.get('/', AttendanceController.getAll);
 router.get('/child/:childId', childParam(), AttendanceController.getByChildId);
 router.get('/:id', attendanceAccess, AttendanceController.getById);
 router.post('/', requireStaff, validateRequest(createAttendanceSchema), childInBody(), AttendanceController.create);
+router.post('/absence-notice', requireRole('responsavel'), validateRequest(absenceNoticeSchema), childInBody(), AttendanceController.notifyAbsence);
 router.put('/:id', requireStaff, attendanceAccess, validateRequest(updateAttendanceSchema), childInBody(), AttendanceController.update);
 router.delete('/:id', requireStaff, attendanceAccess, AttendanceController.delete);
 

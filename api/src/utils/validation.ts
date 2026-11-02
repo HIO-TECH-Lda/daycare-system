@@ -308,6 +308,14 @@ export const createPickupPersonSchema = Joi.object({
   is_authorized: Joi.boolean().optional()
 });
 
+// A parent authorises someone to collect their child today only (name, phone, optional photo)
+export const pickupTodaySchema = Joi.object({
+  child_id: Joi.string().required().messages({ 'any.required': 'ID da criança é obrigatório' }),
+  name: Joi.string().trim().required().messages({ 'any.required': 'Nome é obrigatório' }),
+  relationship: Joi.string().trim().optional().allow(''),
+  phone: Joi.string().required().messages({ 'any.required': 'Telefone é obrigatório' })
+});
+
 export const updatePickupPersonSchema = Joi.object({
   name: Joi.string().trim().optional(),
   relationship: Joi.string().optional().allow(''),
@@ -370,6 +378,13 @@ export const createReportPhotoSchema = Joi.object({
   // Optional when a file is uploaded directly; controller validates that at least one is present
   photo_url: Joi.string().optional().allow(''),
   caption: Joi.string().optional().allow('')
+});
+
+// A parent tells the centre their child won't come (today or a later day)
+export const absenceNoticeSchema = Joi.object({
+  child_id: Joi.string().required().messages({ 'any.required': 'ID da criança é obrigatório' }),
+  date: Joi.date().required().messages({ 'any.required': 'Data é obrigatória' }),
+  reason: Joi.string().trim().max(200).required().messages({ 'any.required': 'Indique o motivo' })
 });
 
 export const createAttendanceSchema = Joi.object({
@@ -471,6 +486,29 @@ export const createPaymentSchema = Joi.object({
   payment_method_details: Joi.string().optional().allow(''),
   reference_number: Joi.string().optional().allow(''),
   notes: Joi.string().optional().allow('')
+});
+
+export const createPaymentClaimSchema = Joi.object({
+  invoice_id: Joi.string().required().messages({ 'any.required': 'Factura é obrigatória' }),
+  amount: Joi.number().positive().required().messages({ 'any.required': 'Valor é obrigatório' }),
+  method: Joi.string().valid('mpesa', 'emola', 'bank_transfer', 'cash').required().messages({ 'any.required': 'Forma de pagamento é obrigatória' }),
+  // The transaction code is how the administration finds the money (not needed for cash)
+  reference: Joi.when('method', {
+    is: 'cash',
+    then: Joi.string().trim().max(60).optional().allow(''),
+    otherwise: Joi.string().trim().max(60).required().messages({ 'any.required': 'Indique o código da transacção', 'string.empty': 'Indique o código da transacção' })
+  }),
+  paid_on: Joi.date().optional(),
+  notes: Joi.string().trim().max(300).optional().allow('')
+});
+
+// The administration may confirm a different amount than the parent stated (what actually arrived)
+export const confirmPaymentClaimSchema = Joi.object({
+  amount: Joi.number().positive().optional()
+});
+
+export const rejectPaymentClaimSchema = Joi.object({
+  reason: Joi.string().trim().max(300).required().messages({ 'any.required': 'Indique o motivo', 'string.empty': 'Indique o motivo' })
 });
 
 export const createExpenseCategorySchema = Joi.object({

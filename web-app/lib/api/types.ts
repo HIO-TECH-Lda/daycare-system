@@ -107,6 +107,8 @@ export interface PickupPerson {
   /** Signed, short-lived link (or empty) */
   photo_url?: string;
   is_authorized: boolean;
+  /** Set for a parent's one-day authorisation (that centre day); null = permanent */
+  valid_on?: string | null;
 }
 
 export interface Activity {
@@ -120,4 +122,96 @@ export interface Activity {
 export function hasHealthNote(text: string | undefined): boolean {
   const value = (text ?? '').trim().toLowerCase();
   return value !== '' && !['nenhuma', 'nenhum', 'não', 'nao', 'n/a', '-', 'sem alergias', 'nada'].includes(value);
+}
+
+export interface MonthlyReport {
+  _id: Id;
+  child_id: Ref<{ _id: Id; name: string }>;
+  month: number;
+  year: number;
+  status: 'draft' | 'submitted' | 'validated' | 'rejected';
+  attendance_summary?: { total_days?: number; present_days?: number; absent_days?: number; late_days?: number };
+  physical_development?: string;
+  cognitive_development?: string;
+  social_development?: string;
+  emotional_development?: string;
+  achievements?: string;
+  areas_for_improvement?: string;
+  general_notes?: string;
+  recommendations?: string;
+  created_by?: Ref<PersonRef>;
+  validated_at?: string;
+}
+
+export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
+
+export interface Invoice {
+  _id: Id;
+  invoice_number: string;
+  child_id: Ref<{ _id: Id; name: string }>;
+  parent_id: Ref<PersonRef>;
+  issue_date: string;
+  due_date: string;
+  amount: number;
+  status: InvoiceStatus;
+  items: { description: string; quantity: number; unit_price: number; total: number }[];
+  notes?: string;
+}
+
+export interface Payment {
+  _id: Id;
+  invoice_id: Ref<{ _id: Id; invoice_number: string; amount: number; status: InvoiceStatus }>;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  payment_method_details?: string;
+  reference_number?: string;
+}
+
+export type ClaimMethod = 'mpesa' | 'emola' | 'bank_transfer' | 'cash';
+
+export interface PaymentClaim {
+  _id: Id;
+  invoice_id: Ref<{ _id: Id; invoice_number: string; amount: number; status: InvoiceStatus }>;
+  child_id: Ref<{ _id: Id; name: string }>;
+  amount: number;
+  method: ClaimMethod;
+  reference?: string;
+  paid_on: string;
+  status: 'pending' | 'confirmed' | 'rejected';
+  rejection_reason?: string;
+  createdAt: string;
+}
+
+export interface CalendarEvent {
+  _id: Id;
+  title: string;
+  description?: string;
+  start_date: string;
+  end_date?: string;
+  is_all_day?: boolean;
+  event_type?: string;
+  class_id?: Ref<ClassInfo>;
+}
+
+export interface Message {
+  _id: Id;
+  sender_id: Ref<PersonRef>;
+  recipient_id: Ref<PersonRef>;
+  /** A message to everyone with a role (e.g. all parents) */
+  recipient_role?: string;
+  subject: string;
+  content: string;
+  message_type?: 'info' | 'reminder' | 'alert' | 'general';
+  is_read: boolean;
+  child_id?: Ref<{ _id: Id; name: string }>;
+  createdAt: string;
+}
+
+export interface Recipient {
+  id: Id;
+  name: string;
+  role: 'administrador' | 'staff' | 'responsavel';
+  children?: string[];
+  classes?: string[];
 }

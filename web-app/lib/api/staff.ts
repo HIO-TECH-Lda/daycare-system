@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from './client';
 import { refId, type Activity, type Attendance, type AttendanceStatus, type Child, type ClassInfo, type DailyReport, type PickupPerson, type ReportPhoto, type StaffAssignment } from './types';
 import { usePendingWrites } from '@/lib/offline/writes';
+import { maputoDay } from '@/lib/offline/queue';
 import type { DailyReportFields } from '@/lib/offline/writes';
 
 const OFFLINE = { offline: true };
@@ -44,7 +45,7 @@ export function useMyChildren() {
   });
 }
 
-/** Authorised pickup people for the educator's children, by child id. */
+/** Authorised pickup people for the educator's children, by child id (one-day ones only on their day). */
 export function usePickupPeople() {
   return useQuery({
     queryKey: ['pickup-persons', 'mine'],
@@ -55,6 +56,8 @@ export function usePickupPeople() {
       for (const row of rows) {
         const childId = refId(row.child_id);
         if (!childId || !row.is_authorized) continue;
+        // A parent's one-day authorisation is stored as midnight UTC of its centre day
+        if (row.valid_on && row.valid_on.slice(0, 10) !== maputoDay()) continue;
         byChild.set(childId, [...(byChild.get(childId) ?? []), row]);
       }
       return byChild;

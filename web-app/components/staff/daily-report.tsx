@@ -12,6 +12,7 @@ import type { Child } from '@/lib/api/types';
 import { formatTime, formatWeekday } from '@/lib/format';
 import { maputoDay } from '@/lib/offline/queue';
 import { saveDailyReport, usePendingWrites, type DailyReportFields } from '@/lib/offline/writes';
+import { compressImage } from '@/lib/image';
 import { cn } from '@/lib/utils';
 import { ClassPicker, useSelectedClass } from '@/components/app/class-picker';
 import { ChildAvatar, PendingBadge, SafetyBadges } from '@/components/app/child-badges';
@@ -361,7 +362,7 @@ function ActivitiesBlock({ value, onChange }: { value: string[]; onChange: (acti
     <Block title="Actividades">
       <Chips options={options} value={value} onToggle={toggle} />
       {adding ? (
-        <form
+        <form method="post"
           className="flex gap-2"
           onSubmit={(event) => {
             event.preventDefault();
@@ -384,20 +385,6 @@ function ActivitiesBlock({ value, onChange }: { value: string[]; onChange: (acti
 }
 
 // --- Photos (online only) ---
-
-const MAX_SIDE = 1600;
-
-/** Scales a camera photo down (phones take 4000 px+), as JPEG. */
-async function compress(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Fotografia inválida'))), 'image/jpeg', 0.8));
-}
 
 function ReportPhotos({ child, reportId }: { child: Child; reportId?: string }) {
   const photos = useReportPhotos(reportId);
@@ -423,7 +410,7 @@ function ReportPhotos({ child, reportId }: { child: Child; reportId?: string }) 
       for (const file of Array.from(files)) {
         const form = new FormData();
         form.append('daily_report_id', reportId);
-        form.append('photo', await compress(file), 'foto.jpg');
+        form.append('photo', await compressImage(file), 'foto.jpg');
         await api.post('/report-photos', form);
       }
       await queryClient.invalidateQueries({ queryKey: ['report-photos', reportId] });

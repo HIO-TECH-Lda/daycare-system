@@ -26,6 +26,7 @@ import attendanceRoutes from './routes/attendance';
 import calendarEventRoutes from './routes/calendarEvents';
 import invoiceRoutes from './routes/invoices';
 import paymentRoutes from './routes/payments';
+import paymentClaimRoutes from './routes/paymentClaims';
 import expenseCategoryRoutes from './routes/expenseCategories';
 import expenseRoutes from './routes/expenses';
 import messageRoutes from './routes/messages';
@@ -93,6 +94,7 @@ app.get('/api/v1', (req: Request, res: Response) => {
       calendarEvents: '/api/v1/calendar-events',
       invoices: '/api/v1/invoices',
       payments: '/api/v1/payments',
+      paymentClaims: '/api/v1/payment-claims',
       expenseCategories: '/api/v1/expense-categories',
       expenses: '/api/v1/expenses',
       messages: '/api/v1/messages',
@@ -133,6 +135,7 @@ app.use('/api/v1/attendance', attendanceRoutes);
 app.use('/api/v1/calendar-events', calendarEventRoutes);
 app.use('/api/v1/invoices', invoiceRoutes);
 app.use('/api/v1/payments', paymentRoutes);
+app.use('/api/v1/payment-claims', paymentClaimRoutes);
 app.use('/api/v1/expense-categories', expenseCategoryRoutes);
 app.use('/api/v1/expenses', expenseRoutes);
 app.use('/api/v1/messages', messageRoutes);

@@ -5,17 +5,13 @@ import { ClipboardCheck, ClipboardList, School, TriangleAlert } from 'lucide-rea
 import { useAuth } from '@/lib/auth/auth-context';
 import { childrenOfClass, useDayAttendance, useDayReports, useMyChildren, useMyClasses } from '@/lib/api/staff';
 import { hasHealthNote } from '@/lib/api/types';
-import { formatWeekday } from '@/lib/format';
+import { formatWeekday, greeting } from '@/lib/format';
 import { maputoDay } from '@/lib/offline/queue';
 import { useSelectedClass } from '@/components/app/class-picker';
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from '@/components/app/page-states';
 import { Button } from '@/components/ui/button';
 import { RollCallButton } from '@/components/staff/roll-call';
 
-function greeting(): string {
-  const hour = Number(new Intl.DateTimeFormat('pt-PT', { hour: 'numeric', hour12: false, timeZone: 'Africa/Maputo' }).format(new Date()));
-  return hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-}
 
 /** The educator's day at a glance: per class, who has arrived and which reports are missing. */
 export function StaffToday() {

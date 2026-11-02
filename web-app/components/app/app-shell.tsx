@@ -13,6 +13,10 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { OfflineBanner } from '@/components/app/offline-banner';
+import { InstallPrompt } from '@/components/app/install-prompt';
+import { useSyncQueue } from '@/lib/offline/writes';
 
 function isActive(item: NavItem, home: string, pathname: string): boolean {
   return item.href === home ? pathname === home : pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -24,14 +28,44 @@ function initials(name: string): string {
 
 /**
  * Signing out reloads the page: hidden pages and forms that Next.js keeps alive would otherwise
- * stay in memory for the next person on a shared tablet.
+ * stay in memory for the next person on a shared tablet. With writes still waiting to sync, it
+ * asks first (they stay on the device until this person signs in again).
  */
 function useLogout() {
   const { logout } = useAuth();
-  return () => {
+  const { writes } = useSyncQueue();
+  const [confirming, setConfirming] = useState(false);
+  const waiting = writes.filter((write) => !write.error).length;
+
+  const signOut = () => {
     logout();
     window.location.replace('/login');
   };
+  // Opened after the menu that triggered it has closed (Radix would close it straight away)
+  const request = () => (waiting > 0 ? window.setTimeout(() => setConfirming(true), 0) : signOut());
+
+  const dialog = (
+    <Dialog open={confirming} onOpenChange={setConfirming}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Há registos por enviar</DialogTitle>
+          <DialogDescription>
+            {waiting === 1 ? '1 registo ainda não foi enviado' : `${waiting} registos ainda não foram enviados`}. Ficam guardados neste
+            aparelho e são enviados quando voltar a entrar com a sua conta, com internet.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setConfirming(false)}>
+            Continuar aqui
+          </Button>
+          <Button variant="destructive" onClick={signOut}>
+            Terminar sessão
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+  return { request, dialog };
 }
 
 /**
@@ -41,7 +75,7 @@ function useLogout() {
 export function AppShell({ role, children }: { role: Role; children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const logout = useLogout();
+  const { request: logout, dialog: logoutDialog } = useLogout();
   const [moreOpen, setMoreOpen] = useState(false);
   const items = NAV[role];
   const home = items[0].href;
@@ -98,6 +132,8 @@ export function AppShell({ role, children }: { role: Role; children: React.React
           {user && <UserMenu name={user.name} role={role} onLogout={logout} compact />}
         </header>
 
+        <OfflineBanner />
+        <InstallPrompt />
         <main className="flex-1 px-4 pt-5 pb-28 sm:px-6 lg:px-10 lg:pt-8 lg:pb-10">{children}</main>
 
         {/* Bottom tab bar (phones and tablets) */}
@@ -156,6 +192,7 @@ export function AppShell({ role, children }: { role: Role; children: React.React
           </ul>
         </nav>
       </div>
+      {logoutDialog}
     </div>
   );
 }

@@ -3,7 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { authApi, type User } from '@/lib/api/auth';
-import { onSessionEnded, session } from '@/lib/api/client';
+import { ApiRequestError, onSessionEnded, session } from '@/lib/api/client';
+import { clearOfflineData } from '@/lib/offline/persist';
 
 interface AuthState {
   user: User | null;
@@ -19,10 +20,17 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUserState] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore the session from storage (only in the browser, after the first render)
+  const setUser = useCallback((next: User) => {
+    session.cacheUser(next);
+    setUserState(next);
+  }, []);
+
+  // Restore the session from storage (only in the browser, after the first render).
+  // Offline or with the API down, it can't be confirmed: keep the last confirmed user so staff
+  // can keep working. Only a rejected session (401/403) ends it.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -30,12 +38,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session.token()) {
         try {
           restored = await authApi.me();
-        } catch {
-          session.clear();
+          session.cacheUser(restored);
+        } catch (error) {
+          const rejected = error instanceof ApiRequestError && (error.status === 401 || error.status === 403);
+          if (!rejected) restored = session.cachedUser<User>();
+          else {
+            session.clear();
+            void clearOfflineData();
+          }
         }
       }
       if (!cancelled) {
-        setUser(restored);
+        setUserState(restored);
         setLoading(false);
       }
     })();
@@ -44,10 +58,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Writes still waiting to sync stay on the device and are sent when this person signs in again
   const logout = useCallback(() => {
     authApi.logout();
     queryClient.clear();
-    setUser(null);
+    void clearOfflineData();
+    setUserState(null);
   }, [queryClient]);
 
   // Session ended elsewhere (expired, password changed, account deactivated)
@@ -55,11 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (identifier: string, password: string) => {
     const loggedIn = await authApi.login(identifier, password);
+    // Nothing from a previous person on this device may show up for the new one
+    queryClient.clear();
+    await clearOfflineData();
     setUser(loggedIn);
     return loggedIn;
-  }, []);
+  }, [queryClient, setUser]);
 
-  const value = useMemo(() => ({ user, loading, login, setUser, logout }), [user, loading, login, logout]);
+  const value = useMemo(() => ({ user, loading, login, setUser, logout }), [user, loading, login, setUser, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

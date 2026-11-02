@@ -34,8 +34,8 @@
 | 1c — Enrolment | ✅ Done ([PR #5](https://github.com/HIO-TECH-Lda/daycare-system/pull/5), merged): public enrolment form API, admin review queue, approval in one transaction. |
 | 1d — Missing features | ✅ Done ([PR #7](https://github.com/HIO-TECH-Lda/daycare-system/pull/7), merged): message recipients and sending rules, reports, overdue-invoice job, offline sync. |
 | 1e — Serverless & platform | ✅ Done ([PR #8](https://github.com/HIO-TECH-Lda/daycare-system/pull/8), merged). **Phase 1 (backend) is complete.** |
-| 2a — UI foundation | 🔍 In review: new Next.js 16 app (old prototype tagged `legacy-ui`), brand theme, login by email or phone, invite and password pages, role-guarded app shell, PWA manifest and icons. Checked in the browser against the API. |
-| 2b — PWA offline, wireframes | Next: service worker (Serwist), offline queue for attendance and daily reports; wireframes of the key flows for client sign-off. |
+| 2a — UI foundation | ✅ Done ([PR #9](https://github.com/HIO-TECH-Lda/daycare-system/pull/9), merged): new Next.js 16 app (old prototype tagged `legacy-ui`), brand theme, login by email or phone, invite and password pages, role-guarded app shell, PWA manifest and icons. |
+| 2b — PWA offline, wireframes | 🔍 In review: service worker (Serwist), offline write queue for attendance and daily reports, sessions that survive offline restarts, offline/sync banners, install prompt. Wireframes and glossary approved by the client on 2026-11-02 (14 improvement proposals awaiting a choice). |
 | W, 3–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
@@ -295,7 +295,7 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
   - messages
   - monthly report review
   - staff/user management
-- [ ] Get sign-off on the wireframes and the glossary.
+- [x] Get sign-off on the wireframes and the glossary. *(2026-11-02: all 11 screens approved; glossary: Encarregado de Educação, Propina, Telemóvel, Educador, Criança, Presenças, Palavra-passe — "Factura" still to confirm. Phase 3 must rename "Senha" to "Palavra-passe" in the 2a screens.)*
 
 **Stack** *(2a)*
 - [x] Next.js 16.4, React 19.3, TypeScript strict; no ignored build errors; ESLint CLI. Cache Components and Partial Prefetching on (the scaffold's defaults). Pages that read the URL on the client sit in `<Suspense>`. Signed-in areas opt out of instant-navigation validation (`instant = false`), because the session lives in the browser.
@@ -332,15 +332,16 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
 
 **PWA**
 - [x] Web app manifest (name, icons, theme colour, `display: standalone`). *(2a; start URL is `/`, which sends each role to its home)*
-- [ ] Service worker via **Serwist** (`@serwist/next`):
-  - precaches the app shell and static assets
-  - runtime-caches GETs with stale-while-revalidate for read-mostly data (classes, children of my classes, today's reports)
-- [ ] Offline writes (staff only, for v1):
-  - Attendance and daily-report mutations go into an IndexedDB queue (TanStack Query persisted mutations), carrying an idempotency `client_id`.
-  - The queue replays when the device is back online.
-  - The UI shows pending-sync badges and the offline banner.
-- [ ] Install prompt on tablets and phones ("Adicionar ao ecrã inicial").
-- [ ] iOS meta tags for standalone mode.
+- [x] Service worker via **Serwist** (`@serwist/turbopack`, served from a prerendered route at `/serwist/sw.js`): *(2b)*
+  - precaches the app shell, static assets and the role home pages; other pages are cached as they're visited; `/~offline` fallback
+  - **never caches API responses** (personal data, shared tablets): other origins and `/api/` are left alone. Read data for offline use is kept per person instead: queries marked `meta: { offline: true }` persist to IndexedDB (TanStack Query persister, 24 h), wiped on sign-out and sign-in.
+- [x] Offline writes (staff): `recordAttendance` / `saveDailyReport` (`lib/offline/writes.ts`) save to an IndexedDB queue first, each with its own `client_id`, and send in order. *(2b)*
+  - Sends on sign-in, reconnect, return to foreground, every 30 s, and "Enviar agora"; 20 s timeout per send. Network/5xx errors wait; a write the API refuses (4xx) is set aside with its reason (retry or discard), so it can't block the rest.
+  - Writes belong to the person who made them: a shared tablet only sends the signed-in person's writes. Signing out with writes waiting asks first.
+  - The session survives an offline restart (last confirmed user kept on the device; only a 401/403 ends it).
+  - Banners: no internet / API unreachable, writes waiting, writes refused. Pending-sync badges per child: `usePendingWrites()` for the Phase 3 screens.
+- [x] Install prompt on tablets and phones ("Adicionar ao ecrã principal"; instructions on iPhone/iPad). *(2b)*
+- [x] iOS meta tags for standalone mode. *(2b)*
 - [ ] Web push notifications are **out of scope for v1**, because WhatsApp covers alerts.
 
 **Data layer**

@@ -32,6 +32,8 @@ const WA_TEMPLATES = {
   ATTENDANCE_CHECKIN:    process.env.WA_TEMPLATE_ATTENDANCE_CHECKIN    || 'sonho_attendance_checkin',
   ATTENDANCE_CHECKOUT:   process.env.WA_TEMPLATE_ATTENDANCE_CHECKOUT   || 'sonho_attendance_checkout',
   PASSWORD_RESET:        process.env.WA_TEMPLATE_PASSWORD_RESET        || 'sonho_password_reset',
+  ENROLLMENT_RECEIVED:   process.env.WA_TEMPLATE_ENROLLMENT_RECEIVED   || 'sonho_enrollment_received',
+  ENROLLMENT_APPROVED:   process.env.WA_TEMPLATE_ENROLLMENT_APPROVED   || 'sonho_enrollment_approved',
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -444,5 +446,76 @@ export class NotificationService {
         }
       ]);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Enrolment
+  // ---------------------------------------------------------------------------
+
+  /** Confirmation to the family that their enrolment request arrived. */
+  static async enrollmentReceived(params: {
+    email?: string;
+    whatsappPhone?: string;
+    guardianName: string;
+    childName: string;
+    reference: string;
+  }): Promise<Delivery> {
+    const email = params.email
+      ? await EmailService.send('enrollment-received', params.email, `Pedido de matrícula recebido — ${params.childName}`, {
+        name: params.guardianName,
+        childName: params.childName,
+        reference: params.reference
+      })
+      : false;
+
+    const whatsapp = params.whatsappPhone
+      ? await WhatsAppService.sendTemplate(WhatsAppService.normalisePhone(params.whatsappPhone), WA_TEMPLATES.ENROLLMENT_RECEIVED, LANG, [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: params.guardianName },
+            { type: 'text', text: params.childName },
+            { type: 'text', text: params.reference }
+          ]
+        }
+      ])
+      : false;
+
+    return { email, whatsapp };
+  }
+
+  /** Tells the family the enrolment was approved (account invites are sent separately). */
+  static async enrollmentApproved(params: {
+    email?: string;
+    whatsappPhone?: string;
+    guardianName: string;
+    childName: string;
+    className: string;
+    startDate: string;
+  }): Promise<Delivery> {
+    const email = params.email
+      ? await EmailService.send('enrollment-approved', params.email, `Matrícula aprovada — ${params.childName}`, {
+        name: params.guardianName,
+        childName: params.childName,
+        className: params.className,
+        startDate: params.startDate
+      })
+      : false;
+
+    const whatsapp = params.whatsappPhone
+      ? await WhatsAppService.sendTemplate(WhatsAppService.normalisePhone(params.whatsappPhone), WA_TEMPLATES.ENROLLMENT_APPROVED, LANG, [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: params.guardianName },
+            { type: 'text', text: params.childName },
+            { type: 'text', text: params.className },
+            { type: 'text', text: params.startDate }
+          ]
+        }
+      ])
+      : false;
+
+    return { email, whatsapp };
   }
 }

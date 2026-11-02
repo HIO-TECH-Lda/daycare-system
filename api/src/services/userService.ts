@@ -91,15 +91,25 @@ export class UserService {
     return user;
   }
 
-  /** Gives the user a fresh invite (replacing any previous link) and sends it on every channel they can receive. */
-  static async reissueInvite(user: IUserDocument): Promise<{ inviteLink: string; delivery: Delivery }> {
+  /** Puts a fresh invite on the user (replacing any previous link) without saving; returns the raw token. */
+  static prepareInvite(user: IUserDocument): string {
     const { token, hash } = generateOneTimeToken();
     user.status = 'invited';
     user.inviteTokenHash = hash;
     user.inviteExpires = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     user.invitedAt = new Date();
-    await user.save();
+    return token;
+  }
 
+  /** Gives the user a fresh invite (replacing any previous link) and sends it on every channel they can receive. */
+  static async reissueInvite(user: IUserDocument): Promise<{ inviteLink: string; delivery: Delivery }> {
+    const token = this.prepareInvite(user);
+    await user.save();
+    return this.sendInvite(user, token);
+  }
+
+  /** Sends an invite prepared with prepareInvite() (after it was saved). */
+  static async sendInvite(user: IUserDocument, token: string): Promise<{ inviteLink: string; delivery: Delivery }> {
     const delivery = await NotificationService.invite({
       email: user.email,
       whatsappPhone: NotificationService.whatsAppNumberFor(user),

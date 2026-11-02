@@ -442,6 +442,8 @@ Same params as `attendanceCheckIn` but with `checkOutTime`. Sends: **WhatsApp on
 | `POST /auth/forgot-password` (active account) | `passwordReset()` | ✅ | ✅ |
 | `POST /auth/forgot-password` (never-activated account) | `invite()` (new link) | ✅ | ✅ |
 | `POST /users/:id/password-reset-link` | `passwordReset()` | ✅ | ✅ |
+| `POST /enrollments` | `enrollmentReceived()` (template `sonho_enrollment_received`: name, child, reference) | ✅ | ✅ (with the form's consent) |
+| `POST /enrollments/:id/approve` | `enrollmentApproved()` (template `sonho_enrollment_approved`: name, child, class, start date), plus `invite()` for a new parent | ✅ | ✅ (with the form's consent) |
 | `POST /invoices` | `newInvoice()` | ✅ | ✅ |
 | `PATCH /invoices/:id/status` → `overdue` | `invoiceOverdue()` | ✅ | ✅ |
 | `PATCH /invoices/:id/status` → `paid` | `invoicePaid()` | ✅ | ✅ |

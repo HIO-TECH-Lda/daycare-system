@@ -75,3 +75,11 @@ export const resetPasswordLimiter = limiter('reset', {
   keyGenerator: (req) => String(req.body?.token || req.ip),
   message: tooMany(TRY_LATER)
 });
+
+/** Public enrolment form: per IP. Admins entering requests on families' behalf aren't limited. */
+export const enrollmentLimiter = limiter('enrollment', {
+  windowMs: 60 * MINUTE,
+  max: 10,
+  skip: (req) => skip() || req.user?.role === 'administrador',
+  message: tooMany(TRY_LATER)
+});

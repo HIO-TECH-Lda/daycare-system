@@ -30,6 +30,7 @@ import messageRoutes from './routes/messages';
 import monthlyReportRoutes from './routes/monthlyReports';
 import userRoutes from './routes/users';
 import mediaRoutes from './routes/media';
+import enrollmentRoutes from './routes/enrollments';
 import { isMediaUrl } from './utils/media';
 
 dotenv.config();
@@ -93,7 +94,8 @@ app.get('/api/v1', (req: Request, res: Response) => {
       messages: '/api/v1/messages',
       monthlyReports: '/api/v1/monthly-reports',
       users: '/api/v1/users',
-      media: '/api/v1/media/:kind/:id (signed links only)'
+      media: '/api/v1/media/:kind/:id (signed links only)',
+      enrollments: '/api/v1/enrollments'
     },
     authEndpoints: {
       login: 'POST /api/v1/auth/login',
@@ -132,6 +134,7 @@ app.use('/api/v1/messages', messageRoutes);
 app.use('/api/v1/monthly-reports', monthlyReportRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/media', mediaRoutes);
+app.use('/api/v1/enrollments', enrollmentRoutes);
 
 app.use('*', (req: Request, res: Response) => {
   res.status(404).json({

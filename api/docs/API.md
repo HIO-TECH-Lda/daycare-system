@@ -519,6 +519,110 @@ For an active user who forgot their password and can't receive the link themselv
 
 ---
 
+### Enrolments
+
+**Base path:** `/api/v1/enrollments`
+
+A family fills in the public form (`/matricula`); an admin can also enter it for them. The request waits in a queue. **Nothing is created until an admin approves it.**
+
+`status`: `submitted` → `under_review` → `approved` | `rejected`. Approved and rejected requests can't be changed.
+
+---
+
+#### `POST /enrollments` (public)
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `child` | object | ✅ | `name`, `birth_date` (not in the future) required. Optional: `gender` (`Masculino`/`Feminino`), `nationality`, `address`, `languages_spoken`, `allergies`, `medications`, `dietary_restrictions`, `sleep_schedule`, `preferred_foods`, `separation_reaction`, `plays_with_others`, `behavior_notes`, `previous_center`, `transfer_reason`, `emergency_contact_name`, `emergency_contact_phone` |
+| `guardians` | array (1–4) | ✅ | `name` required; `relationship`, `phone`, `email`, `profession`, `workplace`, `address`. **The first guardian is the main contact** and gets the parent account, so needs a phone or an email |
+| `pickup_persons` | array (0–6) | — | `name`, `phone` required; `relationship`, `id_document` |
+| `consents` | object | ✅ | `data_processing` must be `true`; `image_usage_authorized`, `whatsapp_opt_in` (default `false`) |
+| `requested_class_id` | string | — | |
+| `requested_start_date` | date | — | |
+| `notes` | string | — | |
+| `signature` | string | — | Full name typed as signature |
+| `website` | string | — | Honeypot: hidden on the form. When filled in, the API answers as usual but stores nothing |
+
+**Response `201`** — only the reference, never the data:
+
+```json
+{ "success": true, "message": "Pedido de matrícula recebido", "data": { "reference": "MAT-2026-0001", "status": "submitted" } }
+```
+
+The main guardian gets a confirmation by email and/or WhatsApp (WhatsApp only with `whatsapp_opt_in`).
+
+When a logged-in admin submits, the request is recorded as theirs (`source: "admin"`, `submitted_by`) and isn't rate-limited. Otherwise: 10 per hour per IP.
+
+**Errors:** `400` validation · `429` too many requests.
+
+---
+
+#### `GET /enrollments` 🔒 (admin)
+
+Paginated, newest first. Query: `status` (`submitted` | `under_review` | `approved` | `rejected`), `page`, `limit`.
+
+#### `GET /enrollments/:id` 🔒 (admin)
+
+#### `PUT /enrollments/:id` 🔒 (admin)
+
+Correct an open request (same fields as the form, all optional) and/or move it to review: `{ "status": "under_review" }`. **Errors:** `409` already approved or rejected.
+
+---
+
+#### `POST /enrollments/:id/approve` 🔒 (admin)
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `class_id` | string | ✅ | The class the child joins |
+| `start_date` | date | — | Defaults to the requested start date, or today |
+| `override_capacity` | boolean | — | Approve even if the class is full |
+
+In **one transaction** (all or nothing), approval:
+1. finds the family's account by the main guardian's phone or email (a second child), or creates an invited parent account, with WhatsApp consent from the form;
+2. creates the child (class, parent, image consent, signature, enrolment date);
+3. creates all guardians (the first as primary) and the pickup persons (authorised);
+4. marks the request `approved`.
+
+After that, a new parent gets the account invite. The family gets an "enrolment approved" message.
+
+**Response `200`**
+
+```json
+{
+  "success": true,
+  "message": "Matrícula aprovada",
+  "data": {
+    "enrollment": { "...": "status approved, child_id, parent_user_id" },
+    "child": { "...": "the new child" },
+    "parent": { "id": "...", "created": true },
+    "inviteLink": "https://app.../convite/<token>",
+    "delivery": { "email": true, "whatsapp": true }
+  }
+}
+```
+
+`inviteLink` and `delivery` are only there when a parent account was created (see `POST /users`).
+
+**Errors:**
+- `404` request or class not found.
+- `409`:
+  - already decided;
+  - class full (without `override_capacity`);
+  - the guardian's phone and email belong to two different accounts;
+  - the contact belongs to a staff or admin account.
+
+---
+
+#### `POST /enrollments/:id/reject` 🔒 (admin)
+
+**Body:** `{ "reason": "..." }`. Closes the request. No message is sent to the family: the centre contacts them itself. **Errors:** `409` already decided.
+
+---
+
 ### Classes
 
 **Base path:** `/api/v1/classes`  

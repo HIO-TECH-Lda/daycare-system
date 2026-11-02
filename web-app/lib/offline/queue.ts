@@ -164,9 +164,22 @@ export async function discardWrite(id: string): Promise<void> {
   publish();
 }
 
+/**
+ * Takes back a write that hasn't reached the API yet ("Desfazer"). False when it was already
+ * sent or is being sent: the caller then has to correct the record on the API.
+ */
+export async function cancelWrite(id: string): Promise<boolean> {
+  if (id === sendingId || !memory.has(id)) return false;
+  await removeWrite(id);
+  publish();
+  return true;
+}
+
 const SEND_TIMEOUT_MS = 20_000;
 
 let flushing: Promise<void> | null = null;
+// The write on its way to the API (it can no longer be cancelled)
+let sendingId: string | null = null;
 // A write saved while a flush was running: go round again once it ends
 let flushAgain = false;
 
@@ -201,6 +214,7 @@ async function sendWaiting(): Promise<void> {
     for (const write of snapshot.writes) {
       if (write.error || write.userId !== currentUser) continue;
       try {
+        sendingId = write.id;
         const res = await api.post<unknown>(
           PATHS[write.kind],
           { ...write.body, client_id: write.id },
@@ -208,10 +222,12 @@ async function sendWaiting(): Promise<void> {
           { signal: AbortSignal.timeout(SEND_TIMEOUT_MS) }
         );
         await removeWrite(write.id);
+        sendingId = null;
         publish({ unreachable: false });
         const conflict = (res as { conflict?: boolean }).conflict === true;
         syncedListeners.forEach((listener) => listener({ write, conflict }));
       } catch (error) {
+        sendingId = null;
         const status = error instanceof ApiRequestError ? error.status : 0;
         if (status === 0 || status === 401 || status === 408 || status === 429 || status >= 500) {
           await saveWrite({ ...write, attempts: write.attempts + 1 });

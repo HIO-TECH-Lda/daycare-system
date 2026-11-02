@@ -10,6 +10,7 @@ import { maputoDay } from '@/lib/offline/queue';
 import { useSelectedClass } from '@/components/app/class-picker';
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from '@/components/app/page-states';
 import { Button } from '@/components/ui/button';
+import { RollCallButton } from '@/components/staff/roll-call';
 
 function greeting(): string {
   const hour = Number(new Intl.DateTimeFormat('pt-PT', { hour: 'numeric', hour12: false, timeZone: 'Africa/Maputo' }).format(new Date()));
@@ -31,7 +32,11 @@ export function StaffToday() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeader title={`${greeting()}, ${user?.name.split(' ')[0] ?? ''}!`} description={formatWeekday(new Date())} />
+      <PageHeader
+        title={`${greeting()}, ${user?.name.split(' ')[0] ?? ''}!`}
+        description={formatWeekday(new Date())}
+        actions={classes.data?.length ? <RollCallButton /> : undefined}
+      />
 
       {!classes.data?.length ? (
         <EmptyState icon={School} title="Ainda não tem turmas">

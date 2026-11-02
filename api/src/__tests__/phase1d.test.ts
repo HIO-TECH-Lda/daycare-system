@@ -224,6 +224,17 @@ describe('offline sync', () => {
     expect(stale.body.data.notes).toBe('Versão antiga');
   });
 
+  it('an update can clear a check-out time (undoing a mistaken tap)', async () => {
+    const w = await world();
+    const staff = as(w.staffX);
+    const created = (await staff.post('/attendance', { child_id: id(w.childA), date: '2026-11-02', status: 'present', check_in: '2026-11-02T06:00:00Z', check_out: '2026-11-02T15:00:00Z' })).body.data;
+
+    const undone = await staff.put(`/attendance/${created._id}`, { check_out: null });
+    expect(undone.status).toBe(200);
+    expect(undone.body.data.check_out).toBeNull();
+    expect(undone.body.data.check_in).toBe('2026-11-02T06:00:00.000Z');
+  });
+
   it('daily report: one per child per day; the family is told only when it is first created', async () => {
     const w = await world();
     const notify = jest.spyOn(NotificationService, 'newDailyReport').mockResolvedValue();

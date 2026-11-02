@@ -390,8 +390,9 @@ export const createAttendanceSchema = Joi.object({
 });
 
 export const updateAttendanceSchema = Joi.object({
-  check_in: Joi.date().optional(),
-  check_out: Joi.date().optional(),
+  // null clears a time (the app's "Desfazer" after a mistaken check-in or check-out)
+  check_in: Joi.date().allow(null).optional(),
+  check_out: Joi.date().allow(null).optional(),
   status: Joi.string().valid('present', 'absent', 'late', 'excused').optional(),
   notes: Joi.string().optional().allow(''),
   // The version the app edited: a newer stored version is reported as a conflict

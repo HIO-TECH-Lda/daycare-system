@@ -1,16 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ClipboardCheck, EllipsisVertical, Phone, ShieldAlert, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { childrenOfClass, useDayAttendance, useMyChildren, useMyClasses, usePickupPeople, type DayAttendance } from '@/lib/api/staff';
-import { personName, type Child, type PickupPerson } from '@/lib/api/types';
+import { api } from '@/lib/api/client';
+import { personName, refId, type Attendance, type Child, type PickupPerson } from '@/lib/api/types';
 import { formatPhone, formatTime, formatWeekday, initials } from '@/lib/format';
-import { maputoDay } from '@/lib/offline/queue';
+import { cancelWrite, flushQueue, maputoDay } from '@/lib/offline/queue';
 import { recordAttendance, type AttendanceStatus } from '@/lib/offline/writes';
 import { cn } from '@/lib/utils';
 import { ClassPicker, useSelectedClass } from '@/components/app/class-picker';
 import { ChildAvatar, PendingBadge, SafetyBadges } from '@/components/app/child-badges';
+import { RollCallButton } from '@/components/staff/roll-call';
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from '@/components/app/page-states';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -31,12 +34,45 @@ function firstName(name: string): string {
   return name.split(/\s+/)[0] ?? name;
 }
 
-async function save(input: Parameters<typeof recordAttendance>[0], done: string) {
+type AttendanceInput = Parameters<typeof recordAttendance>[0];
+/** Records attendance and offers "Desfazer" for a few seconds. */
+type Save = (inputs: AttendanceInput[], done: string) => Promise<void>;
+
+interface Undoable {
+  writeId: string;
+  childId: string;
+  /** The child's record before the tap (none: the tap created it) */
+  previous: DayAttendance | undefined;
+}
+
+/**
+ * "Desfazer": a write still on the device is simply dropped. One the API already has is put back
+ * as it was (or removed, when the tap created it); that part needs the internet.
+ */
+async function undo(items: Undoable[], day: string, queryClient: QueryClient) {
+  const sent: Undoable[] = [];
+  for (const item of items) if (!(await cancelWrite(item.writeId))) sent.push(item);
   try {
-    await recordAttendance(input);
-    toast.success(done);
-  } catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Não foi possível guardar. Tente novamente.');
+    if (sent.length) {
+      // A write may be on its way: let it arrive (or fail) first
+      await flushQueue();
+      const remaining: Undoable[] = [];
+      for (const item of sent) if (!(await cancelWrite(item.writeId))) remaining.push(item);
+      if (remaining.length) {
+        const records = (await api.get<Attendance[]>('/attendance', { date: day, limit: 100 })).data;
+        for (const item of remaining) {
+          const record = records.find((row) => refId(row.child_id) === item.childId);
+          if (!record) continue;
+          const before = item.previous;
+          if (!before?.status) await api.delete(`/attendance/${record._id}`);
+          else await api.put(`/attendance/${record._id}`, { status: before.status, check_in: before.checkIn ?? null, check_out: before.checkOut ?? null, notes: before.notes ?? '' });
+        }
+        await queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      }
+    }
+    toast.success('Desfeito.');
+  } catch {
+    toast.error('Não foi possível desfazer sem ligação ao servidor. Corrija na lista quando houver internet.');
   }
 }
 
@@ -55,6 +91,7 @@ export function AttendanceBoard() {
   const [checkingOut, setCheckingOut] = useState<Child | null>(null);
   const [markingAbsent, setMarkingAbsent] = useState<Child | null>(null);
   const [confirmingAll, setConfirmingAll] = useState(false);
+  const queryClient = useQueryClient();
 
   if (classes.isPending || children.isPending) return <ListSkeleton rows={6} />;
   if (!children.data) return <ErrorState error={children.error} onRetry={() => void children.refetch()} />;
@@ -72,13 +109,32 @@ export function AttendanceBoard() {
   const count = (stage: Stage) => rows.filter((child) => stages.get(child._id) === stage).length;
   const waiting = rows.filter((child) => stages.get(child._id) === 'waiting');
 
+  const save: Save = async (inputs, done) => {
+    const items: Undoable[] = [];
+    try {
+      for (const input of inputs) {
+        const previous = attendance.byChild.get(input.childId);
+        const write = await recordAttendance(input);
+        items.push({ writeId: write.id, childId: input.childId, previous });
+      }
+      // One toast per child (or per bulk action): a newer action replaces the older toast, so an
+      // out-of-date "Desfazer" can't wipe what came after it
+      const id = inputs.length === 1 ? `attendance-${inputs[0].childId}` : 'attendance-bulk';
+      toast.success(done, { id, duration: 6000, action: { label: 'Desfazer', onClick: () => void undo(items, day, queryClient) } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível guardar. Tente novamente.');
+    }
+  };
+
   const checkIn = (child: Child) =>
-    save({ childId: child._id, status: 'present', checkIn: new Date(), notes: '' }, `Entrada de ${firstName(child.name)} registada.`);
+    save([{ childId: child._id, status: 'present', checkIn: new Date(), notes: '' }], `Entrada de ${firstName(child.name)} registada.`);
 
   const checkInAll = async () => {
     setConfirmingAll(false);
-    for (const child of waiting) await recordAttendance({ childId: child._id, status: 'present', checkIn: new Date(), notes: '' });
-    toast.success(waiting.length === 1 ? '1 entrada registada.' : `${waiting.length} entradas registadas.`);
+    await save(
+      waiting.map((child) => ({ childId: child._id, status: 'present', checkIn: new Date(), notes: '' })),
+      waiting.length === 1 ? '1 entrada registada.' : `${waiting.length} entradas registadas.`
+    );
   };
 
   return (
@@ -86,7 +142,12 @@ export function AttendanceBoard() {
       <PageHeader
         title="Presenças"
         description={`${formatWeekday(now)} · ${currentClass?.name ?? ''}`}
-        actions={<ClassPicker classes={classes.data} value={classId} onChange={setClassId} />}
+        actions={
+          <>
+            <ClassPicker classes={classes.data} value={classId} onChange={setClassId} />
+            <RollCallButton />
+          </>
+        }
       />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -122,8 +183,8 @@ export function AttendanceBoard() {
         </ul>
       )}
 
-      <CheckoutSheet child={checkingOut} people={checkingOut ? (pickup.data?.get(checkingOut._id) ?? []) : []} onClose={() => setCheckingOut(null)} />
-      <AbsenceDialog child={markingAbsent} onClose={() => setMarkingAbsent(null)} />
+      <CheckoutSheet child={checkingOut} people={checkingOut ? (pickup.data?.get(checkingOut._id) ?? []) : []} save={save} onClose={() => setCheckingOut(null)} />
+      <AbsenceDialog child={markingAbsent} save={save} onClose={() => setMarkingAbsent(null)} />
 
       <Dialog open={confirmingAll} onOpenChange={setConfirmingAll}>
         <DialogContent>
@@ -244,7 +305,7 @@ function collectorsFor(child: Child, people: PickupPerson[]): Collector[] {
 }
 
 /** Check-out: the educator picks who is collecting the child from the authorised list. */
-function CheckoutSheet({ child, people, onClose }: { child: Child | null; people: PickupPerson[]; onClose: () => void }) {
+function CheckoutSheet({ child, people, save, onClose }: { child: Child | null; people: PickupPerson[]; save: Save; onClose: () => void }) {
   const [chosen, setChosen] = useState<string | null>(null);
   const [notListed, setNotListed] = useState(false);
   const collectors = child ? collectorsFor(child, people) : [];
@@ -260,7 +321,7 @@ function CheckoutSheet({ child, people, onClose }: { child: Child | null; people
   const confirm = async () => {
     if (!child || !picked) return;
     await save(
-      { childId: child._id, status: 'present', checkOut: new Date(), notes: `com ${picked.name} (${picked.relationship})` },
+      [{ childId: child._id, status: 'present', checkOut: new Date(), notes: `com ${picked.name} (${picked.relationship})` }],
       `Saída de ${firstName(child.name)} registada.`
     );
     close();
@@ -337,7 +398,7 @@ const ABSENCE_REASONS: { label: string; status: AttendanceStatus }[] = [
 ];
 
 /** Absence with a reason; a justified absence (illness, holidays) is recorded as "excused". */
-function AbsenceDialog({ child, onClose }: { child: Child | null; onClose: () => void }) {
+function AbsenceDialog({ child, save, onClose }: { child: Child | null; save: Save; onClose: () => void }) {
   const [reason, setReason] = useState<string | null>(null);
   const [note, setNote] = useState('');
 
@@ -351,7 +412,7 @@ function AbsenceDialog({ child, onClose }: { child: Child | null; onClose: () =>
     const chosen = ABSENCE_REASONS.find((item) => item.label === reason);
     if (!child || !chosen) return;
     const notes = `Ausente: ${chosen.label.toLowerCase()}${note.trim() ? ` (${note.trim()})` : ''}`;
-    await save({ childId: child._id, status: chosen.status, notes }, `Ausência de ${firstName(child.name)} registada.`);
+    await save([{ childId: child._id, status: chosen.status, notes }], `Ausência de ${firstName(child.name)} registada.`);
     close();
   };
 

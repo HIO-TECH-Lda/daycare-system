@@ -1,9 +1,10 @@
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import User, { IUserDocument } from '../models/User';
 import { JWTPayload } from '../types';
 import Messages from '../utils/messages';
 import { uploadBase64Image } from '../utils/cloudinary';
+import { ApiError } from '../utils/ApiError';
+import { generateOneTimeToken, hashToken } from '../utils/tokens';
 
 // Format user for frontend (matches frontend User type)
 export function formatUserForFrontend(user: IUserDocument) {
@@ -47,77 +48,73 @@ export class AuthService {
     } as jwt.SignOptions);
   }
 
-  // Verify user credentials
+  // Verify user credentials. Returns null for unknown email or wrong password;
+  // throws ApiError(401) when the password is right but the account is not active.
   static async verifyCredentials(email: string, password: string): Promise<IUserDocument | null> {
-    try {
-      // Find user by email and include password for comparison
-      const user = await User.findOne({ email }).select('+password');
-      
-      if (!user) {
-        return null;
-      }
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
 
-      // Check if user is active
-      if (user.status !== 'active') {
-        return null;
-      }
-
-      // Verify password
-      const isPasswordValid = await user.comparePassword(password);
-      
-      if (!isPasswordValid) {
-        return null;
-      }
-
-      return user;
-    } catch (error) {
-      console.error('Error verifying credentials:', error);
+    if (!user || !(await user.comparePassword(password))) {
       return null;
     }
-  }
 
-  // Register new user — returns both access and refresh tokens
-  static async registerUser(userData: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    role?: string;
-    phone?: string;
-  }): Promise<{ user: IUserDocument; token: string; refreshToken: string }> {
-    const existingUser = await User.findOne({ email: userData.email });
-
-    if (existingUser) {
-      throw new Error(Messages.AUTH.EMAIL_ALREADY_EXISTS);
+    if (user.status === 'inactive' || user.status === 'suspended') {
+      throw new ApiError(401, Messages.AUTH.ACCOUNT_DISABLED);
+    }
+    if (user.status !== 'active') {
+      throw new ApiError(401, Messages.AUTH.ACCOUNT_NOT_ACTIVE);
     }
 
-    const user = new User({
-      ...userData,
-      role: userData.role || 'responsavel',
-      phone: userData.phone || ''
-    });
-
-    await user.save();
-
-    const token = this.generateToken(user);
-    const refreshToken = this.generateRefreshToken(user);
-
-    return { user, token, refreshToken };
+    return user;
   }
 
   // Login user
   static async loginUser(email: string, password: string): Promise<{ user: IUserDocument; token: string; refreshToken: string }> {
     const user = await this.verifyCredentials(email, password);
-    
+
     if (!user) {
-      throw new Error(Messages.AUTH.INVALID_CREDENTIALS);
+      throw new ApiError(401, Messages.AUTH.INVALID_CREDENTIALS);
     }
 
-    // Generate tokens
-    const token = this.generateToken(user);
-    const refreshToken = this.generateRefreshToken(user);
+    return { user, ...this.issueTokens(user) };
+  }
 
-    return { user, token, refreshToken };
+  static issueTokens(user: IUserDocument): { token: string; refreshToken: string } {
+    return { token: this.generateToken(user), refreshToken: this.generateRefreshToken(user) };
+  }
+
+  // Look up a pending invite (for the "accept invite" page)
+  static async findPendingInvite(inviteToken: string): Promise<IUserDocument> {
+    const user = await User.findOne({
+      inviteTokenHash: hashToken(inviteToken),
+      inviteExpires: { $gt: new Date() },
+      status: 'invited'
+    });
+
+    if (!user) {
+      throw new ApiError(400, Messages.INVITE.INVALID);
+    }
+
+    return user;
+  }
+
+  // Accept an invite: set the password, record WhatsApp consent, activate and log in
+  static async acceptInvite(
+    inviteToken: string,
+    password: string,
+    whatsappOptIn: boolean
+  ): Promise<{ user: IUserDocument; token: string; refreshToken: string }> {
+    const user = await this.findPendingInvite(inviteToken);
+
+    user.password = password;
+    user.status = 'active';
+    user.activatedAt = new Date();
+    user.inviteTokenHash = undefined;
+    user.inviteExpires = undefined;
+    user.whatsappOptIn = whatsappOptIn;
+    user.whatsappOptInAt = whatsappOptIn ? new Date() : undefined;
+    await user.save();
+
+    return { user, ...this.issueTokens(user) };
   }
 
   // Refresh token — verifies with JWT_REFRESH_SECRET
@@ -192,21 +189,17 @@ export class AuthService {
     return true;
   }
 
-  // Request password reset
-  static async requestPasswordReset(email: string): Promise<{ user: IUserDocument; resetToken: string }> {
-    const user = await User.findOne({ email: email.toLowerCase() });
-    
+  // Request password reset (active accounts only; invited users should use their invite)
+  static async requestPasswordReset(email: string): Promise<{ user: IUserDocument; resetToken: string } | null> {
+    const user = await User.findOne({ email: email.toLowerCase().trim(), status: 'active' });
+
     if (!user) {
-      // Don't reveal if email exists for security
-      throw new Error('If the email exists, a reset link will be sent');
+      // Don't reveal whether the email exists
+      return null;
     }
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-    // Save hashed token and expiry
-    user.passwordResetToken = resetTokenHash;
+    const { token: resetToken, hash } = generateOneTimeToken();
+    user.passwordResetToken = hash;
     user.passwordResetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     await user.save();
 
@@ -215,15 +208,13 @@ export class AuthService {
 
   // Reset password with token
   static async resetPassword(resetToken: string, newPassword: string): Promise<IUserDocument> {
-    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-
     const user = await User.findOne({
-      passwordResetToken: resetTokenHash,
+      passwordResetToken: hashToken(resetToken),
       passwordResetExpires: { $gt: new Date() }
     }).select('+password');
 
     if (!user) {
-      throw new Error(Messages.AUTH.INVALID_RESET_TOKEN);
+      throw new ApiError(400, Messages.AUTH.INVALID_RESET_TOKEN);
     }
 
     // Update password and clear reset token

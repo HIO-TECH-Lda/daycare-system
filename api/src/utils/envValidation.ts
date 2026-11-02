@@ -58,12 +58,17 @@ const requiredEnvVars: RequiredEnvVars = {
     description: 'Public URL of the frontend app (used in email links)',
     defaultValue: 'http://localhost:3000'
   },
+  CORS_ORIGINS: {
+    required: false,
+    description: 'Comma-separated browser origins allowed to call the API (supports * wildcards). Required in production.'
+  },
   // WhatsApp (Meta Cloud API)
   WHATSAPP_TOKEN: { required: false, description: 'Meta permanent system-user access token' },
   WHATSAPP_PHONE_ID: { required: false, description: 'Meta Phone Number ID (not the actual phone number)' },
   WHATSAPP_API_VERSION: { required: false, description: 'Meta Graph API version', defaultValue: 'v21.0' },
   WHATSAPP_LANG: { required: false, description: 'BCP 47 language code for WhatsApp templates', defaultValue: 'pt_BR' },
   // Optional: override default WhatsApp template names
+  WA_TEMPLATE_INVITE: { required: false, description: 'WhatsApp template: account invite' },
   WA_TEMPLATE_WELCOME: { required: false, description: 'WhatsApp template: welcome' },
   WA_TEMPLATE_INVOICE_NEW: { required: false, description: 'WhatsApp template: new invoice' },
   WA_TEMPLATE_INVOICE_OVERDUE: { required: false, description: 'WhatsApp template: overdue invoice' },
@@ -103,6 +108,10 @@ export function validateEnvironmentVariables(): boolean {
     });
     console.error('\nPlease set these variables in your .env file');
     return false;
+  }
+
+  if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGINS) {
+    console.warn('⚠️  CORS_ORIGINS is not set: browsers will be blocked from calling the API in production.');
   }
 
   if (warnings.length > 0) {

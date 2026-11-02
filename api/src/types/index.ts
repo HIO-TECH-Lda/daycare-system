@@ -1,6 +1,8 @@
 // User (daycare system)
 export type UserRole = 'responsavel' | 'staff' | 'administrador';
 
+export type UserStatus = 'invited' | 'active' | 'inactive' | 'suspended';
+
 export interface IUser {
   _id?: string;
   firstName: string;
@@ -9,11 +11,18 @@ export interface IUser {
   password: string;
   role: UserRole;
   phone?: string;
-  status: 'active' | 'inactive' | 'suspended';
+  status: UserStatus;
   emailVerified?: boolean;
   avatar?: string;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
+  inviteTokenHash?: string;
+  inviteExpires?: Date;
+  invitedBy?: unknown;
+  invitedAt?: Date;
+  activatedAt?: Date;
+  whatsappOptIn?: boolean;
+  whatsappOptInAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }

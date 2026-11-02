@@ -13,7 +13,8 @@
     "lint": "eslint \"src/**/*.ts\" \"api/**/*.ts\" \"scripts/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"api/**/*.ts\" \"scripts/**/*.ts\" --fix",
     "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
-    "seed:fresh": "ts-node -r tsconfig-paths/register scripts/seed.ts --fresh"
+    "seed:fresh": "ts-node -r tsconfig-paths/register scripts/seed.ts --fresh",
+    "create-admin": "ts-node -r tsconfig-paths/register scripts/create-admin.ts"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.11",

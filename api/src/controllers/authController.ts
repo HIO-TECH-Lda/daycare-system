@@ -3,41 +3,10 @@ import { AuthService, formatUserForFrontend } from '../services/authService';
 import { NotificationService } from '../services/notificationService';
 import { CloudinaryService } from '../services/cloudinaryService';
 import Messages from '../utils/messages';
+import ApiResponse from '../utils/ApiResponse';
+import { catchAsync } from '../utils/catchAsync';
 
 export class AuthController {
-  // Register new user
-  static async register(req: Request, res: Response) {
-    try {
-      const { confirmPassword, ...userData } = req.body;
-      
-      const result = await AuthService.registerUser(userData);
-
-      // Fire-and-forget welcome notification
-      NotificationService.welcome({
-        email: result.user.email,
-        phone: result.user.phone,
-        name: result.user.fullName,
-        role: result.user.role
-      });
-      
-      return res.status(201).json({
-        success: true,
-        message: Messages.AUTH.REGISTER_SUCCESS,
-        data: {
-          user: formatUserForFrontend(result.user),
-          token: result.token,
-          refreshToken: result.refreshToken
-        }
-      });
-    } catch (error) {
-      console.error('Registration error:', error);
-      return res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : Messages.AUTH.REGISTER_FAILED
-      });
-    }
-  }
-
   // Login user
   static async login(req: Request, res: Response) {
     try {
@@ -183,13 +152,14 @@ export class AuthController {
       }
       const resetResult = await AuthService.requestPasswordReset(email);
 
-      // Fire-and-forget password reset notification
-      NotificationService.passwordReset({
-        email: resetResult.user.email,
-        phone: resetResult.user.phone,
-        name: resetResult.user.fullName,
-        resetToken: resetResult.resetToken
-      });
+      if (resetResult) {
+        await NotificationService.passwordReset({
+          email: resetResult.user.email,
+          phone: resetResult.user.phone,
+          name: resetResult.user.fullName,
+          resetToken: resetResult.resetToken
+        });
+      }
 
       return res.json({ success: true, message: Messages.AUTH.PASSWORD_RESET_EMAIL_SENT });
     } catch (error) {
@@ -217,4 +187,26 @@ export class AuthController {
     }
   }
 
+  // Look up a pending invite so the accept page can greet the user
+  static getInvite = catchAsync(async (req: Request, res: Response) => {
+    const user = await AuthService.findPendingInvite(req.params.token);
+    return res.json(ApiResponse.success({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone || '',
+      role: user.role
+    }, Messages.INVITE.VALID));
+  });
+
+  // Accept an invite: set password + WhatsApp consent, then log the user in
+  static acceptInvite = catchAsync(async (req: Request, res: Response) => {
+    const { token, password, whatsappOptIn } = req.body;
+    const result = await AuthService.acceptInvite(token, password, whatsappOptIn);
+    return res.json(ApiResponse.success({
+      user: formatUserForFrontend(result.user),
+      token: result.token,
+      refreshToken: result.refreshToken
+    }, Messages.INVITE.ACCEPTED));
+  });
 }

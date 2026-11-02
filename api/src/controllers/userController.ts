@@ -1,15 +1,49 @@
 import { Request, Response } from 'express';
-import { UserService } from '../services/userService';
+import { UserService, formatUserForAdmin } from '../services/userService';
 import { catchAsync } from '../utils/catchAsync';
 import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
+import Messages from '../utils/messages';
+import { UserStatus } from '../types';
+
+const STATUS_FILTERS = ['invited', 'active', 'inactive', 'suspended', 'all'];
 
 export class UserController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
     const role = req.query.role as string | undefined;
     const search = req.query.search as string | undefined;
+    // Only admins may list non-active users; staff always see active users
+    const requested = req.query.status as string | undefined;
+    const status = (req.user!.role === 'administrador' && requested && STATUS_FILTERS.includes(requested)
+      ? requested
+      : 'active') as UserStatus | 'all';
     const { page, limit } = getPaginationParams(req);
-    const { users, total } = await UserService.findAll(role, search, page, limit);
+    const { users, total } = await UserService.findAll(role, search, page, limit, status);
     return res.json(ApiResponse.paginated(users, { page, limit, total }, 'Usuários recuperados com sucesso'));
+  });
+
+  static getById = catchAsync(async (req: Request, res: Response) => {
+    const user = await UserService.findById(req.params.id);
+    return res.json(ApiResponse.success(formatUserForAdmin(user), Messages.USER.RETRIEVED));
+  });
+
+  static create = catchAsync(async (req: Request, res: Response) => {
+    const { user, inviteLink } = await UserService.createInvited(req.body, req.user!.userId);
+    return res.status(201).json(ApiResponse.success({ user: formatUserForAdmin(user), inviteLink }, Messages.INVITE.SENT));
+  });
+
+  static update = catchAsync(async (req: Request, res: Response) => {
+    const user = await UserService.update(req.params.id, req.body, req.user!.userId);
+    return res.json(ApiResponse.success(formatUserForAdmin(user), Messages.USER.UPDATED));
+  });
+
+  static setStatus = catchAsync(async (req: Request, res: Response) => {
+    const user = await UserService.setStatus(req.params.id, req.body.status, req.user!.userId);
+    return res.json(ApiResponse.success(formatUserForAdmin(user), Messages.USER.STATUS_UPDATED));
+  });
+
+  static resendInvite = catchAsync(async (req: Request, res: Response) => {
+    const { user, inviteLink } = await UserService.resendInvite(req.params.id);
+    return res.json(ApiResponse.success({ user: formatUserForAdmin(user), inviteLink }, Messages.INVITE.RESENT));
   });
 }

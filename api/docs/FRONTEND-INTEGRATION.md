@@ -37,7 +37,9 @@ The API supports CORS. Configure your frontend origin in the backend `.env` file
 
 ## 2. Authentication
 
-### Register
+### Register (removed)
+> Public registration was removed (2026-11). Accounts are created by admins via `POST /users` and activated with `POST /auth/accept-invite` — see `API.md`. The example below is kept for history only.
+
 **POST** `/api/v1/auth/register`
 
 **Request Body:**

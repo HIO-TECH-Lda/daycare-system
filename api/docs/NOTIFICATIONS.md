@@ -430,7 +430,7 @@ Same params as `attendanceCheckIn` but with `checkOutTime`. Sends: **WhatsApp on
 
 | Controller action | Method called | Email | WhatsApp |
 |---|---|---|---|
-| `POST /auth/register` | `welcome()` | ✅ | ✅ |
+| `POST /users`, `POST /users/:id/resend-invite` | `invite()` (template `sonho_invite`: name, link) | ✅ | ✅ |
 | `POST /auth/forgot-password` | `passwordReset()` | ✅ | ✅ |
 | `POST /invoices` | `newInvoice()` | ✅ | ✅ |
 | `PATCH /invoices/:id/status` → `overdue` | `invoiceOverdue()` | ✅ | ✅ |

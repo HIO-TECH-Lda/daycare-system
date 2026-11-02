@@ -27,7 +27,18 @@ export const Messages = {
     PASSWORD_RESET_EMAIL_SENT: 'Se o email existir, um link de redefinição será enviado',
     PASSWORD_RESET_SUCCESS: 'Senha redefinida com sucesso',
     INVALID_RESET_TOKEN: 'Token de redefinição inválido ou expirado',
-    ADMIN_ACCESS: 'Acesso de administrador concedido'
+    ADMIN_ACCESS: 'Acesso de administrador concedido',
+    ACCOUNT_DISABLED: 'Conta desactivada. Contacte a administração.',
+    ACCOUNT_NOT_ACTIVE: 'Conta inactiva. Contacte a administração.'
+  },
+
+  INVITE: {
+    SENT: 'Utilizador criado e convite enviado',
+    RESENT: 'Convite reenviado',
+    VALID: 'Convite válido',
+    INVALID: 'Convite inválido ou expirado',
+    ACCEPTED: 'Conta activada com sucesso',
+    NOT_PENDING: 'Este utilizador já activou a conta'
   },
 
   USER: {
@@ -37,7 +48,12 @@ export const Messages = {
     PROFILE_UPDATED: 'Perfil atualizado com sucesso',
     PROFILE_RETRIEVED: 'Perfil recuperado com sucesso',
     PASSWORD_UPDATED: 'Senha atualizada com sucesso',
-    FETCH_FAILED: 'Falha ao buscar usuário'
+    FETCH_FAILED: 'Falha ao buscar usuário',
+    RETRIEVED: 'Utilizador obtido com sucesso',
+    STATUS_UPDATED: 'Estado do utilizador actualizado',
+    CANNOT_CHANGE_OWN_STATUS: 'Não pode alterar o estado da sua própria conta',
+    CANNOT_CHANGE_OWN_ROLE: 'Não pode alterar o seu próprio perfil de acesso',
+    INVITED_CANNOT_BE_ACTIVATED: 'Um utilizador convidado só fica activo ao aceitar o convite'
   },
 
   ERROR: {

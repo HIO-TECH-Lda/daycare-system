@@ -18,6 +18,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // Approved WhatsApp template names — configure in .env or change here
 const WA_TEMPLATES = {
+  INVITE:                process.env.WA_TEMPLATE_INVITE                || 'sonho_invite',
   WELCOME:               process.env.WA_TEMPLATE_WELCOME               || 'sonho_welcome',
   INVOICE_NEW:           process.env.WA_TEMPLATE_INVOICE_NEW           || 'sonho_invoice_new',
   INVOICE_OVERDUE:       process.env.WA_TEMPLATE_INVOICE_OVERDUE       || 'sonho_invoice_overdue',
@@ -28,6 +29,12 @@ const WA_TEMPLATES = {
   ATTENDANCE_CHECKIN:    process.env.WA_TEMPLATE_ATTENDANCE_CHECKIN    || 'sonho_attendance_checkin',
   ATTENDANCE_CHECKOUT:   process.env.WA_TEMPLATE_ATTENDANCE_CHECKOUT   || 'sonho_attendance_checkout',
   PASSWORD_RESET:        process.env.WA_TEMPLATE_PASSWORD_RESET        || 'sonho_password_reset',
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  responsavel: 'Encarregado de Educação',
+  staff: 'Educador(a)',
+  administrador: 'Administração'
 };
 
 export class NotificationService {
@@ -55,13 +62,50 @@ export class NotificationService {
     }
   }
 
+  /** Link the frontend's accept-invite page opens with. */
+  static inviteLink(inviteToken: string): string {
+    return `${FRONTEND_URL}/convite/${inviteToken}`;
+  }
+
+  static async invite(params: {
+    email: string;
+    phone?: string;
+    name: string;
+    role: string;
+    inviteToken: string;
+    expiryDays: number;
+  }): Promise<void> {
+    const inviteLink = this.inviteLink(params.inviteToken);
+    const roleLabel = ROLE_LABELS[params.role] || params.role;
+
+    await EmailService.send('invite', params.email, 'Convite — Centro Infantil Sonho de Criança', {
+      name: params.name,
+      roleLabel,
+      inviteLink,
+      expiryDays: params.expiryDays
+    });
+
+    if (params.phone) {
+      const to = WhatsAppService.normalisePhone(params.phone);
+      await WhatsAppService.sendTemplate(to, WA_TEMPLATES.INVITE, LANG, [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: params.name },
+            { type: 'text', text: inviteLink }
+          ]
+        }
+      ]);
+    }
+  }
+
   static async passwordReset(params: {
     email: string;
     phone?: string;
     name: string;
     resetToken: string;
   }): Promise<void> {
-    const resetLink = `${FRONTEND_URL}/reset-password?token=${params.resetToken}`;
+    const resetLink = `${FRONTEND_URL}/redefinir-senha?token=${params.resetToken}`;
 
     await EmailService.send('password-reset', params.email, 'Redefinição de senha — Sonho de Criança', {
       name: params.name,

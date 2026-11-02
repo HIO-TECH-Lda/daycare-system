@@ -119,6 +119,10 @@ export class WhatsAppService {
    * Strips spaces, dashes, parentheses, and leading '+'.
    */
   static normalisePhone(phone: string): string {
-    return phone.replace(/[\s\-().+]/g, '');
+    let digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    // Local Mozambican mobile (8X XXX XXXX) → add the +258 country code
+    if (digits.length === 9 && digits.startsWith('8')) digits = `258${digits}`;
+    return digits;
   }
 }

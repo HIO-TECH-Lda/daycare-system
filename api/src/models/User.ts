@@ -34,7 +34,11 @@ const userSchema = new Schema<IUserDocument>(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      // Invited users have no password until they accept the invite
+      required: [
+        function (this: IUserDocument) { return this.status !== 'invited'; },
+        'Password is required'
+      ],
       minlength: [8, 'Password must be at least 8 characters'],
       select: false
     },
@@ -50,13 +54,20 @@ const userSchema = new Schema<IUserDocument>(
     },
     status: {
       type: String,
-      enum: ['active', 'inactive', 'suspended'],
+      enum: ['invited', 'active', 'inactive', 'suspended'],
       default: 'active'
     },
     emailVerified: { type: Boolean, default: false },
     avatar: { type: String, default: null },
     passwordResetToken: { type: String, select: false },
-    passwordResetExpires: { type: Date, select: false }
+    passwordResetExpires: { type: Date, select: false },
+    inviteTokenHash: { type: String, select: false },
+    inviteExpires: { type: Date, select: false },
+    invitedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    invitedAt: { type: Date },
+    activatedAt: { type: Date },
+    whatsappOptIn: { type: Boolean, default: false },
+    whatsappOptInAt: { type: Date }
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
@@ -81,12 +92,17 @@ userSchema.pre('save', async function (next) {
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.passwordResetToken;
+  delete obj.passwordResetExpires;
+  delete obj.inviteTokenHash;
+  delete obj.inviteExpires;
   return obj;
 };
 

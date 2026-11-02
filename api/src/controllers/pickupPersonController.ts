@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { PickupPersonService } from '../services/pickupPersonService';
-import { ChildService } from '../services/childService';
 import { CloudinaryService } from '../services/cloudinaryService';
 import { catchAsync } from '../utils/catchAsync';
 import ApiResponse from '../utils/ApiResponse';

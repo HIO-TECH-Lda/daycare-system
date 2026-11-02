@@ -18,12 +18,12 @@ const METHOD_TO_ACTION: { [key: string]: 'create' | 'read' | 'update' | 'delete'
 };
 
 // Extract entity information from URL
-function extractEntityInfo(url: string, method: string): { type: string; id?: string } | null {
+function extractEntityInfo(url: string, _method: string): { type: string; id?: string } | null {
   // Remove query params
   const path = url.split('?')[0];
   
   // Common patterns: /api/v1/admin/{entity}/{id}
-  const adminMatch = path.match(/\/api\/v1\/admin\/([^\/]+)(?:\/([^\/]+))?/);
+  const adminMatch = path.match(/\/api\/v1\/admin\/([^/]+)(?:\/([^/]+))?/);
   if (adminMatch) {
     const entityType = adminMatch[1];
     const entityId = adminMatch[2];
@@ -40,7 +40,7 @@ function extractEntityInfo(url: string, method: string): { type: string; id?: st
   }
   
   // Pattern: /api/v1/{entity}/{id}
-  const publicMatch = path.match(/\/api\/v1\/([^\/]+)(?:\/([^\/]+))?/);
+  const publicMatch = path.match(/\/api\/v1\/([^/]+)(?:\/([^/]+))?/);
   if (publicMatch) {
     const entityType = publicMatch[1];
     const entityId = publicMatch[2];

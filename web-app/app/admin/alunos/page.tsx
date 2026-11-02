@@ -521,7 +521,7 @@ export default function GestaoAlunosPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja excluir o aluno "{child.name}"? Esta ação não pode ser desfeita.
+                            Tem certeza que deseja excluir o aluno &ldquo;{child.name}&rdquo;? Esta ação não pode ser desfeita.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

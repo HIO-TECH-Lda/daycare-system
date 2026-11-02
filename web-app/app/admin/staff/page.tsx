@@ -263,7 +263,7 @@ export default function GestaoStaffPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja excluir o staff "{staffMember.name}"? Esta ação não pode ser desfeita.
+                            Tem certeza que deseja excluir o staff &ldquo;{staffMember.name}&rdquo;? Esta ação não pode ser desfeita.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

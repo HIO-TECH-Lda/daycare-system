@@ -24,6 +24,8 @@ module.exports = {
     'lcov',
     'html'
   ],
+  globalSetup: '<rootDir>/src/__tests__/globalSetup.ts',
+  globalTeardown: '<rootDir>/src/__tests__/globalTeardown.ts',
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   testTimeout: 30000,
   verbose: true,

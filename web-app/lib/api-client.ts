@@ -114,11 +114,14 @@ export class ApiClientError extends Error {
   }
 }
 
+/** Query-string params; undefined/null values are skipped. Any object of filters is accepted. */
+export type QueryParams = object;
+
 type RequestOptions = {
   body?: unknown;
   token?: string | null;
   headers?: Record<string, string>;
-  params?: Record<string, string | number | boolean | undefined>;
+  params?: QueryParams;
 };
 
 // Track if we're currently refreshing to avoid loops
@@ -270,7 +273,7 @@ async function request<T>(
 /** GET request */
 export function apiGet<T = unknown>(
   path: string,
-  options?: { token?: string | null; params?: Record<string, string | number | boolean | undefined> }
+  options?: { token?: string | null; params?: QueryParams }
 ): Promise<ApiResponseBody<T>> {
   return request<T>('GET', path, options || {});
 }

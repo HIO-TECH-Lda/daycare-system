@@ -1,5 +1,5 @@
 {
-  "name": "api-starter-kit",
+  "name": "sonho-de-crianca-api",
   "version": "1.0.0",
   "description": "Express + TypeScript + MongoDB API starter kit with auth, upload (Cloudinary), and audit logging",
   "main": "dist/app.js",
@@ -10,8 +10,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
+    "lint": "eslint \"src/**/*.ts\" \"api/**/*.ts\" \"scripts/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" \"api/**/*.ts\" \"scripts/**/*.ts\" --fix",
     "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
     "seed:fresh": "ts-node -r tsconfig-paths/register scripts/seed.ts --fresh"
   },
@@ -45,6 +45,7 @@
     "@typescript-eslint/parser": "^6.4.0",
     "eslint": "^8.47.0",
     "jest": "^29.6.2",
+    "mongodb-memory-server": "^10.4.3",
     "nodemon": "^3.0.1",
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.1",

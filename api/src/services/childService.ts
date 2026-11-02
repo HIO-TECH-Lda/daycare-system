@@ -48,7 +48,7 @@ export class ChildService {
     page = 1,
     limit = 20
   ): Promise<{ children: IChildDocument[]; total: number }> {
-    let query: any = {};
+    const query: any = {};
 
     // Responsável: only their own children
     if (userRole === 'responsavel') {

@@ -3,14 +3,15 @@ import mongoose from 'mongoose';
 // Set test environment variables
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret-key';
-process.env.MONGODB_URI = process.env.MONGODB_URI_TEST || 'mongodb://localhost:27017/test-db';
+process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-key';
+// MONGODB_URI_TEST is set by globalSetup (in-memory MongoDB) or by the caller
+process.env.MONGODB_URI = process.env.MONGODB_URI_TEST;
 
 // Global test setup
 beforeAll(async () => {
   // Connect to test database
   if (mongoose.connection.readyState === 0) {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/test-db';
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(process.env.MONGODB_URI!);
   }
 });
 

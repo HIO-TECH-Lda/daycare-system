@@ -10,6 +10,11 @@ import { getPaginationParams } from '../utils/pagination';
 import Child from '../models/Child';
 import User from '../models/User';
 import { AccessService } from '../services/accessService';
+import { ApiError } from '../utils/ApiError';
+import { startOfCentreDay } from '../utils/dates';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const NOTICE_MAX_DAYS = 60;
 
 /** WhatsApp check-in/check-out message to the family (with consent), after the response. */
 function notifyAttendance(attendance: any, what: { checkIn: boolean; checkOut: boolean }): void {
@@ -100,6 +105,27 @@ export class AttendanceController {
         checkOut: !!attendance.check_out && !previous?.check_out
       });
     }
+  });
+
+  // A parent tells the centre their child won't come, today or a later day: an excused absence the
+  // educators see on their list straight away. Too late once the child has arrived.
+  static notifyAbsence = catchAsync(async (req: Request, res: Response) => {
+    const { child_id, date, reason } = req.body;
+    const day = startOfCentreDay(date);
+    const today = startOfCentreDay(new Date());
+    if (day < today) throw new ApiError(400, 'Só pode avisar ausências de hoje ou dos próximos dias');
+    if (day.getTime() - today.getTime() > NOTICE_MAX_DAYS * DAY_MS) {
+      throw new ApiError(400, `Pode avisar com até ${NOTICE_MAX_DAYS} dias de antecedência`);
+    }
+    const existing = await Attendance.findOne({ child_id, date: day }).select('check_in').lean();
+    if (existing?.check_in) throw new ApiError(409, 'A criança já deu entrada neste dia. Fale com a educadora.');
+
+    const { doc } = await AttendanceService.record(child_id, day, {
+      status: 'excused',
+      notes: `Aviso do encarregado: ${reason}`,
+      recorded_by: req.user!.userId
+    });
+    res.status(201).json(ApiResponse.success(doc, 'Ausência avisada'));
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {

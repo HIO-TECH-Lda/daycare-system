@@ -56,3 +56,9 @@ export function formatAge(birthDate: Date | string, today: Date = new Date()): s
 export function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
 }
+
+/** Greeting for the time of day in Maputo ("Boa noite" also in the small hours). */
+export function greeting(now: Date = new Date()): string {
+  const hour = Number(new Intl.DateTimeFormat('pt-PT', { hour: 'numeric', hour12: false, timeZone: 'Africa/Maputo' }).format(now));
+  return hour >= 5 && hour < 12 ? 'Bom dia' : hour >= 12 && hour < 18 ? 'Boa tarde' : 'Boa noite';
+}

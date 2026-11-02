@@ -36,8 +36,9 @@
 | 1e — Serverless & platform | ✅ Done ([PR #8](https://github.com/HIO-TECH-Lda/daycare-system/pull/8), merged). **Phase 1 (backend) is complete.** |
 | 2a — UI foundation | ✅ Done ([PR #9](https://github.com/HIO-TECH-Lda/daycare-system/pull/9), merged): new Next.js 16 app (old prototype tagged `legacy-ui`), brand theme, login by email or phone, invite and password pages, role-guarded app shell, PWA manifest and icons. |
 | 2b — PWA offline, wireframes | ✅ Done ([PR #10](https://github.com/HIO-TECH-Lda/daycare-system/pull/10), merged): service worker (Serwist), offline write queue for attendance and daily reports, sessions that survive offline restarts, offline/sync banners, install prompt. Wireframes and glossary approved by the client on 2026-11-02 (v1 improvements chosen 2026-11-03, see Phase 3). |
-| 3a — Staff screens | 🔍 In review: Hoje, Presenças (check-in, check-out against the authorised people, absences, confirmed bulk check-in), Turma (safety badges, contacts), Relatório diário (chips, nap, notes, autosave, photos) — all on live data and working offline. Approved glossary applied to the 2a screens. API: a sync merge is a conflict only when another user wrote the record last. |
-| 3b–3d | Next: 3b parents (Hoje, Relatórios, Facturação, Mensagens, Perfil, Eventos), 3c admin people (Painel, Matrículas, Pessoas, Turmas, Crianças), 3d admin finance and the rest (Facturação, Despesas, Relatórios, Relatórios mensais, Eventos, Mensagens, Notificações; staff Relatórios mensais and Mensagens; public `/matricula`). |
+| 3a — Staff screens | ✅ Done ([PR #11](https://github.com/HIO-TECH-Lda/daycare-system/pull/11), merged): Hoje, Presenças (check-in, check-out against the authorised people, absences, confirmed bulk check-in), Turma (safety badges, contacts), Relatório diário (chips, nap, notes, autosave, photos) — all on live data and working offline. Approved glossary applied to the 2a screens. API: a sync merge is a conflict only when another user wrote the record last. |
+| 3b — Parent screens | 🔍 In review: Hoje (status, today's report and photos, Avisar ausência, Quem vem buscar hoje), Relatórios (daily timeline, validated monthly), Facturação (owed, Já paguei, history), Eventos, Mensagens (shared with staff), Perfil (contacts, WhatsApp, palavra-passe). API: parent absence notices, one-day pickup authorisations, payment claims. |
+| 3c–3d | Next: 3c admin people (Painel, Matrículas, Pessoas, Turmas, Crianças), 3d admin finance and the rest (Facturação, Despesas, Relatórios, Relatórios mensais, Eventos, Mensagens, Notificações; staff Relatórios mensais and Mensagens; public `/matricula`). |
 | W, 4–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
@@ -356,12 +357,12 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
 
 | # | Improvement | Where |
 |---|---|---|
-| 1 | Pickup by someone else: the parent names who collects today (name + photo); anyone not on the list → the educator sees the guardian's number to call | 3a: "not on the list" guidance ✅ · 3b: parent announces today's pickup (API: one-day authorisation) |
+| 1 | Pickup by someone else: the parent names who collects today (name + photo); anyone not on the list → the educator sees the guardian's number to call | 3a: "not on the list" guidance ✅ · 3b: parent announces today's pickup ✅ |
 | 2 | Emergency card offline (allergies, medication, contacts) + "Quem está na escola agora" roll call for evacuations | 3a ✅ |
 | 4 | Image consent: children without consent flagged for staff; no photos of them | 3a ✅ (badge, photo button hidden) |
 | 6 | Bulk check-in confirms the names; "Desfazer" after each attendance tap | 3a ✅ |
-| 8 | Parent "Avisar ausência" (e.g. illness), shown straight away on the educator's list | 3b (API: parents may record an absence for their own child, today or later) |
-| 9 | "Já paguei": the parent sends the M-Pesa / e-Mola code, the administration confirms | 3b parent side, 3d admin confirmation (API: payment claims) |
+| 8 | Parent "Avisar ausência" (e.g. illness), shown straight away on the educator's list | 3b ✅ |
+| 9 | "Já paguei": the parent sends the M-Pesa / e-Mola code, the administration confirms | 3b parent side and API ✅ · 3d admin confirmation screen |
 | 14 | Admin Painel wireframe (today's attendance, enrolments to review, overdue invoices, reports to validate) | Wireframe now; built in 3c |
 
 Not in v1 (later): 3 medication/incident log, 5 report per class, 7 nappies/toilet, 10 due-date reminders, 11 waiting list and duplicate detection, 12 discounts and extra items, 13 invoice legal requirements (to confirm with the accountant before go-live).

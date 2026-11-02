@@ -65,7 +65,7 @@ function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
+    <form method="post" onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
       <div className="space-y-1 text-center">
         <h1 className="text-2xl font-bold">Nova palavra-passe</h1>
         <p className="text-sm text-muted-foreground">Escolha a nova palavra-passe para a sua conta.</p>

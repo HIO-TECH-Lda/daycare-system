@@ -30,6 +30,10 @@ const requiredEnvVars: RequiredEnvVars = {
     required: true,
     description: 'Secret key for JWT tokens'
   },
+  JWT_REFRESH_SECRET: {
+    required: false,
+    description: 'Separate secret for refresh tokens. Required in production.'
+  },
   JWT_EXPIRES_IN: {
     required: false,
     description: 'JWT token expiration time',
@@ -58,12 +62,17 @@ const requiredEnvVars: RequiredEnvVars = {
     description: 'Public URL of the frontend app (used in email links)',
     defaultValue: 'http://localhost:3000'
   },
+  CORS_ORIGINS: {
+    required: false,
+    description: 'Comma-separated browser origins allowed to call the API (supports * wildcards). Required in production.'
+  },
   // WhatsApp (Meta Cloud API)
   WHATSAPP_TOKEN: { required: false, description: 'Meta permanent system-user access token' },
   WHATSAPP_PHONE_ID: { required: false, description: 'Meta Phone Number ID (not the actual phone number)' },
   WHATSAPP_API_VERSION: { required: false, description: 'Meta Graph API version', defaultValue: 'v21.0' },
   WHATSAPP_LANG: { required: false, description: 'BCP 47 language code for WhatsApp templates', defaultValue: 'pt_BR' },
   // Optional: override default WhatsApp template names
+  WA_TEMPLATE_INVITE: { required: false, description: 'WhatsApp template: account invite' },
   WA_TEMPLATE_WELCOME: { required: false, description: 'WhatsApp template: welcome' },
   WA_TEMPLATE_INVOICE_NEW: { required: false, description: 'WhatsApp template: new invoice' },
   WA_TEMPLATE_INVOICE_OVERDUE: { required: false, description: 'WhatsApp template: overdue invoice' },
@@ -95,6 +104,15 @@ export function validateEnvironmentVariables(): boolean {
     }
   }
 
+  // Without its own secret, a 30-day refresh token would be signed with the access-token secret
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.JWT_REFRESH_SECRET) {
+      missingVars.push('JWT_REFRESH_SECRET');
+    } else if (process.env.JWT_REFRESH_SECRET === process.env.JWT_SECRET) {
+      console.warn('⚠️  JWT_REFRESH_SECRET should differ from JWT_SECRET.');
+    }
+  }
+
   if (missingVars.length > 0) {
     console.error('❌ Missing required environment variables:');
     missingVars.forEach(varName => {
@@ -103,6 +121,10 @@ export function validateEnvironmentVariables(): boolean {
     });
     console.error('\nPlease set these variables in your .env file');
     return false;
+  }
+
+  if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGINS) {
+    console.warn('⚠️  CORS_ORIGINS is not set: browsers will be blocked from calling the API in production.');
   }
 
   if (warnings.length > 0) {

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { runInBackground } from '../utils/background';
 import { InvoiceService } from '../services/invoiceService';
 import { NotificationService } from '../services/notificationService';
 import { catchAsync } from '../utils/catchAsync';
@@ -43,7 +44,7 @@ export class InvoiceController {
     res.status(201).json(ApiResponse.success(invoice, 'Fatura criada com sucesso', 201));
 
     // Fire-and-forget new invoice notification
-    (async () => {
+    runInBackground('InvoiceController notification', async () => {
       try {
         const [parent, child] = await Promise.all([
           User.findById(invoice.parent_id),
@@ -52,7 +53,7 @@ export class InvoiceController {
         if (parent && child) {
           await NotificationService.newInvoice({
             parentEmail: parent.email,
-            parentPhone: parent.phone,
+            parentPhone: NotificationService.whatsAppNumberFor(parent),
             parentName: parent.fullName,
             childName: child.name,
             invoiceNumber: invoice.invoice_number,
@@ -63,7 +64,7 @@ export class InvoiceController {
       } catch (err) {
         console.error('[InvoiceController] Notification error:', err);
       }
-    })();
+    });
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {
@@ -84,7 +85,7 @@ export class InvoiceController {
 
     // Fire-and-forget status change notifications
     if (status === 'overdue' || status === 'paid') {
-      (async () => {
+      runInBackground('InvoiceController notification', async () => {
         try {
           const [parent, child] = await Promise.all([
             User.findById(invoice.parent_id),
@@ -94,7 +95,7 @@ export class InvoiceController {
             if (status === 'overdue') {
               await NotificationService.invoiceOverdue({
                 parentEmail: parent.email,
-                parentPhone: parent.phone,
+                parentPhone: NotificationService.whatsAppNumberFor(parent),
                 parentName: parent.fullName,
                 childName: child.name,
                 invoiceNumber: invoice.invoice_number,
@@ -104,7 +105,7 @@ export class InvoiceController {
             } else {
               await NotificationService.invoicePaid({
                 parentEmail: parent.email,
-                parentPhone: parent.phone,
+                parentPhone: NotificationService.whatsAppNumberFor(parent),
                 parentName: parent.fullName,
                 childName: child.name,
                 invoiceNumber: invoice.invoice_number,
@@ -115,7 +116,7 @@ export class InvoiceController {
         } catch (err) {
           console.error('[InvoiceController] Notification error:', err);
         }
-      })();
+      });
     }
     return;
   });

@@ -1,62 +1,98 @@
 import * as Joi from 'joi';
 import Messages from './messages';
+import { normalisePhone } from './phone';
 
-export const registerSchema = Joi.object({
-  firstName: Joi.string()
-    .min(2)
-    .max(50)
-    .required()
-    .messages({
-      'string.min': 'First name must be at least 2 characters',
-      'string.max': 'First name cannot exceed 50 characters',
-      'any.required': 'First name is required'
-    }),
-  lastName: Joi.string()
-    .min(2)
-    .max(50)
-    .required()
-    .messages({
-      'string.min': 'Last name must be at least 2 characters',
-      'string.max': 'Last name cannot exceed 50 characters',
-      'any.required': 'Last name is required'
-    }),
-  email: Joi.string()
-    .email()
-    .required()
-    .messages({
-      'string.email': 'Please enter a valid email address',
-      'any.required': 'Email is required'
-    }),
-  password: Joi.string()
-    .min(8)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .required()
-    .messages({
-      'string.min': 'Password must be at least 8 characters',
-      'string.pattern.base':
-        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-      'any.required': 'Password is required'
-    }),
-  confirmPassword: Joi.string()
-    .valid(Joi.ref('password'))
-    .required()
-    .messages({
-      'any.only': 'Passwords do not match',
-      'any.required': 'Please confirm your password'
-    }),
-  role: Joi.string().valid('responsavel', 'staff', 'administrador').default('responsavel'),
-  phone: Joi.string().optional().allow('')
+// Shared password rule: 8+ chars with upper, lower, digit and special character
+const strongPassword = Joi.string()
+  .min(8)
+  .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+  .messages({
+    'string.min': 'A senha deve ter pelo menos 8 caracteres',
+    'string.pattern.base':
+      'A senha deve ter pelo menos uma letra maiúscula, uma minúscula, um número e um carácter especial (@$!%*?&)'
+  });
+
+const personName = (label: string) =>
+  Joi.string().trim().min(2).max(50).messages({
+    'string.min': `${label} deve ter pelo menos 2 caracteres`,
+    'string.max': `${label} não pode exceder 50 caracteres`,
+    'any.required': `${label} é obrigatório`
+  });
+
+// Phone numbers in any common format; converted to E.164 (+258…)
+const phoneNumber = Joi.string()
+  .trim()
+  .custom((value, helpers) => normalisePhone(value) ?? helpers.error('phone.invalid'))
+  .messages({ 'phone.invalid': 'Número de telefone inválido' });
+
+const emailAddress = Joi.string().trim().lowercase().email().messages({ 'string.email': 'Email inválido' });
+
+// Login / forgot password: the email or phone number the user typed. `email` is accepted from older clients.
+const identifierFields = {
+  identifier: Joi.string().trim(),
+  email: Joi.string().trim()
+};
+const identifierMessages = { 'object.missing': 'Indique o email ou o número de telefone' };
+
+// Admin creates a user; the user receives an invite and sets their own password.
+// A user needs an email, a phone number, or both. `whatsappOptIn` records consent already given
+// (e.g. on the enrolment form); without it the invite is not sent by WhatsApp.
+export const createUserSchema = Joi.object({
+  firstName: personName('O nome').required(),
+  lastName: personName('O apelido').required(),
+  email: emailAddress.empty(''),
+  phone: phoneNumber.empty(''),
+  role: Joi.string().valid('responsavel', 'staff', 'administrador').required().messages({
+    'any.only': 'Perfil inválido',
+    'any.required': 'O perfil é obrigatório'
+  }),
+  whatsappOptIn: Joi.boolean().default(false)
+}).or('email', 'phone').messages({ 'object.missing': 'Indique um email ou um número de telefone' });
+
+// '' clears the email or phone (the user must keep at least one)
+export const updateUserSchema = Joi.object({
+  firstName: personName('O nome'),
+  lastName: personName('O apelido'),
+  email: emailAddress.allow(''),
+  phone: phoneNumber.allow(''),
+  role: Joi.string().valid('responsavel', 'staff', 'administrador').messages({ 'any.only': 'Perfil inválido' }),
+  whatsappOptIn: Joi.boolean()
+}).min(1);
+
+export const userStatusSchema = Joi.object({
+  status: Joi.string().valid('active', 'inactive', 'suspended').required().messages({
+    'any.only': 'Estado inválido',
+    'any.required': 'O estado é obrigatório'
+  })
+});
+
+export const acceptInviteSchema = Joi.object({
+  token: Joi.string().required().messages({ 'any.required': 'O token do convite é obrigatório' }),
+  password: strongPassword.required().messages({ 'any.required': 'A senha é obrigatória' }),
+  confirmPassword: Joi.string().valid(Joi.ref('password')).required().messages({
+    'any.only': 'As senhas não coincidem',
+    'any.required': 'Confirme a senha'
+  }),
+  // Optional: when omitted, the consent recorded by the admin is kept
+  whatsappOptIn: Joi.boolean()
+});
+
+export const forgotPasswordSchema = Joi.object(identifierFields).or('identifier', 'email').messages(identifierMessages);
+
+export const resetPasswordSchema = Joi.object({
+  token: Joi.string().required().messages({ 'any.required': 'O token é obrigatório' }),
+  newPassword: strongPassword.required().messages({ 'any.required': 'A nova senha é obrigatória' }),
+  confirmNewPassword: Joi.string().valid(Joi.ref('newPassword')).optional().messages({
+    'any.only': 'As senhas não coincidem'
+  })
 });
 
 export const loginSchema = Joi.object({
-  email: Joi.string().email().required().messages({
-    'string.email': 'Please enter a valid email address',
-    'any.required': 'Email is required'
-  }),
+  ...identifierFields,
   password: Joi.string().required().messages({
-    'any.required': 'Password is required'
+    'any.required': 'A senha é obrigatória'
   })
-});
+}).or('identifier', 'email').messages(identifierMessages);
 
 export const changePasswordSchema = Joi.object({
   currentPassword: Joi.string().required().messages({
@@ -90,8 +126,9 @@ export const updateProfileSchema = Joi.object({
     'string.min': 'Last name must be at least 2 characters',
     'string.max': 'Last name cannot exceed 50 characters'
   }),
-  phone: Joi.string().optional().allow(''),
-  avatar: Joi.string().optional().allow('')
+  phone: phoneNumber.allow(''),
+  avatar: Joi.string().optional().allow(''),
+  whatsappOptIn: Joi.boolean()
 });
 
 export const refreshTokenSchema = Joi.object({

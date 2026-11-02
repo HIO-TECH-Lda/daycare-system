@@ -1,5 +1,5 @@
 # Implementation Plan — Finish & Rebuild UI
-**Date:** 2026-11-02 (rev. 2: decisions confirmed)
+**Date:** 2026-11-02 (rev. 3: phone-or-email login, Next.js 16, corrections from the review of Phases 0–1a)
 **Project:** Centro Infantil Sonho de Criança — Daycare Management System
 **Goal:** Take the system from its current state (working API, half-integrated prototype UI) to a production deployment with a rebuilt, UX-improved frontend that can be installed as a PWA, and with WhatsApp as a first-class notification channel.
 
@@ -10,9 +10,10 @@
 | # | Topic | Decision | Consequence for the plan |
 |---|---|---|---|
 | 1 | Accounts | **Admin-created only, with an invite link** | Remove public register. Add an invite-token flow and an "accept invite" page. Send invites by WhatsApp and email. |
+| 1b | Login | **Phone OR email** (at least one per user) | Families who only use WhatsApp can have an account. Invites and password resets go by WhatsApp or email, whichever the person has (WhatsApp only with consent). |
 | 2 | Enrolment | **Submitted forms go into an approval queue** | New `Enrollment` model + public enrolment form. On approval: create the child, plus the parent account with an invite if it doesn't exist. |
 | 3 | Design | **Use the provided logo as the brand; improve UX** | Palette and typography derived from the logo (§2). UX audit + wireframes before coding screens. |
-| 4 | Framework | **Next.js 15** | Upgrade as part of the rebuild. |
+| 4 | Framework | **Next.js 16** (the current stable major; changed from 15 after review) | Upgrade as part of the rebuild. See Phase 2 for what 16 changes (Turbopack builds, no `next lint`). |
 | 5 | Hosting | **API → Vercel · Web → Netlify · DB → MongoDB Atlas** | Two platforms, cross-origin setup (§3 Phase 5). |
 | 6 | Language | **Mozambican Portuguese** | Glossary + `pt-MZ` formatting (§2). |
 | 7 | Online payments | **Out of scope for v1** | Admins record payments manually. |
@@ -20,6 +21,18 @@
 | 9 | WhatsApp | **Must-have** | Its own workstream (Phase W), started on day 1 because Meta verification and template approval take time. |
 
 **Confirmed:** the enrolment form is **public** (`/matricula`, no account needed). Prospective families fill it in, and an admin can also fill it in on a family's behalf. It is protected by rate limiting and a honeypot field.
+
+---
+
+## Progress (2026-11-02)
+
+| Phase | State |
+|---|---|
+| 0 — Foundations | ✅ Done ([PR #1](https://github.com/HIO-TECH-Lda/daycare-system/pull/1), merged into `dev`): CI, in-memory MongoDB tests, ESLint, README. |
+| 1a — Accounts & security | 🔍 In review ([PR #2](https://github.com/HIO-TECH-Lda/daycare-system/pull/2)): invite-only accounts, phone-or-email login, consent-aware WhatsApp, session revocation, audit log fix, CORS, shared rate limits. 74 API tests. |
+| 1b–1e, W, 2–6 | Not started. |
+
+Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
 ---
 
@@ -39,6 +52,15 @@ Backend gaps:
 - **Missing endpoints:** message recipients list, finance/report aggregates, enrolment submission.
 - **Open access:** CORS accepts any origin; the `/test` route is public.
 - **Serverless hazards:** notifications sent without awaiting, `process.exit` in `connectDB`, no overdue-invoice job.
+
+Found in the review of Phases 0–1a (all fixed in Phase 1a unless noted):
+- **The audit log recorded nothing**: its exclusion list contained `/api/v1`, which every route starts with. Fixing that alone would have stored change-password bodies (current and new password) in plain text, and every write was logged twice.
+- **Password change/reset didn't end other sessions** (tokens lasted up to 30 days).
+- **A refresh token worked as an access token** when `JWT_REFRESH_SECRET` was unset.
+- **Expired tokens got 403 instead of 401**, so the web app never refreshed them and sessions broke after 7 days.
+- **Login returned raw database errors** during an outage (introduced in Phase 1a, then fixed).
+- **WhatsApp messages ignored consent** (invites, and all existing notifications).
+- Children's photos are **public Cloudinary URLs** (open: Phase 1b).
 
 ---
 
@@ -168,36 +190,45 @@ WhatsApp is the main channel for families in Mozambique, so it is treated as cor
 
 **Development**
 - [ ] Review and test `whatsAppService.ts` against the Meta Cloud API, using the Meta test number while verification is pending.
-- [ ] Normalise phone numbers to E.164 (`+258…`) on input and validate them in Joi.
-- [ ] **Consent:** record a `whatsapp_opt_in` flag and timestamp per user, captured on the enrolment form and the invite-acceptance page. Only send to users who opted in.
+- [ ] Set `WHATSAPP_API_VERSION` to the current Graph API version (the default `v21.0` dates from October 2024; Meta supports each version for about two years).
+- [ ] Put links (invite, password reset, report) in a **URL button with a dynamic suffix** rather than in the body text, which Meta handles better. `sendTemplate` needs to support button parameters (`sub_type: 'url'`, `index`) for this.
+- [x] Normalise phone numbers to E.164 (`+258…`) on input and validate them in Joi. *(Phase 1a)*
+- [x] **Consent:** `whatsappOptIn` + timestamp per user, captured by the admin (e.g. from the enrolment form), on the invite-acceptance page and on the profile. Every WhatsApp send goes through `whatsAppNumberFor(user)`. *(Phase 1a; the enrolment form will pass it on in 1c)*
 - [ ] **Notification preferences** per user (WhatsApp / email / both) for each category (attendance, reports, billing, messages).
 - [ ] **Delivery tracking:**
   - A `NotificationLog` collection records channel, template, recipient, status, error and Meta message ID.
   - A webhook `POST /webhooks/whatsapp` (verify token + signature check) updates the status: sent → delivered → read → failed.
 - [ ] Retry failed sends with backoff (cap of 3), and fall back to email when WhatsApp fails.
 - [ ] Admin screen showing a notification log, filterable by failed sends, with a resend action.
-- [ ] Cost awareness: utility templates are billed per conversation. Batch where sensible; for example, check-in/check-out notifications can be turned off per family.
+- [ ] Cost awareness: since July 2025 Meta charges **per delivered template message** (not per conversation); utility templates sent inside an open customer-service window are free. Check the rate card for Mozambique. Check-in/check-out notifications are the highest volume, so families can turn them off.
 
-### Phase 0 — Foundations
-- [ ] Branching:
+### Phase 0 — Foundations ✅
+- [x] Branching:
   - `main` = production.
   - `dev` = staging.
   - Feature branches merge into `dev`.
-- [ ] GitHub Actions CI on every PR:
+- [x] GitHub Actions CI on every PR:
   - **api:** `tsc`, `eslint`, `jest` (with `mongodb-memory-server`).
   - **web-app:** `tsc`, `next lint`, `next build`.
-- [ ] Root `README.md`, and `web-app/.env.example`.
-- [ ] Fix the test setup so it runs without a local Mongo.
+- [x] Root `README.md`, and `web-app/.env.example`.
+- [x] Fix the test setup so it runs without a local Mongo.
+- Note: GitHub branch protection isn't available for this private repository on the current GitHub plan, so a failing CI run can't block a merge. Either upgrade to GitHub Team, or keep the rule "never merge on red".
 
 ### Phase 1 — Backend completion & hardening
-**Accounts & invites**
-- [ ] Remove public `POST /auth/register`. The seed script and `scripts/create-admin.ts` create users directly.
-- [ ] `POST /users` (admin): creates the user with status `invited` and no password, generates an invite token (hashed, 7-day expiry), and sends it by WhatsApp and email.
-- [ ] `POST /users/:id/resend-invite`, `PUT /users/:id`, `PATCH /users/:id/status` (activate/deactivate), `GET /users/:id`.
-- [ ] `POST /auth/accept-invite` (token + password + WhatsApp consent): sets the password and marks the user `active`.
-- [ ] Login rejects `invited` and `inactive` users with a clear message.
+Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access scoping and media privacy · **1c** enrolment · **1d** missing features · **1e** serverless and platform.
 
-**Enrolment approval queue**
+**1a — Accounts & invites** *(PR #2)*
+- [x] Remove public `POST /auth/register`. The seed script and `scripts/create-admin.ts` create users directly.
+- [x] `POST /users` (admin): creates the user with status `invited` and no password, generates an invite token (hashed, 7-day expiry), and sends it by WhatsApp and/or email. Returns the link and which channels it went out on.
+- [x] `POST /users/:id/resend-invite`, `PUT /users/:id`, `PATCH /users/:id/status` (activate/deactivate), `GET /users/:id`, `POST /users/:id/password-reset-link`.
+- [x] `POST /auth/accept-invite` (token + password + WhatsApp consent): sets the password and marks the user `active`.
+- [x] Login by **email or phone**; inactive users get a clear message.
+- [x] Forgot password by email or phone; never-activated users get their invite again.
+- [x] Session revocation (`tokenVersion`): changing or resetting the password ends every session. Typed access/refresh tokens; `JWT_REFRESH_SECRET` required in production.
+- [x] Audit log works, records each change once, and never stores passwords or tokens.
+- [x] Notifications run after the response (`waitUntil` on Vercel), with timeouts, and respect WhatsApp consent.
+
+**1c — Enrolment approval queue**
 - [ ] `Enrollment` model:
   - Child fields (reuse the `Child` registration fields), guardian/parent details, pickup persons, consents (image use, WhatsApp).
   - `status`: `submitted → under_review → approved | rejected`, plus `reviewed_by`, `reviewed_at`, `rejection_reason`, `requested_class_id`.
@@ -210,11 +241,12 @@ WhatsApp is the main channel for families in Mozambique, so it is treated as cor
 - [ ] `POST /enrollments/:id/reject` with a reason.
 
 **Security**
-- [ ] CORS allowlist from `CORS_ORIGINS`: the Netlify production domain, the custom domain, and the deploy-preview pattern (`https://deploy-preview-*--<site>.netlify.app`) for staging only.
-- [ ] Remove `/test` in production. Stricter rate limits on auth, invite and enrolment endpoints.
-- [ ] Shared `getAccessibleChildIds(user)` helper applied in every controller that reads child data, with tests for each role.
+- [x] CORS allowlist from `CORS_ORIGINS`: the Netlify production domain, the custom domain, and the deploy-preview pattern (`https://deploy-preview-*--<site>.netlify.app`) for staging only. *(1a)*
+- [x] Remove `/test` in production. Stricter rate limits on auth and invite endpoints, stored in MongoDB in production so they hold across serverless instances. *(1a; the enrolment endpoint gets its limit in 1c)*
+- [ ] **1b:** Shared `getAccessibleChildIds(user)` helper applied in every controller that reads child data, with tests for each role. Includes `GET /users` for staff (today staff can list every parent's contact details).
+- [ ] **1b:** Children's photos: deliver through signed or authenticated Cloudinary URLs instead of public links, and respect `image_usage_authorized`.
 
-**Missing features**
+**1d — Missing features**
 - [ ] `GET /messages/recipients` (who the current user may message).
 - [ ] Reports (all admin only):
   - `GET /reports/finance/summary`
@@ -227,14 +259,17 @@ WhatsApp is the main channel for families in Mozambique, so it is treated as cor
   - Attendance and daily-report writes accept a client-generated `client_id` (idempotency key), so a retried request doesn't create duplicates.
   - Writes include `updated_at`, so conflicts are detected: the last write wins, and the server returns the stored version.
 
-**Serverless correctness (Vercel)**
+**1e — Serverless and platform (Vercel)**
 - [ ] Cache the database connection promise across invocations, and throw instead of calling `process.exit`.
-- [ ] Await notifications with a timeout, or use `waitUntil` from `@vercel/functions`. Every result goes to `NotificationLog`.
+- [x] Notifications after the response with `waitUntil` from `@vercel/functions`, with timeouts. *(1a)* Results go to `NotificationLog` in Phase W.
 - [ ] Keep uploads under Vercel's ~4.5 MB body limit: compress on the client, and use signed direct-to-Cloudinary uploads for anything larger.
+- [ ] Move `vercel.json` off the legacy `builds`/`routes` format: it can't be combined with `functions`, which is needed for a longer `maxDuration` (awaited invites) and to include the email templates (`src/templates/**`, read from disk at runtime) in the bundle. Set `regions` and the cron there too.
+- [ ] Upgrade Mongoose 7 → 8. New Atlas clusters run MongoDB 8.0, newer than Mongoose 7's database driver; alternatively pin the cluster to 7.0.
+- [ ] `npm run build` doesn't copy the email templates into `dist/`: copy them, or don't support `npm start` outside Vercel.
 
 **Quality**
-- [ ] Integration tests: auth, invites, the enrolment approval transaction, per-role access, and the main CRUD flows.
-- [ ] Update `docs/API.md`. Rename the package to `sonho-de-crianca-api`.
+- [ ] Integration tests: ~~auth, invites~~ *(1a)*, the enrolment approval transaction, per-role access, and the main CRUD flows.
+- [x] Update `docs/API.md`. Rename the package to `sonho-de-crianca-api`.
 
 ### Phase 2 — UI foundation (rebuild)
 **UX audit & wireframes (first 2 days)**
@@ -253,7 +288,9 @@ WhatsApp is the main channel for families in Mozambique, so it is treated as cor
 - [ ] Get sign-off on the wireframes and the glossary.
 
 **Stack**
-- [ ] Next.js 15, React 19, TypeScript strict. Remove `ignoreBuildErrors` and `ignoreDuringBuilds`.
+- [ ] Next.js 16 (or the current stable major at the start of Phase 2), React 19, TypeScript strict. Remove `ignoreBuildErrors` and `ignoreDuringBuilds`.
+  - Next.js 16 builds with Turbopack by default: check Serwist's support, or build with `next build --webpack`.
+  - `next lint` is gone: lint with the ESLint CLI, and update the CI step.
 - [ ] Tailwind CSS 4 + shadcn/ui, themed with the brand tokens from §2. Delete unused components.
 - [ ] Keep TanStack Query, react-hook-form + zod, sonner, lucide, recharts.
 
@@ -277,6 +314,8 @@ WhatsApp is the main channel for families in Mozambique, so it is treated as cor
 **App shell, auth & routing**
 - [ ] Route groups:
   - `(public)`: `/login`, `/convite/[token]`, `/recuperar-senha`, `/redefinir-senha`, `/matricula`
+  - Login and "forgot password" take **one field: email or phone number** (sent as `identifier`). The accept-invite page shows the WhatsApp consent checkbox, pre-ticked from the admin's record.
+  - After `change-password`, store the new tokens from the response (the old ones stop working).
   - `(app)`: `admin` / `staff` / `responsavel`, each with a role-guarded layout
 - [ ] Navigation config per role. Sidebar on laptops; bottom tab bar on phones and tablets for staff and parents.
 
@@ -294,7 +333,7 @@ WhatsApp is the main channel for families in Mozambique, so it is treated as cor
 - [ ] Web push notifications are **out of scope for v1**, because WhatsApp covers alerts.
 
 **Data layer**
-- [ ] Fix the 104 TypeScript errors (mostly one pattern: the filter types vs the client's query-param type).
+- [x] Fix the TypeScript errors in the shared data layer (`lib/`). *(Phase 0: 104 → 88; the remaining 88 are in pages the rebuild replaces.)*
 - [ ] Align `lib/types.ts` with the API. Delete `lib/mock-data.ts`.
 - [ ] Shared query/mutation hooks with standard toasts and error handling.
 
@@ -317,7 +356,7 @@ A screen is done when it:
 | Dashboard | Action queue (enrolments to review, overdue invoices, reports to validate) + KPIs (occupancy, attendance today, revenue vs expenses) |
 | Matrículas | Approval queue: review side-by-side, assign class, approve/reject |
 | Alunos | List/filter, detail with tabs (profile, health, guardians, pickup persons, attendance, invoices) |
-| Encarregados & Staff | Create user → invite; resend invite; deactivate; class assignment for staff |
+| Encarregados & Staff | Create user (email and/or phone, WhatsApp consent) → invite; show the link to share by hand when `delivery` is all false; resend invite; password-reset link; deactivate; class assignment for staff |
 | Turmas | CRUD, capacity bar, assigned staff |
 | Facturação & Pagamentos | Invoices (multi-item), record payment, monthly generation, overview |
 | Relatórios | Finance, payments, expenses, attendance — date ranges, charts, CSV export |
@@ -365,16 +404,16 @@ A screen is done when it:
 ### Phase 5 — Deployment
 | Piece | Platform | Notes |
 |---|---|---|
-| API | **Vercel** (project root `api/`) | Existing `vercel.json`. Vercel Cron for `mark-overdue`. **Commercial use requires the Pro plan** (Hobby is non-commercial). Pick a region close to the Atlas cluster. |
+| API | **Vercel** (project root `api/`) | `vercel.json` modernised in 1e. Vercel Cron for `mark-overdue`. **Commercial use requires the Pro plan** (Hobby is non-commercial). **Region: Cape Town (`cpt1`)**, close to users in Mozambique and to the database. |
 | Web app | **Netlify** (base dir `web-app/`) | Next.js 15 runs through Netlify's Next.js runtime (OpenNext adapter, detected automatically). Branch deploys: `main` → prod, `dev` → staging; deploy previews per PR. Service worker served with `Cache-Control: no-cache` (set in `netlify.toml`). |
-| Database | **MongoDB Atlas** | Separate staging/prod clusters or DBs; same region as the Vercel functions; backups on; network access configured. |
+| Database | **MongoDB Atlas** | Separate staging/prod clusters or DBs. In South Africa if the chosen tier offers it, otherwise the nearest region (every API request reads the user, so latency to the API matters). **Backups need a paid tier** (the free tier has none). Network access configured. |
 | Files | Cloudinary | Per-environment folders. |
 | Email | SMTP with a domain sender | SPF/DKIM set. |
 | WhatsApp | Meta Cloud API | Webhook URL → `https://api.<domain>/api/v1/webhooks/whatsapp`. |
 | Domains | e.g. `app.<domain>` → Netlify, `api.<domain>` → Vercel | Using one parent domain keeps CORS and links simple. |
 
 **Steps**
-1. Add `netlify.toml` (build command, base dir, Node version, headers for `sw.js` and the manifest).
+1. Add `netlify.toml`: build command, base dir, Node version, headers for `sw.js` and the manifest, and **security headers** (Content-Security-Policy, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`). Login tokens live in `localStorage`, so an XSS bug would mean account takeover; the CSP is the main defence.
 2. Deploy **staging** (`dev` branch) on all three platforms; seed demo data; run Phase 4.
 3. Set the environment variables:
    - **Vercel (API):** `NODE_ENV`, `MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, `FRONTEND_URL`, `CRON_SECRET`, Cloudinary, SMTP, `WHATSAPP_*`, `WA_TEMPLATE_*`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`.
@@ -400,17 +439,32 @@ A screen is done when it:
 
 ---
 
-## 4. Out of scope for v1 (candidates for v2)
+## 4. Running costs (to quote to the client)
+Prices change; check each at setup time.
+
+| Item | Why it's needed | Notes |
+|---|---|---|
+| Vercel Pro | API hosting (Hobby doesn't allow commercial use) | Per team member per month |
+| Netlify | Web app hosting | Free tier may be enough at first; Pro for team features |
+| MongoDB Atlas, paid tier | Database with backups | The free tier has no backups |
+| WhatsApp (Meta) | Notifications | Per delivered template message; rate depends on the country |
+| Cloudinary | Photos and receipts | Free tier to start; grows with photos per day |
+| SMTP email service | Invites, resets, reports | e.g. Google Workspace, Brevo or Amazon SES |
+| Domain | `app.` and `api.` addresses | Yearly |
+| GitHub Team (optional) | Branch protection for `main`/`dev` | Per user per month |
+
+## 5. Out of scope for v1 (candidates for v2)
 - Online payments (M-Pesa / e-Mola).
 - Web push notifications (WhatsApp covers alerts).
 - Payroll module (from `gerador.py`).
 - Offline support for parent and admin screens.
 - Multiple languages.
 
-## 5. Definition of done (v1)
+## 6. Definition of done (v1)
 - Every page uses live API data; no mock data remains.
 - CI is green, with no suppressed type or lint errors. API tests cover auth, invites, enrolment approval and per-role access.
-- No public account creation; every read is scoped by role.
+- No public account creation; every read is scoped by role. Users log in with email or phone; changing or resetting a password ends every other session.
+- The audit log records every change without storing passwords or tokens.
 - The new branded UI is on every screen and works on phone, tablet and laptop, and the app installs as a PWA.
 - Staff attendance and daily reports keep working offline and sync without creating duplicates.
 - All WhatsApp templates are approved and delivering, with consent recorded, delivery tracked, and email fallback in place.

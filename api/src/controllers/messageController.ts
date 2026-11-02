@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { runInBackground } from '../utils/background';
 import { MessageService } from '../services/messageService';
 import { NotificationService } from '../services/notificationService';
 import { catchAsync } from '../utils/catchAsync';
@@ -53,7 +54,7 @@ export class MessageController {
 
     // Fire-and-forget: notify individual recipient; skip role-broadcast (too many recipients)
     if (message.recipient_id) {
-      (async () => {
+      runInBackground('MessageController notification', async () => {
         try {
           const [sender, recipient] = await Promise.all([
             User.findById(message.sender_id),
@@ -62,7 +63,7 @@ export class MessageController {
           if (sender && recipient) {
             await NotificationService.newMessage({
               recipientEmail: recipient.email,
-              recipientPhone: recipient.phone,
+              recipientPhone: NotificationService.whatsAppNumberFor(recipient),
               recipientName: recipient.fullName,
               senderName: sender.fullName,
               subject: message.subject,
@@ -73,7 +74,7 @@ export class MessageController {
         } catch (err) {
           console.error('[MessageController] Notification error:', err);
         }
-      })();
+      });
     }
   });
 

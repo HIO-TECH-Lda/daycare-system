@@ -65,7 +65,38 @@ Pass the access token in the `Authorization` header on every protected request:
 Authorization: Bearer <token>
 ```
 
-Tokens are short-lived JWTs. Use `POST /auth/refresh` to obtain a new pair when the access token expires.
+- **Access tokens** (`token`, 7 days) authenticate requests. **Refresh tokens** (`refreshToken`, 30 days) only work on `POST /auth/refresh`; using one as an access token gets `403`.
+- An expired access token gets `401` with `"Token expirado"`: call `POST /auth/refresh` and retry.
+- Every protected request also checks the account in the database:
+  - a user who is deactivated, or whose role changes, is affected on their next request;
+  - **changing or resetting the password ends every existing session** (`401` `"A sua sessão terminou. Entre novamente."`).
+
+### Accounts are invite-only
+
+There is no public registration. An administrator creates the user with `POST /users`. The user gets an invite link (by email and/or WhatsApp; the link is also returned to the admin to share by hand). Opening the link, the user chooses a password via `POST /auth/accept-invite`, which activates the account and logs them in.
+
+User `status` values: `invited` (created, invite not yet accepted) · `active` · `inactive` · `suspended`.
+
+The first administrator is created from the command line: `npm run create-admin -- --first <name> --last <surname> --email <email> [--phone <phone>] [--whatsapp]` (run it with `FRONTEND_URL` set to the real site, since the printed link uses it).
+
+### Email or phone
+
+A user has an **email, a phone number, or both** (at least one), and can log in with either. Both are unique.
+
+- Phone numbers are accepted in any common format (`84 123 4567`, `+258 84 123 4567`, `00258…`, or another country's number with its code) and stored in E.164 format: `+258841234567`.
+- **WhatsApp is only used with the user's consent** (`whatsappOptIn`). Consent is recorded by the admin when creating the user (e.g. from the enrolment form), by the user when accepting the invite, or on their profile. Without consent, messages go by email only; a user with neither email nor consent must get links from the admin.
+
+### Rate limits
+
+| Endpoints | Limit (15 min unless stated) |
+|---|---|
+| `POST /auth/login` | 20 *failed* attempts per IP (successful logins don't count) |
+| `GET /auth/invite/:token`, `POST /auth/accept-invite` | 30 per invite link |
+| `POST /auth/forgot-password` | 30 per IP, and 3 per account per hour |
+| `POST /auth/reset-password` | 10 per reset link |
+| Everything else | 1000 per IP |
+
+In production the auth limits are stored in MongoDB (collection `ratelimits`), so they hold across serverless instances.
 
 ---
 
@@ -150,50 +181,29 @@ Public endpoint. Verifies the server is running.
 
 **Base path:** `/api/v1/auth`
 
----
-
-#### `POST /auth/register`
-
-Create a new user account. Sends a welcome email/WhatsApp notification after registration.
-
-**Body**
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| `firstName` | string | ✅ | 2–50 chars |
-| `lastName` | string | ✅ | 2–50 chars |
-| `email` | string | ✅ | Valid email |
-| `password` | string | ✅ | Min 8 chars, must contain uppercase, lowercase, digit, special char |
-| `confirmPassword` | string | ✅ | Must match `password` |
-| `role` | string | — | `responsavel` \| `staff` \| `administrador` — defaults to `responsavel` |
-| `phone` | string | — | Any format |
-
-**Response `201`**
+The user object returned by auth endpoints:
 
 ```json
-{
-  "success": true,
-  "message": "Usuário registrado com sucesso",
-  "data": {
-    "user": { "id": "...", "firstName": "...", "lastName": "...", "email": "...", "role": "responsavel" },
-    "token": "<access_jwt>",
-    "refreshToken": "<refresh_jwt>"
-  }
-}
+{ "id": "...", "email": "ana@example.com", "name": "Ana Cossa", "role": "responsavel", "phone": "+258841234567", "whatsappOptIn": true }
 ```
+
+`email` or `phone` may be `""` (a user has at least one).
 
 ---
 
 #### `POST /auth/login`
 
-Authenticate a user and receive tokens.
+Log in with an email **or** a phone number.
 
 **Body**
 
-| Field | Type | Required |
-|-------|------|----------|
-| `email` | string | ✅ |
-| `password` | string | ✅ |
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `identifier` | string | ✅* | Email or phone number, any format |
+| `email` | string | ✅* | Older clients: same as `identifier` |
+| `password` | string | ✅ | |
+
+\* Send `identifier` (preferred) or `email`.
 
 **Response `200`**
 
@@ -209,13 +219,13 @@ Authenticate a user and receive tokens.
 }
 ```
 
-**Errors:** `401` — Invalid credentials.
+**Errors:** `401` — Invalid credentials, or account not active (`"Conta desactivada. Contacte a administração."` is only returned after a correct password). A server problem is a `500` with a generic message.
 
 ---
 
 #### `POST /auth/refresh`
 
-Exchange a refresh token for a new access token pair.
+Exchange a refresh token for a new token pair.
 
 **Body**
 
@@ -223,20 +233,9 @@ Exchange a refresh token for a new access token pair.
 |-------|------|----------|
 | `refreshToken` | string | ✅ |
 
-**Response `200`**
+**Response `200`** — `data: { "token": "<new_access_jwt>", "refreshToken": "<new_refresh_jwt>" }`
 
-```json
-{
-  "success": true,
-  "message": "Token renovado com sucesso",
-  "data": {
-    "token": "<new_access_jwt>",
-    "refreshToken": "<new_refresh_jwt>"
-  }
-}
-```
-
-**Errors:** `401` — Invalid or expired refresh token.
+**Errors:** `401` — Invalid, expired or revoked refresh token, an access token, or an account that is no longer active.
 
 ---
 
@@ -244,23 +243,15 @@ Exchange a refresh token for a new access token pair.
 
 Get the profile of the currently authenticated user.
 
-**Response `200`**
-
-```json
-{
-  "success": true,
-  "message": "Perfil recuperado com sucesso",
-  "data": { "user": { ... } }
-}
-```
+**Response `200`** — `data: { "user": { ... } }`
 
 ---
 
 #### `PUT /auth/me` 🔒
 
-Update the authenticated user's profile.
+Update the authenticated user's own profile. Email and role are managed by admins.
 
-Supports `multipart/form-data` upload for the `avatar` file field. The uploaded file is sent to Cloudinary and the returned URL is stored in `avatar` in the database (no base64 storage).
+Supports `multipart/form-data` upload for the `avatar` file field. The uploaded file is sent to Cloudinary and the returned URL is stored in `avatar` (no base64 storage).
 
 **Body (JSON or multipart)**
 
@@ -268,14 +259,17 @@ Supports `multipart/form-data` upload for the `avatar` file field. The uploaded 
 |-------|------|-------|
 | `firstName` | string | 2–50 chars |
 | `lastName` | string | 2–50 chars |
-| `phone` | string | |
-| `avatar` | string / file | Send a Cloudinary URL as a string (JSON) or upload a file via multipart (field name `avatar`) |
+| `phone` | string | Any common format; `""` removes it (only if the user has an email). Must be unique |
+| `whatsappOptIn` | boolean | Give or withdraw consent to WhatsApp messages |
+| `avatar` | string / file | A URL string (JSON) or a file upload (field name `avatar`) |
 
-**Response `200`** — Updated user object.
+**Response `200`** — Updated user object. **Errors:** `400` validation (e.g. removing the only contact) · `409` phone already registered.
 
 ---
 
 #### `PUT /auth/change-password` 🔒
+
+Changes the password and **ends every other session**. The response carries new tokens for the current session: store them, the old ones stop working.
 
 **Body**
 
@@ -288,81 +282,202 @@ Supports `multipart/form-data` upload for the `avatar` file field. The uploaded 
 **Response `200`**
 
 ```json
-{ "success": true, "message": "Senha alterada com sucesso" }
+{ "success": true, "message": "Senha alterada. As outras sessões foram terminadas.", "data": { "token": "...", "refreshToken": "..." } }
 ```
 
----
-
-#### `POST /auth/forgot-password`
-
-Request a password reset token. Always returns `200` regardless of whether the email exists (to prevent email enumeration). Sends a reset link via email/WhatsApp if configured.
-
-**Body**
-
-| Field | Type | Required |
-|-------|------|----------|
-| `email` | string | ✅ |
-
-**Response `200`**
-
-```json
-{ "success": true, "message": "Se este email estiver cadastrado, você receberá um link de redefinição." }
-```
+**Errors:** `400` — Validation failed, or wrong current password.
 
 ---
 
-#### `POST /auth/reset-password`
+#### `GET /auth/invite/:token`
 
-Complete the password reset flow using the token received by email.
-
-**Body**
-
-| Field | Type | Required |
-|-------|------|----------|
-| `token` | string | ✅ |
-| `newPassword` | string | ✅ |
-
-**Response `200`**
-
-```json
-{ "success": true, "message": "Senha redefinida com sucesso" }
-```
-
----
-
-#### `POST /auth/logout` 🔒
-
-Invalidates the session on the client side (token removal is client-handled).
-
-**Response `200`**
-
-```json
-{ "success": true, "message": "Logout realizado com sucesso" }
-```
-
----
-
-### Users
-
-**Base path:** `/api/v1/users`  
-All routes require authentication.
-
----
-
-#### `GET /users` 🔒 (staff+)
-
-Return a flat list of all users. Used by staff/admin to look up user IDs for assigning children, sending messages, etc.
+Look up a pending invite, so the accept page can greet the user. Public.
 
 **Response `200`**
 
 ```json
 {
   "success": true,
-  "data": [
-    { "_id": "...", "firstName": "...", "lastName": "...", "email": "...", "role": "...", "phone": "..." }
-  ]
+  "message": "Convite válido",
+  "data": { "firstName": "Joana", "lastName": "Cossa", "email": "joana@example.com", "phone": "+258841234567", "role": "staff", "whatsappOptIn": false }
 }
 ```
+
+`whatsappOptIn` is the consent recorded by the admin, so the page can pre-tick it.
+
+**Errors:** `400` — Invite invalid, expired (7 days), already used, or cancelled (the user was deactivated).
+
+---
+
+#### `POST /auth/accept-invite`
+
+Set the password and activate the account. Returns tokens (the user is logged in). Each invite works once.
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `token` | string | ✅ | From the invite link `/convite/<token>` |
+| `password` | string | ✅ | Min 8 chars, with uppercase, lowercase, digit and special char (`@$!%*?&`) |
+| `confirmPassword` | string | ✅ | Must match `password` |
+| `whatsappOptIn` | boolean | — | The user's WhatsApp choice. When omitted, the consent recorded by the admin is kept |
+
+**Response `200`** — same shape as login.
+
+**Errors:** `400` — Validation failed, or invite invalid/expired/used.
+
+---
+
+#### `POST /auth/forgot-password`
+
+Request a password reset by email **or** phone. Always returns the same `200` immediately, whether or not the account exists; the work happens after the response.
+
+- Active account: a reset link (`{FRONTEND_URL}/redefinir-senha?token=…`, valid 24 h) is sent by email and/or WhatsApp (WhatsApp only with consent).
+- Account that was invited but never activated: the invite is sent again instead (new link; the old one stops working).
+
+**Body:** `identifier` (email or phone), or `email` from older clients.
+
+**Response `200`**
+
+```json
+{ "success": true, "message": "Se a conta existir, enviaremos um link de redefinição por email ou WhatsApp", "data": null }
+```
+
+---
+
+#### `POST /auth/reset-password`
+
+Complete the password reset using the token from the link. **Ends every existing session.**
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `token` | string | ✅ | |
+| `newPassword` | string | ✅ | Same rules as `password` above |
+| `confirmNewPassword` | string | — | Must match `newPassword` if sent |
+
+**Response `200`** — `{ "success": true, "message": "Senha redefinida com sucesso", "data": null }`
+
+**Errors:** `400` — Validation failed, or token invalid/expired.
+
+---
+
+#### `POST /auth/logout` 🔒
+
+The client discards its tokens (they are not revoked server-side; changing the password does that).
+
+**Response `200`** — `{ "success": true, "message": "Logout realizado com sucesso" }`
+
+---
+
+### Users
+
+**Base path:** `/api/v1/users`
+All routes require authentication. Everything except the list is admin-only.
+
+The admin user object:
+
+```json
+{
+  "id": "...", "name": "Joana Cossa", "firstName": "Joana", "lastName": "Cossa",
+  "email": "joana@example.com", "phone": "+258841234567", "role": "staff", "status": "invited",
+  "invitedAt": "2026-11-02T10:00:00.000Z", "activatedAt": null,
+  "whatsappOptIn": false, "whatsappOptInAt": null, "createdAt": "2026-11-02T10:00:00.000Z"
+}
+```
+
+Invite and reset responses include `delivery`, saying which channels the message actually went out on: `{ "email": true, "whatsapp": false }`. When both are `false` (no email, no WhatsApp consent, or the services aren't configured), show the admin the link to share by hand.
+
+---
+
+#### `GET /users` 🔒 (staff+)
+
+List users (paginated), e.g. to pick a parent for a child or a message recipient.
+
+| Query | Notes |
+|---|---|
+| `role` | `responsavel` \| `staff` \| `administrador` |
+| `search` | Matches first name, last name, email, or phone digits (3+) |
+| `status` | Admin only: `invited` \| `active` \| `inactive` \| `suspended` \| `all`. Staff always get `active` users |
+| `page`, `limit` | Pagination |
+
+**Response `200`** — `data: [{ "id", "name", "email", "phone", "role", "status" }]` plus `pagination`.
+
+---
+
+#### `POST /users` 🔒 (admin)
+
+Create a user and send them an invite.
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `firstName` | string | ✅ | 2–50 chars |
+| `lastName` | string | ✅ | 2–50 chars |
+| `email` | string | ✅* | Unique |
+| `phone` | string | ✅* | Unique; any common format |
+| `role` | string | ✅ | `responsavel` \| `staff` \| `administrador` |
+| `whatsappOptIn` | boolean | — | The person already agreed to WhatsApp messages (e.g. on the enrolment form). Default `false` |
+
+\* At least one of `email` / `phone`.
+
+**Response `201`**
+
+```json
+{
+  "success": true,
+  "message": "Utilizador criado e convite enviado",
+  "data": {
+    "user": { "...": "admin user object, status invited" },
+    "inviteLink": "https://app.../convite/<token>",
+    "delivery": { "email": true, "whatsapp": false }
+  }
+}
+```
+
+**Errors:** `400` validation (including neither email nor phone) · `409` email or phone already registered.
+
+---
+
+#### `GET /users/:id` 🔒 (admin)
+
+**Response `200`** — admin user object. **Errors:** `400` malformed id · `404` not found.
+
+---
+
+#### `PUT /users/:id` 🔒 (admin)
+
+Update `firstName`, `lastName`, `email`, `phone`, `role` and/or `whatsappOptIn` (at least one). `""` removes the email or phone, as long as the user keeps one of them.
+
+**Errors:** `400` validation, or an admin changing their own role · `404` · `409` email or phone already registered.
+
+---
+
+#### `PATCH /users/:id/status` 🔒 (admin)
+
+**Body:** `{ "status": "active" | "inactive" | "suspended" }`. Deactivation takes effect on the user's next request, and also cancels a pending invite link.
+
+**Errors:** `400` an admin changing their own status · `404` · `409` activating someone who never set a password (re-invite them instead).
+
+---
+
+#### `POST /users/:id/resend-invite` 🔒 (admin)
+
+For someone who never activated their account (status `invited`, or deactivated before activating): generates a new invite link (the previous one stops working), sets the status to `invited`, and sends it. Same response as `POST /users`.
+
+**Errors:** `404` · `409` the user has already activated their account (use a password-reset link).
+
+---
+
+#### `POST /users/:id/password-reset-link` 🔒 (admin)
+
+For an active user who forgot their password and can't receive the link themselves: creates a reset link (24 h), sends it on the user's channels, and returns it.
+
+**Response `200`** — `data: { "user": { ... }, "resetLink": "https://app.../redefinir-senha?token=…", "delivery": { ... } }`
+
+**Errors:** `404` · `409` the user isn't active (for someone who never activated, resend the invite).
 
 ---
 

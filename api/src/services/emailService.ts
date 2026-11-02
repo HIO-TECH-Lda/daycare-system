@@ -37,7 +37,11 @@ function createTransporter() {
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
-    }
+    },
+    // Fail fast on an unreachable or stalled SMTP server
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000
   });
 }
 
@@ -48,13 +52,15 @@ function isEmailConfigured(): boolean {
 export class EmailService {
   static async send(
     template: string,
-    to: string | string[],
+    to: string | string[] | undefined,
     subject: string,
     context: Record<string, unknown>
-  ): Promise<void> {
+  ): Promise<boolean> {
+    // Users may have only a phone number
+    if (!to || (Array.isArray(to) && to.length === 0)) return false;
     if (!isEmailConfigured()) {
       console.log(`[EmailService] SMTP not configured — skipping email "${subject}" to ${to}`);
-      return;
+      return false;
     }
     try {
       const html = loadTemplate(template)({
@@ -72,8 +78,10 @@ export class EmailService {
         html
       });
       console.log(`[EmailService] Sent "${subject}" to ${to}`);
+      return true;
     } catch (err) {
       console.error(`[EmailService] Failed to send "${subject}" to ${to}:`, err);
+      return false;
     }
   }
 }

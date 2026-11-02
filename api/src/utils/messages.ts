@@ -24,10 +24,24 @@ export const Messages = {
     PASSWORD_CHANGED: 'Senha alterada com sucesso',
     CURRENT_PASSWORD_INCORRECT: 'Senha atual incorreta',
     TOKEN_REFRESHED: 'Token atualizado com sucesso',
-    PASSWORD_RESET_EMAIL_SENT: 'Se o email existir, um link de redefinição será enviado',
+    PASSWORD_RESET_EMAIL_SENT: 'Se a conta existir, enviaremos um link de redefinição por email ou WhatsApp',
     PASSWORD_RESET_SUCCESS: 'Senha redefinida com sucesso',
     INVALID_RESET_TOKEN: 'Token de redefinição inválido ou expirado',
-    ADMIN_ACCESS: 'Acesso de administrador concedido'
+    ADMIN_ACCESS: 'Acesso de administrador concedido',
+    ACCOUNT_DISABLED: 'Conta desactivada. Contacte a administração.',
+    ACCOUNT_NOT_ACTIVE: 'Conta inactiva. Contacte a administração.',
+    SESSION_REVOKED: 'A sua sessão terminou. Entre novamente.',
+    PHONE_ALREADY_EXISTS: 'Este número de telefone já está registado',
+    PASSWORD_CHANGED_SESSIONS_ENDED: 'Senha alterada. As outras sessões foram terminadas.'
+  },
+
+  INVITE: {
+    SENT: 'Utilizador criado e convite enviado',
+    RESENT: 'Convite reenviado',
+    VALID: 'Convite válido',
+    INVALID: 'Convite inválido ou expirado',
+    ACCEPTED: 'Conta activada com sucesso',
+    NOT_PENDING: 'Este utilizador já activou a conta. Use a redefinição de senha.'
   },
 
   USER: {
@@ -37,7 +51,14 @@ export const Messages = {
     PROFILE_UPDATED: 'Perfil atualizado com sucesso',
     PROFILE_RETRIEVED: 'Perfil recuperado com sucesso',
     PASSWORD_UPDATED: 'Senha atualizada com sucesso',
-    FETCH_FAILED: 'Falha ao buscar usuário'
+    FETCH_FAILED: 'Falha ao buscar usuário',
+    RETRIEVED: 'Utilizador obtido com sucesso',
+    STATUS_UPDATED: 'Estado do utilizador actualizado',
+    CANNOT_CHANGE_OWN_STATUS: 'Não pode alterar o estado da sua própria conta',
+    CANNOT_CHANGE_OWN_ROLE: 'Não pode alterar o seu próprio perfil de acesso',
+    INVITED_CANNOT_BE_ACTIVATED: 'Este utilizador nunca activou a conta: reenvie o convite para que escolha uma senha',
+    RESET_NEEDS_ACTIVE: 'Só é possível redefinir a senha de contas activas. Para quem ainda não activou a conta, reenvie o convite.',
+    RESET_LINK_CREATED: 'Link de redefinição de senha criado'
   },
 
   ERROR: {

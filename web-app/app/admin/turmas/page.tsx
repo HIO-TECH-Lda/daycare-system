@@ -244,7 +244,7 @@ export default function GestaoTurmasPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja excluir a turma "{classItem.name}"? Esta ação não pode ser desfeita.
+                            Tem certeza que deseja excluir a turma &ldquo;{classItem.name}&rdquo;? Esta ação não pode ser desfeita.
                             {enrolled > 0 && (
                               <span className="block mt-2 text-red-600 font-medium">
                                 Atenção: Esta turma tem {enrolled} criança{enrolled > 1 ? 's' : ''} matriculada{enrolled > 1 ? 's' : ''}.

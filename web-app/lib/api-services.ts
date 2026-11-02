@@ -16,7 +16,7 @@ import type {
   Class,
   Child,
   Guardian,
-  PickupPerson,
+  AuthorizedPickupPerson as PickupPerson,
   DailyReport,
   Activity,
   ReportPhoto,

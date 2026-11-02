@@ -287,7 +287,7 @@ export default function GestaoEventosPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja excluir o evento "{event.title}"? Esta ação não pode ser desfeita.
+                            Tem certeza que deseja excluir o evento &ldquo;{event.title}&rdquo;? Esta ação não pode ser desfeita.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

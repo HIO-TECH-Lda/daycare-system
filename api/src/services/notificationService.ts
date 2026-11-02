@@ -41,10 +41,6 @@ export class NotificationService {
     name: string;
     role: string;
   }): Promise<void> {
-    const portalPath = params.role === 'responsavel' ? '/responsavel/dashboard'
-      : params.role === 'staff' ? '/staff/dashboard'
-      : '/admin/dashboard';
-
     await EmailService.send('welcome', params.email, 'Bem-vindo ao Sonho de Criança!', {
       name: params.name,
       role: params.role,

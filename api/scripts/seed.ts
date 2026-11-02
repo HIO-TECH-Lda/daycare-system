@@ -14,7 +14,6 @@
  *   patricia.oliveira@demo.com  — Responsável (1 filho)
  */
 
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { connectDB, disconnectDB } from '../src/config/database';
 import User from '../src/models/User';
@@ -634,7 +633,7 @@ async function seedDatabase() {
       created_by: admin._id
     });
 
-    const invoice2 = await Invoice.create({
+    await Invoice.create({
       invoice_number: `INV-${currentYear}-0002`,
       child_id: child4._id,
       parent_id: responsavel1._id,
@@ -675,7 +674,7 @@ async function seedDatabase() {
     });
 
     const prevDueDate = new Date(currentYear, prevMonth - 1, 10);
-    const invoice4 = await Invoice.create({
+    await Invoice.create({
       invoice_number: `INV-${prevMonthYear}-0004`,
       child_id: child3._id,
       parent_id: responsavel3._id,

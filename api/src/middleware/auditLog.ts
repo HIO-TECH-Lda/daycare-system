@@ -1,12 +1,39 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuditLogService } from '../services/auditLogService';
+import { runInBackground } from '../utils/background';
 
-const EXCLUDED_ROUTES = [
-  '/health',
-  '/api/v1',
-  '/api/v1/health',
-  '/api/v1/test'
+// Not audited: health/info endpoints (exact match) and auth endpoints that only handle
+// credentials or tokens (prefix match). Profile and password changes are audited, with values redacted.
+const EXCLUDED_EXACT = new Set(['/health', '/api/v1', '/api/v1/health']);
+const EXCLUDED_PREFIXES = [
+  '/api/v1/test',
+  '/api/v1/auth/login',
+  '/api/v1/auth/refresh',
+  '/api/v1/auth/logout',
+  '/api/v1/auth/forgot-password',
+  '/api/v1/auth/reset-password',
+  '/api/v1/auth/invite',
+  '/api/v1/auth/accept-invite'
 ];
+
+function isExcluded(path: string): boolean {
+  const clean = path.replace(/\/+$/, '') || '/';
+  return EXCLUDED_EXACT.has(clean) || EXCLUDED_PREFIXES.some((prefix) => clean === prefix || clean.startsWith(`${prefix}/`));
+}
+
+// Field names whose values must never be stored (passwords, tokens, secrets)
+const SENSITIVE_KEY = /pass(word)?|token|secret/i;
+
+function redact(value: unknown, depth = 0): unknown {
+  if (depth > 4) return '[…]';
+  if (Array.isArray(value)) return value.map((item) => redact(item, depth + 1));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, v]) => [key, SENSITIVE_KEY.test(key) ? '[redacted]' : redact(v, depth + 1)])
+    );
+  }
+  return value;
+}
 
 // Map HTTP methods to audit actions
 const METHOD_TO_ACTION: { [key: string]: 'create' | 'read' | 'update' | 'delete' | null } = {
@@ -57,7 +84,7 @@ function extractEntityInfo(url: string, _method: string): { type: string; id?: s
 // Middleware to automatically log operations
 export const auditLogMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Skip excluded routes
-  if (EXCLUDED_ROUTES.some(route => req.path.startsWith(route))) {
+  if (isExcluded(req.path)) {
     return next();
   }
   
@@ -81,25 +108,24 @@ export const auditLogMiddleware = async (req: Request, res: Response, next: Next
   const originalJson = res.json.bind(res);
   const originalSend = res.send.bind(res);
   
-  // Intercept response to log after success
-  res.json = function(data: any) {
+  // Intercept the response to log after success. res.json() calls res.send() internally,
+  // so only the first call logs.
+  let logged = false;
+  const logOnce = (data: any) => {
     // Only log successful operations (2xx status codes)
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      // Log asynchronously without blocking response
-      setImmediate(() => {
-        logOperation(req, res, action, entityInfo, data);
-      });
-    }
+    if (logged || res.statusCode < 200 || res.statusCode >= 300) return;
+    logged = true;
+    // Log after the response, without blocking it (kept alive on Vercel)
+    runInBackground('audit log', () => logOperation(req, res, action, entityInfo, data));
+  };
+
+  res.json = function(data: any) {
+    logOnce(data);
     return originalJson(data);
   };
-  
+
   res.send = function(data: any) {
-    // Only log successful operations
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      setImmediate(() => {
-        logOperation(req, res, action, entityInfo, data);
-      });
-    }
+    logOnce(data);
     return originalSend(data);
   };
   
@@ -118,16 +144,19 @@ async function logOperation(
     const user = (req as any).user;
     const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     
+    // Some responses wrap the entity, e.g. { user, inviteLink }
+    const entity = responseData?.data?.user ?? responseData?.data;
+
     // Extract entity ID from response if not in URL
     let entityId = entityInfo.id;
-    if (!entityId && responseData?.data) {
-      entityId = responseData.data._id || responseData.data.id;
+    if (!entityId && entity) {
+      entityId = entity._id || entity.id;
     }
     
     // Extract entity name from response
     let entityName: string | undefined;
-    if (responseData?.data) {
-      const data = responseData.data;
+    if (entity) {
+      const data = entity;
       entityName = data.name || 
                    data.title || 
                    data.email || 
@@ -142,11 +171,11 @@ async function logOperation(
     if (action === 'update' && req.body) {
       // Simple change detection from request body
       changes = Object.entries(req.body)
-        .filter(([key]) => !['password', '_id', 'createdAt', 'updatedAt', '__v'].includes(key))
+        .filter(([key]) => !['_id', 'createdAt', 'updatedAt', '__v'].includes(key))
         .map(([field, value]) => ({
           field,
           oldValue: null, // We don't have old value here
-          newValue: value
+          newValue: SENSITIVE_KEY.test(field) ? '[redacted]' : redact(value)
         }));
     }
     

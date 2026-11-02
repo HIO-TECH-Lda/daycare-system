@@ -426,12 +426,22 @@ Same params as `attendanceCheckIn` but with `checkOutTime`. Sends: **WhatsApp on
 
 ---
 
+## Consent and channels
+
+- A user has an email, a phone number, or both. Email goes to the email address when there is one.
+- **WhatsApp is only sent with the recipient's consent** (`User.whatsappOptIn`). Controllers pass the number through `NotificationService.whatsAppNumberFor(user)`, which returns nothing without consent.
+- Consent is recorded by an admin when creating the user (`whatsappOptIn` on `POST /users`, e.g. from the enrolment form), by the user when accepting the invite, or on their profile (`PUT /auth/me`).
+- Notifications run with `runInBackground()` (`src/utils/background.ts`): after the response, kept alive on Vercel with `waitUntil`. Email and WhatsApp calls time out after 10–15 s.
+- `invite()` and `passwordReset()` return `{ email, whatsapp }`: which channels actually went out. The admin endpoints pass this on, so the UI can tell the admin to share the link by hand when nothing was sent.
+
 ## Event Matrix
 
 | Controller action | Method called | Email | WhatsApp |
 |---|---|---|---|
 | `POST /users`, `POST /users/:id/resend-invite` | `invite()` (template `sonho_invite`: name, link) | ✅ | ✅ |
-| `POST /auth/forgot-password` | `passwordReset()` | ✅ | ✅ |
+| `POST /auth/forgot-password` (active account) | `passwordReset()` | ✅ | ✅ |
+| `POST /auth/forgot-password` (never-activated account) | `invite()` (new link) | ✅ | ✅ |
+| `POST /users/:id/password-reset-link` | `passwordReset()` | ✅ | ✅ |
 | `POST /invoices` | `newInvoice()` | ✅ | ✅ |
 | `PATCH /invoices/:id/status` → `overdue` | `invoiceOverdue()` | ✅ | ✅ |
 | `PATCH /invoices/:id/status` → `paid` | `invoicePaid()` | ✅ | ✅ |

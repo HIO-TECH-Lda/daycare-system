@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { runInBackground } from '../utils/background';
 import { MonthlyReportService } from '../services/monthlyReportService';
 import { NotificationService } from '../services/notificationService';
 import { catchAsync } from '../utils/catchAsync';
@@ -79,7 +80,7 @@ export class MonthlyReportController {
     res.json(ApiResponse.success(report, 'Relatório validado com sucesso'));
 
     // Fire-and-forget notification to parent
-    (async () => {
+    runInBackground('MonthlyReportController notification', async () => {
       try {
         const child = await Child.findById(report.child_id);
         if (!child) return;
@@ -87,7 +88,7 @@ export class MonthlyReportController {
         if (!parent) return;
         await NotificationService.monthlyReportValidated({
           parentEmail: parent.email,
-          parentPhone: parent.phone,
+          parentPhone: NotificationService.whatsAppNumberFor(parent),
           parentName: parent.fullName,
           childName: child.name,
           childId: (child._id as any).toString(),
@@ -97,7 +98,7 @@ export class MonthlyReportController {
       } catch (err) {
         console.error('[MonthlyReportController] Notification error:', err);
       }
-    })();
+    });
     return;
   });
 

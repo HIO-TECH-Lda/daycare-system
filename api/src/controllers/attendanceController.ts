@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { runInBackground } from '../utils/background';
 import { AttendanceService } from '../services/attendanceService';
 import { NotificationService } from '../services/notificationService';
 import { catchAsync } from '../utils/catchAsync';
@@ -58,18 +59,18 @@ export class AttendanceController {
 
     // Fire-and-forget check-in/check-out WhatsApp notification to parent
     if (attendance.status === 'present' || attendance.status === 'late') {
-      (async () => {
+      runInBackground('AttendanceController notification', async () => {
         try {
           const child = await Child.findById(attendance.child_id);
           if (!child) return;
           const parent = await User.findById(child.parent_id);
-          if (!parent?.phone) return;
+          if (!parent || !NotificationService.whatsAppNumberFor(parent)) return;
           const dateStr = new Date(attendance.date).toLocaleDateString('pt-BR');
           if (attendance.check_in) {
             const timeStr = new Date(attendance.check_in).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             await NotificationService.attendanceCheckIn({
               parentEmail: parent.email,
-              parentPhone: parent.phone,
+              parentPhone: NotificationService.whatsAppNumberFor(parent),
               parentName: parent.fullName,
               childName: child.name,
               checkInTime: timeStr,
@@ -79,7 +80,7 @@ export class AttendanceController {
             const timeStr = new Date(attendance.check_out).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             await NotificationService.attendanceCheckOut({
               parentEmail: parent.email,
-              parentPhone: parent.phone,
+              parentPhone: NotificationService.whatsAppNumberFor(parent),
               parentName: parent.fullName,
               childName: child.name,
               checkOutTime: timeStr,
@@ -89,7 +90,7 @@ export class AttendanceController {
         } catch (err) {
           console.error('[AttendanceController] Notification error:', err);
         }
-      })();
+      });
     }
   });
 
@@ -102,17 +103,17 @@ export class AttendanceController {
 
     // Fire-and-forget check-out notification when check_out is recorded
     if (req.body.check_out) {
-      (async () => {
+      runInBackground('AttendanceController notification', async () => {
         try {
           const child = await Child.findById(attendance.child_id);
           if (!child) return;
           const parent = await User.findById(child.parent_id);
-          if (!parent?.phone) return;
+          if (!parent || !NotificationService.whatsAppNumberFor(parent)) return;
           const timeStr = new Date(req.body.check_out).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
           const dateStr = new Date(attendance.date).toLocaleDateString('pt-BR');
           await NotificationService.attendanceCheckOut({
             parentEmail: parent.email,
-            parentPhone: parent.phone,
+            parentPhone: NotificationService.whatsAppNumberFor(parent),
             parentName: parent.fullName,
             childName: child.name,
             checkOutTime: timeStr,
@@ -121,7 +122,7 @@ export class AttendanceController {
         } catch (err) {
           console.error('[AttendanceController] Notification error:', err);
         }
-      })();
+      });
     }
     return;
   });

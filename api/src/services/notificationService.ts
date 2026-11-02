@@ -3,8 +3,11 @@
  * Single entry point for all application notifications.
  * Orchestrates EmailService (SMTP) and WhatsAppService (Meta Cloud API).
  *
- * Every method is fire-and-forget: it never throws so calling controllers
- * are never blocked or failed by a notification error.
+ * Methods never throw, so callers are never failed by a notification error.
+ * Controllers run them with runInBackground(), so on Vercel they finish after the response.
+ *
+ * WhatsApp is only sent with the recipient's recorded consent: callers pass the number
+ * through NotificationService.whatsAppNumberFor(user), which is empty without consent.
  *
  * WhatsApp template names used here must match approved templates in your
  * Meta Business Manager. Set them in .env or update the constants below.
@@ -37,13 +40,24 @@ const ROLE_LABELS: Record<string, string> = {
   administrador: 'Administração'
 };
 
+/** Which channels a message actually went out on. */
+export interface Delivery {
+  email: boolean;
+  whatsapp: boolean;
+}
+
 export class NotificationService {
+  /** The user's WhatsApp number, or undefined when they haven't consented to WhatsApp messages. */
+  static whatsAppNumberFor(user: { phone?: string; whatsappOptIn?: boolean }): string | undefined {
+    return user.phone && user.whatsappOptIn ? user.phone : undefined;
+  }
+
   // ---------------------------------------------------------------------------
   // Auth
   // ---------------------------------------------------------------------------
 
   static async welcome(params: {
-    email: string;
+    email?: string;
     phone?: string;
     name: string;
     role: string;
@@ -67,27 +81,33 @@ export class NotificationService {
     return `${FRONTEND_URL}/convite/${inviteToken}`;
   }
 
+  /** Link the frontend's reset-password page opens with. */
+  static passwordResetLink(resetToken: string): string {
+    return `${FRONTEND_URL}/redefinir-senha?token=${resetToken}`;
+  }
+
   static async invite(params: {
-    email: string;
-    phone?: string;
+    email?: string;
+    whatsappPhone?: string;
     name: string;
     role: string;
     inviteToken: string;
     expiryDays: number;
-  }): Promise<void> {
+  }): Promise<Delivery> {
     const inviteLink = this.inviteLink(params.inviteToken);
     const roleLabel = ROLE_LABELS[params.role] || params.role;
 
-    await EmailService.send('invite', params.email, 'Convite — Centro Infantil Sonho de Criança', {
-      name: params.name,
-      roleLabel,
-      inviteLink,
-      expiryDays: params.expiryDays
-    });
+    const email = params.email
+      ? await EmailService.send('invite', params.email, 'Convite — Centro Infantil Sonho de Criança', {
+        name: params.name,
+        roleLabel,
+        inviteLink,
+        expiryDays: params.expiryDays
+      })
+      : false;
 
-    if (params.phone) {
-      const to = WhatsAppService.normalisePhone(params.phone);
-      await WhatsAppService.sendTemplate(to, WA_TEMPLATES.INVITE, LANG, [
+    const whatsapp = params.whatsappPhone
+      ? await WhatsAppService.sendTemplate(WhatsAppService.normalisePhone(params.whatsappPhone), WA_TEMPLATES.INVITE, LANG, [
         {
           type: 'body',
           parameters: [
@@ -95,27 +115,30 @@ export class NotificationService {
             { type: 'text', text: inviteLink }
           ]
         }
-      ]);
-    }
+      ])
+      : false;
+
+    return { email, whatsapp };
   }
 
   static async passwordReset(params: {
-    email: string;
-    phone?: string;
+    email?: string;
+    whatsappPhone?: string;
     name: string;
     resetToken: string;
-  }): Promise<void> {
-    const resetLink = `${FRONTEND_URL}/redefinir-senha?token=${params.resetToken}`;
+  }): Promise<Delivery> {
+    const resetLink = this.passwordResetLink(params.resetToken);
 
-    await EmailService.send('password-reset', params.email, 'Redefinição de senha — Sonho de Criança', {
-      name: params.name,
-      resetLink,
-      expiryTime: '24 horas'
-    });
+    const email = params.email
+      ? await EmailService.send('password-reset', params.email, 'Redefinição de senha — Sonho de Criança', {
+        name: params.name,
+        resetLink,
+        expiryTime: '24 horas'
+      })
+      : false;
 
-    if (params.phone) {
-      const to = WhatsAppService.normalisePhone(params.phone);
-      await WhatsAppService.sendTemplate(to, WA_TEMPLATES.PASSWORD_RESET, LANG, [
+    const whatsapp = params.whatsappPhone
+      ? await WhatsAppService.sendTemplate(WhatsAppService.normalisePhone(params.whatsappPhone), WA_TEMPLATES.PASSWORD_RESET, LANG, [
         {
           type: 'body',
           parameters: [
@@ -123,8 +146,10 @@ export class NotificationService {
             { type: 'text', text: resetLink }
           ]
         }
-      ]);
-    }
+      ])
+      : false;
+
+    return { email, whatsapp };
   }
 
   // ---------------------------------------------------------------------------
@@ -132,7 +157,7 @@ export class NotificationService {
   // ---------------------------------------------------------------------------
 
   static async newInvoice(params: {
-    parentEmail: string;
+    parentEmail?: string;
     parentPhone?: string;
     parentName: string;
     childName: string;
@@ -170,7 +195,7 @@ export class NotificationService {
   }
 
   static async invoiceOverdue(params: {
-    parentEmail: string;
+    parentEmail?: string;
     parentPhone?: string;
     parentName: string;
     childName: string;
@@ -209,7 +234,7 @@ export class NotificationService {
   }
 
   static async invoicePaid(params: {
-    parentEmail: string;
+    parentEmail?: string;
     parentPhone?: string;
     parentName: string;
     childName: string;
@@ -248,7 +273,7 @@ export class NotificationService {
   // ---------------------------------------------------------------------------
 
   static async newDailyReport(params: {
-    parentEmail: string;
+    parentEmail?: string;
     parentPhone?: string;
     parentName: string;
     childName: string;
@@ -287,7 +312,7 @@ export class NotificationService {
   // ---------------------------------------------------------------------------
 
   static async monthlyReportValidated(params: {
-    parentEmail: string;
+    parentEmail?: string;
     parentPhone?: string;
     parentName: string;
     childName: string;
@@ -330,7 +355,7 @@ export class NotificationService {
   // ---------------------------------------------------------------------------
 
   static async newMessage(params: {
-    recipientEmail: string;
+    recipientEmail?: string;
     recipientPhone?: string;
     recipientName: string;
     senderName: string;
@@ -373,7 +398,7 @@ export class NotificationService {
   // ---------------------------------------------------------------------------
 
   static async attendanceCheckIn(params: {
-    parentEmail: string;
+    parentEmail?: string;
     parentPhone?: string;
     parentName: string;
     childName: string;
@@ -398,7 +423,7 @@ export class NotificationService {
   }
 
   static async attendanceCheckOut(params: {
-    parentEmail: string;
+    parentEmail?: string;
     parentPhone?: string;
     parentName: string;
     childName: string;

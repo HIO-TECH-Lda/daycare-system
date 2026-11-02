@@ -154,12 +154,34 @@ describe('user management', () => {
 
   it('an invited user cannot be activated by an admin', async () => {
     const admin = await createUser('administrador');
-    const invited = await createUser('staff', { status: 'invited' });
+    const invited = await inviteAs(admin);
     const res = await request(app)
-      .patch(`/api/v1/users/${invited._id}/status`)
+      .patch(`/api/v1/users/${invited.body.data.user.id}/status`)
       .set('Authorization', bearer(admin))
       .send({ status: 'active' });
     expect(res.status).toBe(409);
+  });
+
+  it('a never-activated user who was deactivated can be re-invited, but not activated directly', async () => {
+    const admin = await createUser('administrador');
+    const auth = bearer(admin);
+    const invited = await inviteAs(admin);
+    const id = invited.body.data.user.id;
+    const oldToken = tokenFromInviteLink(invited.body.data.inviteLink);
+
+    const deactivated = await request(app).patch(`/api/v1/users/${id}/status`).set('Authorization', auth).send({ status: 'inactive' });
+    expect(deactivated.status).toBe(200);
+    // Deactivation also kills the pending link
+    expect((await request(app).get(`/api/v1/auth/invite/${oldToken}`)).status).toBe(400);
+
+    const activated = await request(app).patch(`/api/v1/users/${id}/status`).set('Authorization', auth).send({ status: 'active' });
+    expect(activated.status).toBe(409);
+
+    const reinvited = await request(app).post(`/api/v1/users/${id}/resend-invite`).set('Authorization', auth);
+    expect(reinvited.status).toBe(200);
+    expect(reinvited.body.data.user.status).toBe('invited');
+    const newToken = tokenFromInviteLink(reinvited.body.data.inviteLink);
+    expect((await request(app).get(`/api/v1/auth/invite/${newToken}`)).status).toBe(200);
   });
 
   it('admin can update details; email must stay unique', async () => {
@@ -170,7 +192,7 @@ describe('user management', () => {
 
     const ok = await request(app).put(`/api/v1/users/${staff._id}`).set('Authorization', auth).send({ phone: '841234567' });
     expect(ok.status).toBe(200);
-    expect(ok.body.data.phone).toBe('841234567');
+    expect(ok.body.data.phone).toBe('+258841234567');
 
     const clash = await request(app).put(`/api/v1/users/${staff._id}`).set('Authorization', auth).send({ email: 'taken@example.com' });
     expect(clash.status).toBe(409);

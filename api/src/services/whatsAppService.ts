@@ -21,6 +21,8 @@
  *   sendText()     — Sends a free-form text (only works within 24h of user-initiated contact)
  */
 
+import { normalisePhone } from '../utils/phone';
+
 const META_GRAPH = 'https://graph.facebook.com';
 
 function isWhatsAppConfigured(): boolean {
@@ -35,9 +37,13 @@ function messagesUrl(): string {
   return `${META_GRAPH}/${apiVersion()}/${process.env.WHATSAPP_PHONE_ID}/messages`;
 }
 
+// Give up on a slow Meta API instead of holding the request (or serverless function) open
+const REQUEST_TIMEOUT_MS = 10_000;
+
 async function post(body: object): Promise<void> {
   const res = await fetch(messagesUrl(), {
     method: 'POST',
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
       'Content-Type': 'application/json'
@@ -66,10 +72,10 @@ export class WhatsAppService {
     templateName: string,
     languageCode: string,
     components: WhatsAppTemplateComponent[] = []
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (!isWhatsAppConfigured()) {
       console.log(`[WhatsAppService] Not configured — skipping template "${templateName}" to ${to}`);
-      return;
+      return false;
     }
     const payload: any = {
       messaging_product: 'whatsapp',
@@ -86,8 +92,10 @@ export class WhatsAppService {
     try {
       await post(payload);
       console.log(`[WhatsAppService] Sent template "${templateName}" to ${to}`);
+      return true;
     } catch (err) {
       console.error(`[WhatsAppService] Failed to send template "${templateName}" to ${to}:`, err);
+      return false;
     }
   }
 
@@ -115,14 +123,11 @@ export class WhatsAppService {
   }
 
   /**
-   * Normalise a phone number to Meta's expected format (digits only, no '+').
-   * Strips spaces, dashes, parentheses, and leading '+'.
+   * Format a phone number the way Meta expects it: country code + number, digits only.
+   * Local Mozambican numbers get the 258 country code (see utils/phone).
    */
   static normalisePhone(phone: string): string {
-    let digits = phone.replace(/\D/g, '');
-    if (digits.startsWith('00')) digits = digits.slice(2);
-    // Local Mozambican mobile (8X XXX XXXX) → add the +258 country code
-    if (digits.length === 9 && digits.startsWith('8')) digits = `258${digits}`;
-    return digits;
+    const e164 = normalisePhone(phone);
+    return e164 ? e164.slice(1) : phone.replace(/\D/g, '');
   }
 }

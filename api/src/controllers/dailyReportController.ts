@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { runInBackground } from '../utils/background';
 import { DailyReportService } from '../services/dailyReportService';
 import { NotificationService } from '../services/notificationService';
 import { catchAsync } from '../utils/catchAsync';
@@ -44,7 +45,7 @@ export class DailyReportController {
     res.status(201).json(ApiResponse.success(report, 'Relatório diário criado com sucesso', 201));
 
     // Fire-and-forget notification to parent
-    (async () => {
+    runInBackground('DailyReportController notification', async () => {
       try {
         const child = await Child.findById(report.child_id);
         if (!child) return;
@@ -52,7 +53,7 @@ export class DailyReportController {
         if (!parent) return;
         await NotificationService.newDailyReport({
           parentEmail: parent.email,
-          parentPhone: parent.phone,
+          parentPhone: NotificationService.whatsAppNumberFor(parent),
           parentName: parent.fullName,
           childName: child.name,
           childId: (child._id as any).toString(),
@@ -62,7 +63,7 @@ export class DailyReportController {
       } catch (err) {
         console.error('[DailyReportController] Notification error:', err);
       }
-    })();
+    });
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {

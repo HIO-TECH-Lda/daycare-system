@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { IUser } from '../types';
+import { normalisePhone } from '../utils/phone';
 
 export interface IUserDocument extends Omit<IUser, '_id'>, Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -24,13 +25,11 @@ const userSchema = new Schema<IUserDocument>(
       minlength: [2, 'Last name must be at least 2 characters'],
       maxlength: [50, 'Last name cannot exceed 50 characters']
     },
+    // A user has an email, a phone number, or both (checked in pre('validate')); either can be used to log in
     email: {
       type: String,
-      required: [true, 'Email is required'],
-      lowercase: true,
-      trim: true,
-      unique: true,
-      match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+      set: (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : undefined),
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/, 'Email inválido']
     },
     password: {
       type: String,
@@ -47,10 +46,17 @@ const userSchema = new Schema<IUserDocument>(
       enum: ['responsavel', 'staff', 'administrador'],
       default: 'responsavel'
     },
+    // Stored in E.164 format (+258841234567); unparseable input is kept as typed so validation reports it
     phone: {
       type: String,
-      trim: true,
-      default: ''
+      set: (value: unknown) => {
+        if (typeof value !== 'string' || !value.trim()) return undefined;
+        return normalisePhone(value) ?? value.trim();
+      },
+      validate: {
+        validator: (value?: string) => !value || /^\+[1-9]\d{7,14}$/.test(value),
+        message: 'Número de telefone inválido'
+      }
     },
     status: {
       type: String,
@@ -67,17 +73,28 @@ const userSchema = new Schema<IUserDocument>(
     invitedAt: { type: Date },
     activatedAt: { type: Date },
     whatsappOptIn: { type: Boolean, default: false },
-    whatsappOptInAt: { type: Date }
+    whatsappOptInAt: { type: Date },
+    // Bumped on password change/reset: tokens issued with an older version stop working
+    tokenVersion: { type: Number, default: 0 }
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
 
-userSchema.index({ email: 1 }, { unique: true });
+// Unique when present; users without an email (or phone) don't collide with each other
+userSchema.index({ email: 1 }, { unique: true, name: 'email_unique_if_set', partialFilterExpression: { email: { $gt: '' } } });
+userSchema.index({ phone: 1 }, { unique: true, name: 'phone_unique_if_set', partialFilterExpression: { phone: { $gt: '' } } });
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
 
 userSchema.virtual('fullName').get(function () {
   return `${this.firstName} ${this.lastName}`;
+});
+
+userSchema.pre('validate', function (next) {
+  if (!this.email && !this.phone) {
+    this.invalidate('email', 'Indique um email ou um número de telefone');
+  }
+  next();
 });
 
 userSchema.pre('save', async function (next) {

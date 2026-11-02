@@ -3,7 +3,8 @@ import { UserRole, UserStatus } from '../types';
 import { ApiError } from '../utils/ApiError';
 import Messages from '../utils/messages';
 import { generateOneTimeToken } from '../utils/tokens';
-import { NotificationService } from './notificationService';
+import { Delivery, NotificationService } from './notificationService';
+import { AuthService, assertEmailFree, assertPhoneFree, setWhatsAppConsent } from './authService';
 
 export const INVITE_EXPIRY_DAYS = 7;
 
@@ -14,16 +15,29 @@ export function formatUserForAdmin(user: IUserDocument) {
     name: user.fullName,
     firstName: user.firstName,
     lastName: user.lastName,
-    email: user.email,
+    email: user.email || '',
     phone: user.phone || '',
     role: user.role,
     status: user.status,
     invitedAt: user.invitedAt ?? null,
     activatedAt: user.activatedAt ?? null,
     whatsappOptIn: !!user.whatsappOptIn,
+    whatsappOptInAt: user.whatsappOptInAt ?? null,
     createdAt: (user as any).createdAt ?? null
   };
 }
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Whether the user ever set a password (i.e. accepted their invite). */
+async function hasPassword(userId: string): Promise<boolean> {
+  const user = await User.findById(userId).select('+password');
+  return !!user?.password;
+}
+
+type ContactFields = { email?: string; phone?: string; whatsappOptIn?: boolean };
 
 export class UserService {
   static async findAll(
@@ -37,10 +51,13 @@ export class UserService {
     if (status !== 'all') query.status = status;
     if (role) query.role = role;
     if (search) {
+      const pattern = escapeRegExp(search.trim());
+      const digits = search.replace(/\D/g, '');
       query.$or = [
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+        { firstName: { $regex: pattern, $options: 'i' } },
+        { lastName: { $regex: pattern, $options: 'i' } },
+        { email: { $regex: pattern, $options: 'i' } },
+        ...(digits.length >= 3 ? [{ phone: { $regex: escapeRegExp(digits) } }] : [])
       ];
     }
 
@@ -57,7 +74,7 @@ export class UserService {
     const users = rawUsers.map((u) => ({
       id: (u._id as any).toString(),
       name: u.fullName,
-      email: u.email,
+      email: u.email || '',
       phone: u.phone || '',
       role: u.role,
       status: u.status
@@ -72,67 +89,78 @@ export class UserService {
     return user;
   }
 
-  private static async assertEmailFree(email: string, exceptId?: string): Promise<void> {
-    const existing = await User.findOne({ email: email.toLowerCase() }).select('_id');
-    if (existing && (existing._id as any).toString() !== exceptId) {
-      throw new ApiError(409, Messages.AUTH.EMAIL_ALREADY_EXISTS);
-    }
-  }
-
-  /** Generates a fresh invite token on the user (replacing any previous one). Caller saves. */
-  private static issueInvite(user: IUserDocument): string {
+  /** Gives the user a fresh invite (replacing any previous link) and sends it on every channel they can receive. */
+  static async reissueInvite(user: IUserDocument): Promise<{ inviteLink: string; delivery: Delivery }> {
     const { token, hash } = generateOneTimeToken();
+    user.status = 'invited';
     user.inviteTokenHash = hash;
     user.inviteExpires = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     user.invitedAt = new Date();
-    return token;
-  }
+    await user.save();
 
-  private static async sendInvite(user: IUserDocument, inviteToken: string): Promise<void> {
-    await NotificationService.invite({
+    const delivery = await NotificationService.invite({
       email: user.email,
-      phone: user.phone,
+      whatsappPhone: NotificationService.whatsAppNumberFor(user),
       name: user.firstName,
       role: user.role,
-      inviteToken,
+      inviteToken: token,
       expiryDays: INVITE_EXPIRY_DAYS
     });
+
+    return { inviteLink: NotificationService.inviteLink(token), delivery };
   }
 
   /**
-   * Creates an invited user (no password) and sends the invite by email/WhatsApp.
-   * Returns the invite link so the admin can also share it by hand.
+   * Creates an invited user (no password) with an email, a phone number, or both, and sends the
+   * invite by email and/or WhatsApp. WhatsApp is only used when `whatsappOptIn` records that the
+   * person agreed to it (e.g. on the enrolment form). The link is also returned so the admin can
+   * share it by hand when neither channel reaches the person.
    */
   static async createInvited(
-    data: { firstName: string; lastName: string; email: string; role: UserRole; phone?: string },
+    data: { firstName: string; lastName: string; role: UserRole } & ContactFields,
     invitedBy?: string
-  ): Promise<{ user: IUserDocument; inviteLink: string }> {
-    await this.assertEmailFree(data.email);
+  ): Promise<{ user: IUserDocument; inviteLink: string; delivery: Delivery }> {
+    await assertEmailFree(data.email);
+    await assertPhoneFree(data.phone);
 
-    const user = new User({ ...data, phone: data.phone || '', status: 'invited' });
+    const { whatsappOptIn, ...fields } = data;
+    const user = new User({ ...fields, status: 'invited' });
     // The very first admin (create-admin script) has no inviter, so records itself
     user.invitedBy = invitedBy ?? user._id;
-    const inviteToken = this.issueInvite(user);
-    await user.save();
-    await this.sendInvite(user, inviteToken);
+    setWhatsAppConsent(user, !!whatsappOptIn);
 
-    return { user, inviteLink: NotificationService.inviteLink(inviteToken) };
+    const { inviteLink, delivery } = await this.reissueInvite(user);
+    return { user, inviteLink, delivery };
   }
 
-  static async resendInvite(id: string): Promise<{ user: IUserDocument; inviteLink: string }> {
+  /** Re-invite someone who never activated their account (status invited, or deactivated before activating). */
+  static async resendInvite(id: string): Promise<{ user: IUserDocument; inviteLink: string; delivery: Delivery }> {
     const user = await this.findById(id);
-    if (user.status !== 'invited') throw new ApiError(409, Messages.INVITE.NOT_PENDING);
+    if (await hasPassword(id)) throw new ApiError(409, Messages.INVITE.NOT_PENDING);
 
-    const inviteToken = this.issueInvite(user);
-    await user.save();
-    await this.sendInvite(user, inviteToken);
+    const { inviteLink, delivery } = await this.reissueInvite(user);
+    return { user, inviteLink, delivery };
+  }
 
-    return { user, inviteLink: NotificationService.inviteLink(inviteToken) };
+  /** Admin-generated password-reset link, sent on the user's channels and returned to share by hand. */
+  static async createPasswordResetLink(id: string): Promise<{ user: IUserDocument; resetLink: string; delivery: Delivery }> {
+    const user = await this.findById(id);
+    if (user.status !== 'active') throw new ApiError(409, Messages.USER.RESET_NEEDS_ACTIVE);
+
+    const resetToken = await AuthService.issuePasswordReset(user);
+    const delivery = await NotificationService.passwordReset({
+      email: user.email,
+      whatsappPhone: NotificationService.whatsAppNumberFor(user),
+      name: user.firstName,
+      resetToken
+    });
+
+    return { user, resetLink: NotificationService.passwordResetLink(resetToken), delivery };
   }
 
   static async update(
     id: string,
-    data: Partial<{ firstName: string; lastName: string; email: string; role: UserRole; phone: string }>,
+    data: Partial<{ firstName: string; lastName: string; role: UserRole } & ContactFields>,
     actingUserId: string
   ): Promise<IUserDocument> {
     const user = await this.findById(id);
@@ -140,11 +168,12 @@ export class UserService {
     if (data.role && data.role !== user.role && id === actingUserId) {
       throw new ApiError(400, Messages.USER.CANNOT_CHANGE_OWN_ROLE);
     }
-    if (data.email && data.email !== user.email) {
-      await this.assertEmailFree(data.email, id);
-    }
+    await assertEmailFree(data.email, id);
+    await assertPhoneFree(data.phone, id);
 
-    Object.assign(user, data);
+    const { whatsappOptIn, ...fields } = data;
+    Object.assign(user, fields);
+    if (typeof whatsappOptIn === 'boolean') setWhatsAppConsent(user, whatsappOptIn);
     await user.save();
     return user;
   }
@@ -153,11 +182,17 @@ export class UserService {
     if (id === actingUserId) throw new ApiError(400, Messages.USER.CANNOT_CHANGE_OWN_STATUS);
 
     const user = await this.findById(id);
-    if (user.status === 'invited' && status === 'active') {
+    // Someone who never set a password can only become active by accepting an invite
+    if (status === 'active' && !(await hasPassword(id))) {
       throw new ApiError(409, Messages.USER.INVITED_CANNOT_BE_ACTIVATED);
     }
 
     user.status = status;
+    if (status !== 'active') {
+      // A deactivated invitee's link stops working; re-inviting issues a new one
+      user.inviteTokenHash = undefined;
+      user.inviteExpires = undefined;
+    }
     await user.save();
     return user;
   }

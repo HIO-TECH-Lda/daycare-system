@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import { connectDB } from './config/database';
 import { corsOptions } from './config/cors';
 import { ApiError } from './utils/ApiError';
@@ -134,6 +135,22 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   // Malformed ObjectId in a URL, e.g. /users/not-an-id
   if (err.name === 'CastError') {
     return res.status(400).json({ success: false, message: 'Identificador inválido' });
+  }
+  // Model validation (e.g. a user left with neither email nor phone)
+  if (err instanceof mongoose.Error.ValidationError) {
+    return res.status(400).json({
+      success: false,
+      message: Messages.ERROR.VALIDATION_FAILED,
+      errors: Object.values(err.errors).map((e) => e.message)
+    });
+  }
+  // Unique index race (two requests creating the same email/phone at once)
+  if ((err as any).code === 11000) {
+    const field = Object.keys((err as any).keyPattern || {})[0];
+    const message = field === 'phone' ? Messages.AUTH.PHONE_ALREADY_EXISTS
+      : field === 'email' ? Messages.AUTH.EMAIL_ALREADY_EXISTS
+      : 'Registo duplicado';
+    return res.status(409).json({ success: false, message });
   }
   console.error(err.stack);
   return res.status(500).json({

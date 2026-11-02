@@ -27,9 +27,11 @@ export class UserController {
     return res.json(ApiResponse.success(formatUserForAdmin(user), Messages.USER.RETRIEVED));
   });
 
+  // `delivery` says which channels the invite went out on; when both are false the admin
+  // must share `inviteLink` by hand (e.g. from the centre's own phone)
   static create = catchAsync(async (req: Request, res: Response) => {
-    const { user, inviteLink } = await UserService.createInvited(req.body, req.user!.userId);
-    return res.status(201).json(ApiResponse.success({ user: formatUserForAdmin(user), inviteLink }, Messages.INVITE.SENT));
+    const { user, inviteLink, delivery } = await UserService.createInvited(req.body, req.user!.userId);
+    return res.status(201).json(ApiResponse.success({ user: formatUserForAdmin(user), inviteLink, delivery }, Messages.INVITE.SENT));
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {
@@ -43,7 +45,13 @@ export class UserController {
   });
 
   static resendInvite = catchAsync(async (req: Request, res: Response) => {
-    const { user, inviteLink } = await UserService.resendInvite(req.params.id);
-    return res.json(ApiResponse.success({ user: formatUserForAdmin(user), inviteLink }, Messages.INVITE.RESENT));
+    const { user, inviteLink, delivery } = await UserService.resendInvite(req.params.id);
+    return res.json(ApiResponse.success({ user: formatUserForAdmin(user), inviteLink, delivery }, Messages.INVITE.RESENT));
+  });
+
+  // For users who forgot their password and can't receive the link themselves
+  static createPasswordResetLink = catchAsync(async (req: Request, res: Response) => {
+    const { user, resetLink, delivery } = await UserService.createPasswordResetLink(req.params.id);
+    return res.json(ApiResponse.success({ user: formatUserForAdmin(user), resetLink, delivery }, Messages.USER.RESET_LINK_CREATED));
   });
 }

@@ -30,6 +30,10 @@ const requiredEnvVars: RequiredEnvVars = {
     required: true,
     description: 'Secret key for JWT tokens'
   },
+  JWT_REFRESH_SECRET: {
+    required: false,
+    description: 'Separate secret for refresh tokens. Required in production.'
+  },
   JWT_EXPIRES_IN: {
     required: false,
     description: 'JWT token expiration time',
@@ -97,6 +101,15 @@ export function validateEnvironmentVariables(): boolean {
       console.log(`⚠️  ${varName} not set, using default: ${config.defaultValue}`);
     } else if (!config.required && !value && config.description) {
       warnings.push(`${varName}: ${config.description}`);
+    }
+  }
+
+  // Without its own secret, a 30-day refresh token would be signed with the access-token secret
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.JWT_REFRESH_SECRET) {
+      missingVars.push('JWT_REFRESH_SECRET');
+    } else if (process.env.JWT_REFRESH_SECRET === process.env.JWT_SECRET) {
+      console.warn('⚠️  JWT_REFRESH_SECRET should differ from JWT_SECRET.');
     }
   }
 

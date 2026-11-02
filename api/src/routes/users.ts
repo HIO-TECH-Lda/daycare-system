@@ -12,5 +12,6 @@ router.get('/:id', requireAdmin, UserController.getById);
 router.put('/:id', requireAdmin, validateRequest(updateUserSchema), UserController.update);
 router.patch('/:id/status', requireAdmin, validateRequest(userStatusSchema), UserController.setStatus);
 router.post('/:id/resend-invite', requireAdmin, UserController.resendInvite);
+router.post('/:id/password-reset-link', requireAdmin, UserController.createPasswordResetLink);
 
 export default router;

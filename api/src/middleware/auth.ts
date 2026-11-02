@@ -13,8 +13,9 @@ declare global {
   }
 }
 
-// Verify JWT token middleware. Also checks the account is still active, so deactivating
-// a user (or changing their role) takes effect immediately instead of when the token expires.
+// Verify JWT token middleware. Also checks the account is still active and the token hasn't been
+// revoked (password changed/reset), so those take effect immediately instead of when the token expires.
+// Only access tokens are accepted; refresh tokens only work on /auth/refresh.
 export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -42,12 +43,25 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     });
   }
 
+  if (decoded.typ !== 'access') {
+    return res.status(403).json({
+      success: false,
+      message: Messages.AUTH.TOKEN_INVALID
+    });
+  }
+
   try {
-    const account = await User.findById(decoded.userId).select('status role').lean();
+    const account = await User.findById(decoded.userId).select('status role tokenVersion').lean();
     if (!account || account.status !== 'active') {
       return res.status(401).json({
         success: false,
         message: Messages.AUTH.ACCOUNT_NOT_ACTIVE
+      });
+    }
+    if ((account.tokenVersion ?? 0) !== decoded.tv) {
+      return res.status(401).json({
+        success: false,
+        message: Messages.AUTH.SESSION_REVOKED
       });
     }
     req.user = { ...decoded, role: account.role };

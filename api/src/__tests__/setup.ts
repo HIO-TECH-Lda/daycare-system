@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { settleBackgroundTasks } from '../utils/background';
 
 // Set test environment variables
 process.env.NODE_ENV = 'test';
@@ -26,6 +27,11 @@ beforeAll(async () => {
 afterAll(async () => {
   // Close database connection
   await mongoose.connection.close();
+});
+
+// Let background work (notifications, audit log) finish before the next test clears the data
+afterEach(async () => {
+  await settleBackgroundTasks();
 });
 
 // Clean up database between tests

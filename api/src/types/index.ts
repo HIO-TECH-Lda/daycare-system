@@ -7,7 +7,7 @@ export interface IUser {
   _id?: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email?: string;
   password: string;
   role: UserRole;
   phone?: string;
@@ -23,6 +23,7 @@ export interface IUser {
   activatedAt?: Date;
   whatsappOptIn?: boolean;
   whatsappOptInAt?: Date;
+  tokenVersion?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -44,10 +45,14 @@ export interface ApiResponse<T = unknown> {
 // JWT payload (set by auth middleware)
 export interface JWTPayload {
   userId: string;
-  email: string;
+  email?: string;
   role: string;
   firstName: string;
   lastName: string;
+  /** Token version: must match the user's tokenVersion (see User model) */
+  tv: number;
+  /** Access tokens authenticate requests; refresh tokens only work on /auth/refresh */
+  typ: 'access' | 'refresh';
   iat?: number;
   exp?: number;
 }

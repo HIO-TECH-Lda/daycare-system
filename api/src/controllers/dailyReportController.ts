@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { runInBackground } from '../utils/background';
+import { changedSince } from '../utils/syncWrite';
+import DailyReport from '../models/DailyReport';
 import { DailyReportService } from '../services/dailyReportService';
 import { NotificationService } from '../services/notificationService';
 import { catchAsync } from '../utils/catchAsync';
@@ -39,41 +41,49 @@ export class DailyReportController {
     return res.json(ApiResponse.success(report, 'Relatório diário recuperado com sucesso'));
   });
 
+  // Offline-safe like attendance: one report per child per day, newest write wins
   static create = catchAsync(async (req: Request, res: Response) => {
-    const report = await DailyReportService.create({
-      ...req.body,
-      created_by: req.user!.userId
+    const { child_id, date, client_id, ...fields } = req.body;
+    const { doc: report, outcome, previous } = await DailyReportService.record(
+      child_id, date ?? new Date(), { ...fields, created_by: req.user!.userId }, client_id
+    );
+    res.status(outcome === 'created' ? 201 : 200).json({
+      ...ApiResponse.success(report, 'Relatório diário guardado'),
+      sync: outcome,
+      ...(outcome === 'merged' && { conflict: true, previous })
     });
-    res.status(201).json(ApiResponse.success(report, 'Relatório diário criado com sucesso', 201));
 
-    // Fire-and-forget notification to parent
+    // "New report" message to the family only when the day's report is first created
+    if (outcome !== 'created') return;
     runInBackground('DailyReportController notification', async () => {
-      try {
-        const child = await Child.findById(report.child_id);
-        if (!child) return;
-        const parent = await User.findById(child.parent_id);
-        if (!parent) return;
-        await NotificationService.newDailyReport({
-          parentEmail: parent.email,
-          parentPhone: NotificationService.whatsAppNumberFor(parent),
-          parentName: parent.fullName,
-          childName: child.name,
-          childId: (child._id as any).toString(),
-          reportDate: new Date(report.date).toLocaleDateString('pt-BR'),
-          mood: report.mood
-        });
-      } catch (err) {
-        console.error('[DailyReportController] Notification error:', err);
-      }
+      const child = await Child.findById(child_id);
+      if (!child) return;
+      const parent = await User.findById(child.parent_id);
+      if (!parent) return;
+      await NotificationService.newDailyReport({
+        parentEmail: parent.email,
+        parentPhone: NotificationService.whatsAppNumberFor(parent),
+        parentName: parent.fullName,
+        childName: child.name,
+        childId: (child._id as any).toString(),
+        reportDate: new Date(report.date).toLocaleDateString('pt-PT'),
+        mood: report.mood
+      });
     });
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {
-    const report = await DailyReportService.update(req.params.id, req.body);
+    const { base_updated_at, ...changes } = req.body;
+    const before = await DailyReport.findById(req.params.id).lean();
+    const report = await DailyReportService.update(req.params.id, changes);
     if (!report) {
       return res.status(404).json({ success: false, message: 'Relatório diário não encontrado' });
     }
-    return res.json(ApiResponse.success(report, 'Relatório diário atualizado com sucesso'));
+    const conflict = changedSince(before, base_updated_at);
+    return res.json({
+      ...ApiResponse.success(report, 'Relatório diário atualizado com sucesso'),
+      ...(conflict && { conflict: true, previous: before })
+    });
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {

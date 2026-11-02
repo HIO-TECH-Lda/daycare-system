@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IDailyReport {
+  client_id?: string;
   _id?: string;
   child_id: mongoose.Types.ObjectId;
   date: Date;
@@ -39,6 +40,8 @@ const dailyReportSchema = new Schema<IDailyReportDocument>(
       required: [true, 'Date is required'],
       default: Date.now
     },
+    // Id the staff app gives a record it may send again after being offline (see utils/syncWrite)
+    client_id: { type: String },
     created_by: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -83,5 +86,8 @@ const dailyReportSchema = new Schema<IDailyReportDocument>(
 dailyReportSchema.index({ child_id: 1, date: -1 });
 dailyReportSchema.index({ date: -1 });
 dailyReportSchema.index({ created_by: 1 });
+// One daily report per child per day (dates are stored as the centre's calendar day, see utils/dates)
+dailyReportSchema.index({ child_id: 1, date: 1 }, { unique: true });
+dailyReportSchema.index({ client_id: 1 }, { unique: true, partialFilterExpression: { client_id: { $gt: '' } } });
 
 export default mongoose.model<IDailyReportDocument>('DailyReport', dailyReportSchema);

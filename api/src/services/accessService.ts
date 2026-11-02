@@ -105,4 +105,22 @@ export class AccessService {
     const children = await Child.find({ _id: { $in: scope.childIds } }).select('parent_id').lean();
     return children.map((c) => c.parent_id as Types.ObjectId);
   }
+
+  /**
+   * Who the user may send a direct message to (a User filter):
+   * - admin: any active user
+   * - staff: colleagues, admins, and the parents of children in their classes
+   * - parent: admins, and the staff of their children's classes
+   */
+  static async messageableFilter(scope: AccessScope): Promise<Record<string, unknown>> {
+    const base = { status: 'active', _id: { $ne: new mongoose.Types.ObjectId(scope.userId) } };
+    if (scope.all) return base;
+    if (scope.role === 'staff') {
+      const parentIds = await this.parentIds(scope);
+      return { ...base, $or: [{ role: { $in: ['staff', 'administrador'] } }, { _id: { $in: parentIds } }] };
+    }
+    const assignments = await StaffAssignment.find({ class_id: { $in: scope.classIds } }).select('staff_id').lean();
+    const staffIds = assignments.map((a) => a.staff_id);
+    return { ...base, $or: [{ role: 'administrador' }, { role: 'staff', _id: { $in: staffIds } }] };
+  }
 }

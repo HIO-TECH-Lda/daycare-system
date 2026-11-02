@@ -31,8 +31,9 @@
 | 0 — Foundations | ✅ Done ([PR #1](https://github.com/HIO-TECH-Lda/daycare-system/pull/1), merged into `dev`): CI, in-memory MongoDB tests, ESLint, README. |
 | 1a — Accounts & security | ✅ Done ([PR #2](https://github.com/HIO-TECH-Lda/daycare-system/pull/2), merged): invite-only accounts, phone-or-email login, consent-aware WhatsApp, session revocation, audit log fix, CORS, shared rate limits. |
 | 1b — Access scoping | ✅ Done ([PR #4](https://github.com/HIO-TECH-Lda/daycare-system/pull/4), merged): every child record, list and finance endpoint scoped by role; staff writes limited to their classes; children's photos private and served through signed API links. |
-| 1c — Enrolment | 🔍 In review: public enrolment form API, admin review queue, approval in one transaction (parent account, child, guardians, pickup persons). 131 API tests. |
-| 1d–1e, W, 2–6 | Not started. |
+| 1c — Enrolment | ✅ Done ([PR #5](https://github.com/HIO-TECH-Lda/daycare-system/pull/5), merged): public enrolment form API, admin review queue, approval in one transaction. |
+| 1d — Missing features | 🔍 In review: message recipients (and sending rules), finance/payments/expenses/attendance reports, overdue-invoice job, offline sync for attendance and daily reports. 142 API tests. |
+| 1e, W, 2–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
@@ -253,17 +254,17 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
 - [ ] `image_usage_authorized`: photos are currently only shown to the child's own family and staff, so no other family sees them. Enforce the flag when a feature shares photos more widely (group photos, a gallery, marketing).
 
 **1d — Missing features**
-- [ ] `GET /messages/recipients` (who the current user may message).
-- [ ] Reports (all admin only):
+- [x] `GET /messages/recipients` (who the current user may message), and `POST /messages` limited to the same people; group messages admin-only.
+- [x] Reports (finance, payments, expenses admin only; attendance also for staff, own classes):
   - `GET /reports/finance/summary`
   - `GET /reports/expenses`
   - `GET /reports/payments`
   - `GET /reports/attendance`
-- [ ] Overdue job: `POST /jobs/mark-overdue`, protected by `CRON_SECRET` and scheduled daily by Vercel Cron.
-- [ ] Optional: `POST /invoices/generate-monthly`.
-- [ ] Endpoints that support offline sync for the PWA:
+- [x] Overdue job: `GET|POST /jobs/mark-overdue`, protected by `CRON_SECRET`. The Vercel Cron schedule (daily, 04:00 UTC) goes into `vercel.json` in 1e.
+- [ ] Optional: `POST /invoices/generate-monthly` (not done; add when the billing screens are built if the centre wants it).
+- [x] Endpoints that support offline sync for the PWA:
   - Attendance and daily-report writes accept a client-generated `client_id` (idempotency key), so a retried request doesn't create duplicates.
-  - Writes include `updated_at`, so conflicts are detected: the last write wins, and the server returns the stored version.
+  - One record per child per calendar day (Maputo); a second device's write merges into it (newest wins) and the response reports the conflict with the previous values. Updates send `base_updated_at` and get the same conflict report.
 
 **1e — Serverless and platform (Vercel)**
 - [ ] Cache the database connection promise across invocations, and throw instead of calling `process.exit`.

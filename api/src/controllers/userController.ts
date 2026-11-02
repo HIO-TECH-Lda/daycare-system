@@ -5,6 +5,7 @@ import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
 import Messages from '../utils/messages';
 import { UserStatus } from '../types';
+import { AccessService } from '../services/accessService';
 
 const STATUS_FILTERS = ['invited', 'active', 'inactive', 'suspended', 'all'];
 
@@ -18,7 +19,13 @@ export class UserController {
       ? requested
       : 'active') as UserStatus | 'all';
     const { page, limit } = getPaginationParams(req);
-    const { users, total } = await UserService.findAll(role, search, page, limit, status);
+    // Staff see colleagues and admins, and only the parents of children in their classes
+    let visible: Record<string, unknown> | undefined;
+    if (req.user!.role === 'staff') {
+      const parentIds = await AccessService.parentIds(await AccessService.scopeFor(req));
+      visible = { $or: [{ role: { $in: ['staff', 'administrador'] } }, { _id: { $in: parentIds } }] };
+    }
+    const { users, total } = await UserService.findAll(role, search, page, limit, status, visible);
     return res.json(ApiResponse.paginated(users, { page, limit, total }, 'Usuários recuperados com sucesso'));
   });
 

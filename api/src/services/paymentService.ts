@@ -69,8 +69,8 @@ export class PaymentService {
     return result.length > 0 ? result[0].total : 0;
   }
 
-  static async findAll(startDate?: Date, endDate?: Date, page = 1, limit = 20): Promise<{ payments: IPaymentDocument[]; total: number }> {
-    const query: any = {};
+  static async findAll(startDate?: Date, endDate?: Date, page = 1, limit = 20, scope: Record<string, unknown> = {}): Promise<{ payments: IPaymentDocument[]; total: number }> {
+    const query: any = { ...scope };
     if (startDate || endDate) {
       query.payment_date = {};
       if (startDate) query.payment_date.$gte = startDate;

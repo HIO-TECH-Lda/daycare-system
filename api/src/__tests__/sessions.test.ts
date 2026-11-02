@@ -99,6 +99,8 @@ describe('environment', () => {
   afterEach(() => {
     process.env.NODE_ENV = saved.NODE_ENV;
     process.env.JWT_REFRESH_SECRET = saved.JWT_REFRESH_SECRET;
+    if (saved.API_PUBLIC_URL === undefined) delete process.env.API_PUBLIC_URL;
+    else process.env.API_PUBLIC_URL = saved.API_PUBLIC_URL;
   });
 
   it('refuses to start in production without JWT_REFRESH_SECRET', () => {
@@ -106,10 +108,20 @@ describe('environment', () => {
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     process.env.NODE_ENV = 'production';
+    process.env.API_PUBLIC_URL = 'https://api.example.co.mz';
     delete process.env.JWT_REFRESH_SECRET;
     expect(validateEnvironmentVariables()).toBe(false);
 
     process.env.JWT_REFRESH_SECRET = 'another-secret';
     expect(validateEnvironmentVariables()).toBe(true);
+  });
+
+  it('refuses to start in production without API_PUBLIC_URL (needed for photo links)', () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_REFRESH_SECRET = 'another-secret';
+    delete process.env.API_PUBLIC_URL;
+    expect(validateEnvironmentVariables()).toBe(false);
   });
 });

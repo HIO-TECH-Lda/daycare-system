@@ -54,9 +54,9 @@ export class ChildService {
     if (userRole === 'responsavel') {
       query.parent_id = new mongoose.Types.ObjectId(userId);
     }
-    // Staff: children in assigned classes (will be enhanced when staff assignments are implemented)
-    else if (userRole === 'staff' && assignedClassIds && assignedClassIds.length > 0) {
-      query.class_id = { $in: assignedClassIds.map(id => new mongoose.Types.ObjectId(id)) };
+    // Staff: children in assigned classes only (none when unassigned)
+    else if (userRole === 'staff') {
+      query.class_id = { $in: (assignedClassIds || []).map(id => new mongoose.Types.ObjectId(id)) };
     }
     // Admin: all children (no filter)
 

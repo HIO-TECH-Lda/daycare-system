@@ -7,6 +7,10 @@ import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
 import Child from '../models/Child';
 import User from '../models/User';
+import { AccessService } from '../services/accessService';
+
+// Parents only see reports once the administration has validated them
+const visibleStatuses = (role: string) => (role === 'responsavel' ? { status: 'validated' } : {});
 
 export class MonthlyReportController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
@@ -14,19 +18,21 @@ export class MonthlyReportController {
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const month = req.query.month ? parseInt(req.query.month as string) : undefined;
     const { page, limit } = getPaginationParams(req);
-    const { role, userId } = req.user!;
+    const scope = await AccessService.scopeFor(req);
+    const statusFilter = visibleStatuses(scope.role);
+    if (childId) AccessService.assertChild(scope, childId);
 
     let reports, total;
     if (childId) {
-      const result = await MonthlyReportService.findByChildId(childId, year, page, limit);
+      const result = await MonthlyReportService.findByChildId(childId, year, page, limit, statusFilter);
       reports = result.reports;
       total = result.total;
     } else if (month && year) {
-      const result = await MonthlyReportService.findByMonthYear(month, year, page, limit);
+      const result = await MonthlyReportService.findByMonthYear(month, year, page, limit, { ...AccessService.childFilter(scope), ...statusFilter });
       reports = result.reports;
       total = result.total;
     } else {
-      const result = await MonthlyReportService.findAll(role, userId, page, limit);
+      const result = await MonthlyReportService.findAll({ ...AccessService.childFilter(scope), ...statusFilter }, page, limit);
       reports = result.reports;
       total = result.total;
     }
@@ -36,7 +42,7 @@ export class MonthlyReportController {
   static getByChildId = catchAsync(async (req: Request, res: Response) => {
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const { page, limit } = getPaginationParams(req);
-    const { reports, total } = await MonthlyReportService.findByChildId(req.params.childId, year, page, limit);
+    const { reports, total } = await MonthlyReportService.findByChildId(req.params.childId, year, page, limit, visibleStatuses(req.user!.role));
     return res.json(ApiResponse.paginated(reports, { page, limit, total }, 'Relatórios mensais recuperados com sucesso'));
   });
 

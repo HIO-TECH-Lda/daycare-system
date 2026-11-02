@@ -45,9 +45,11 @@ export class UserService {
     search?: string,
     page = 1,
     limit = 50,
-    status: UserStatus | 'all' = 'active'
+    status: UserStatus | 'all' = 'active',
+    /** Extra condition limiting which users the caller may see */
+    visible?: Record<string, unknown>
   ): Promise<{ users: Array<{ id: string; name: string; email: string; phone: string; role: string; status: string }>; total: number }> {
-    const query: any = {};
+    const query: any = visible ? { $and: [visible] } : {};
     if (status !== 'all') query.status = status;
     if (role) query.role = role;
     if (search) {

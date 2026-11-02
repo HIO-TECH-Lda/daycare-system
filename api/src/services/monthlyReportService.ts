@@ -27,8 +27,8 @@ export class MonthlyReportService {
     return report;
   }
 
-  static async findByChildId(childId: string, year?: number, page = 1, limit = 20): Promise<{ reports: IMonthlyReportDocument[]; total: number }> {
-    const query: any = { child_id: new mongoose.Types.ObjectId(childId) };
+  static async findByChildId(childId: string, year?: number, page = 1, limit = 20, scope: Record<string, unknown> = {}): Promise<{ reports: IMonthlyReportDocument[]; total: number }> {
+    const query: any = { ...scope, child_id: new mongoose.Types.ObjectId(childId) };
     if (year) query.year = year;
     const skip = (page - 1) * limit;
     const [reports, total] = await Promise.all([
@@ -49,16 +49,16 @@ export class MonthlyReportService {
       .populate('created_by', 'firstName lastName');
   }
 
-  static async findByMonthYear(month: number, year: number, page = 1, limit = 20): Promise<{ reports: IMonthlyReportDocument[]; total: number }> {
+  static async findByMonthYear(month: number, year: number, page = 1, limit = 20, scope: Record<string, unknown> = {}): Promise<{ reports: IMonthlyReportDocument[]; total: number }> {
     const skip = (page - 1) * limit;
     const [reports, total] = await Promise.all([
-      MonthlyReport.find({ month, year })
+      MonthlyReport.find({ month, year, ...scope })
         .populate('child_id', 'name birth_date')
         .populate('created_by', 'firstName lastName')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      MonthlyReport.countDocuments({ month, year })
+      MonthlyReport.countDocuments({ month, year, ...scope })
     ]);
     return { reports, total };
   }
@@ -76,15 +76,9 @@ export class MonthlyReportService {
     return await MonthlyReport.findByIdAndDelete(id);
   }
 
-  static async findAll(role: string, userId: string, page = 1, limit = 20): Promise<{ reports: IMonthlyReportDocument[]; total: number }> {
-    const query: FilterQuery<IMonthlyReportDocument> = {};
-    if (role === 'responsavel') {
-      // Parents only see validated reports for their own children
-      const Child = (await import('../models/Child')).default;
-      const childIds = await Child.find({ parent_id: new mongoose.Types.ObjectId(userId) }).select('_id');
-      query.child_id = { $in: childIds.map((c) => c._id) };
-      query.status = 'validated';
-    }
+  // `scope` limits the query to the children (and, for parents, the statuses) the user may see
+  static async findAll(scope: Record<string, unknown> = {}, page = 1, limit = 20): Promise<{ reports: IMonthlyReportDocument[]; total: number }> {
+    const query: FilterQuery<IMonthlyReportDocument> = { ...scope };
     const skip = (page - 1) * limit;
     const [reports, total] = await Promise.all([
       MonthlyReport.find(query)

@@ -51,7 +51,7 @@ export class AttendanceService {
     return { attendances, total };
   }
 
-  static async findByDate(date: Date | string, page = 1, limit = 20): Promise<{ attendances: IAttendanceDocument[]; total: number }> {
+  static async findByDate(date: Date | string, page = 1, limit = 20, scope: Record<string, unknown> = {}): Promise<{ attendances: IAttendanceDocument[]; total: number }> {
     const baseDate = typeof date === 'string' ? new Date(date) : new Date(date);
     const start = new Date(baseDate);
     start.setHours(0, 0, 0, 0);
@@ -60,27 +60,27 @@ export class AttendanceService {
     const dateRange = { $gte: start, $lte: end };
     const skip = (page - 1) * limit;
     const [attendances, total] = await Promise.all([
-      Attendance.find({ date: dateRange })
+      Attendance.find({ date: dateRange, ...scope })
         .populate('child_id', 'name birth_date class_id')
         .populate('recorded_by', 'firstName lastName')
         .sort({ check_in: 1 })
         .skip(skip)
         .limit(limit),
-      Attendance.countDocuments({ date: dateRange })
+      Attendance.countDocuments({ date: dateRange, ...scope })
     ]);
     return { attendances, total };
   }
 
-  static async findAll(page = 1, limit = 20): Promise<{ attendances: IAttendanceDocument[]; total: number }> {
+  static async findAll(page = 1, limit = 20, scope: Record<string, unknown> = {}): Promise<{ attendances: IAttendanceDocument[]; total: number }> {
     const skip = (page - 1) * limit;
     const [attendances, total] = await Promise.all([
-      Attendance.find({})
+      Attendance.find(scope)
         .populate('child_id', 'name birth_date class_id')
         .populate('recorded_by', 'firstName lastName')
         .sort({ date: -1 })
         .skip(skip)
         .limit(limit),
-      Attendance.countDocuments({})
+      Attendance.countDocuments(scope)
     ]);
     return { attendances, total };
   }

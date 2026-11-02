@@ -2,6 +2,13 @@ import { v2 as cloudinary } from 'cloudinary';
 
 export type CloudinaryFolder = 'avatars' | 'children' | 'pickup-persons' | 'report-photos' | 'receipts';
 
+// Files about children and finances are stored privately ('authenticated' delivery type):
+// their Cloudinary URLs don't work without a signature, which only the API adds (see utils/media).
+const PRIVATE_FOLDERS: CloudinaryFolder[] = ['children', 'pickup-persons', 'report-photos', 'receipts'];
+
+// res.cloudinary.com/<cloud>/<resource>/<type>/[s--signature--/][v123/]<public id>[.ext]
+const CLOUDINARY_URL = /^https:\/\/res\.cloudinary\.com\/[^/]+\/(image|video|raw)\/(upload|authenticated|private)\/(?:s--[^/]+--\/)?(?:v(\d+)\/)?(.+)$/;
+
 export interface UploadResult {
   url: string;
   publicId: string;
@@ -50,6 +57,7 @@ export class CloudinaryService {
         {
           folder: fullFolder,
           resource_type: resourceType,
+          type: PRIVATE_FOLDERS.includes(folder) ? 'authenticated' : 'upload',
           overwrite: true,
           // Auto-optimise images; skip transformation for raw files (PDFs)
           ...(resourceType !== 'raw' && {
@@ -82,7 +90,40 @@ export class CloudinaryService {
    */
   static extractPublicId(url: string): string | null {
     if (!url || !url.includes('cloudinary.com')) return null;
-    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^./]+)?$/);
+    const match = url.match(/\/(?:upload|authenticated|private)\/(?:s--[^/]+--\/)?(?:v\d+\/)?(.+?)(?:\.[^./]+)?$/);
     return match ? match[1] : null;
+  }
+
+  /** True for files stored privately on our Cloudinary account (the API must fetch them itself). */
+  static isPrivateAsset(url: string): boolean {
+    const match = url?.match(CLOUDINARY_URL);
+    return !!match && match[2] !== 'upload';
+  }
+
+  /**
+   * A signed URL the API can fetch a private file with. Images are capped at 1600 px and
+   * compressed, so a response stays well under serverless size limits.
+   */
+  static signedFetchUrl(url: string): string {
+    const match = url.match(CLOUDINARY_URL);
+    if (!match || !isCloudinaryConfigured()) return url;
+    configure();
+
+    const [, resourceType, type, version, path] = match;
+    const isRaw = resourceType === 'raw';
+    const dot = path.lastIndexOf('.');
+    // Raw files keep their extension in the public id; images and videos don't
+    const publicId = isRaw || dot < 0 ? path : path.slice(0, dot);
+    const format = isRaw || dot < 0 ? undefined : path.slice(dot + 1);
+
+    return cloudinary.url(publicId, {
+      resource_type: resourceType,
+      type,
+      version,
+      format,
+      secure: true,
+      sign_url: true,
+      ...(resourceType === 'image' && { transformation: [{ width: 1600, crop: 'limit', quality: 'auto' }] })
+    });
   }
 }

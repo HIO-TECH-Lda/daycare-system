@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { mediaJsonTransform } from '../utils/media';
 
 export interface IPickupPerson {
   _id?: string;
@@ -58,7 +59,8 @@ const pickupPersonSchema = new Schema<IPickupPersonDocument>(
       default: true
     }
   },
-  { timestamps: true }
+  // The stored file URL is private: responses carry a signed media link instead
+  { timestamps: true, toJSON: { transform: mediaJsonTransform('pickup-persons', 'photo_url') } }
 );
 
 pickupPersonSchema.index({ child_id: 1 });

@@ -51,8 +51,8 @@ export class PickupPersonService {
     return await PickupPerson.findByIdAndDelete(id);
   }
 
-  static async findAll(childId?: string, page = 1, limit = 20): Promise<{ pickupPersons: IPickupPersonDocument[]; total: number }> {
-    const query = childId ? { child_id: new mongoose.Types.ObjectId(childId) } : {};
+  static async findAll(childId?: string, page = 1, limit = 20, scope: Record<string, unknown> = {}): Promise<{ pickupPersons: IPickupPersonDocument[]; total: number }> {
+    const query = childId ? { ...scope, child_id: new mongoose.Types.ObjectId(childId) } : scope;
     const skip = (page - 1) * limit;
     const [pickupPersons, total] = await Promise.all([
       PickupPerson.find(query)

@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { mediaJsonTransform } from '../utils/media';
 
 export interface IReportPhoto {
   _id?: string;
@@ -33,7 +34,8 @@ const reportPhotoSchema = new Schema<IReportPhotoDocument>(
       required: [true, 'Uploaded by is required']
     }
   },
-  { timestamps: true }
+  // The stored file URL is private: responses carry a signed media link instead
+  { timestamps: true, toJSON: { transform: mediaJsonTransform('report-photos', 'photo_url') } }
 );
 
 reportPhotoSchema.index({ daily_report_id: 1 });

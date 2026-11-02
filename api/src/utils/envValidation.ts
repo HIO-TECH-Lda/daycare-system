@@ -62,6 +62,14 @@ const requiredEnvVars: RequiredEnvVars = {
     description: 'Public URL of the frontend app (used in email links)',
     defaultValue: 'http://localhost:3000'
   },
+  API_PUBLIC_URL: {
+    required: false,
+    description: 'Public URL of this API, used in signed photo links (e.g. https://api.example.co.mz). Required in production.'
+  },
+  MEDIA_URL_SECRET: {
+    required: false,
+    description: 'Secret for signed photo links (defaults to one derived from JWT_SECRET)'
+  },
   CORS_ORIGINS: {
     required: false,
     description: 'Comma-separated browser origins allowed to call the API (supports * wildcards). Required in production.'
@@ -106,6 +114,9 @@ export function validateEnvironmentVariables(): boolean {
 
   // Without its own secret, a 30-day refresh token would be signed with the access-token secret
   if (process.env.NODE_ENV === 'production') {
+    if (!process.env.API_PUBLIC_URL) {
+      missingVars.push('API_PUBLIC_URL');
+    }
     if (!process.env.JWT_REFRESH_SECRET) {
       missingVars.push('JWT_REFRESH_SECRET');
     } else if (process.env.JWT_REFRESH_SECRET === process.env.JWT_SECRET) {

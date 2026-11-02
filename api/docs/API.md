@@ -49,11 +49,35 @@ The Sonho de Criança API is a RESTful backend for a daycare management system. 
 Endpoints that receive files use `multipart/form-data`. The API uploads the received file to Cloudinary and saves **only the resulting URL** in MongoDB.
 
 Cloudinary sub-folders used by this API:
-- `avatars` (user `avatar`)
-- `children` (child `photo_url`)
-- `pickup-persons` (pickup person `photo_url`)
-- `report-photos` (report photo `photo_url`)
-- `receipts` (expense `receipt_url`, supports images and PDFs)
+- `avatars` (user `avatar`): public
+- `children` (child `photo_url`): **private**
+- `pickup-persons` (pickup person `photo_url`): **private**
+- `report-photos` (report photo `photo_url`): **private**
+- `receipts` (expense `receipt_url`, supports images and PDFs): **private**
+
+### Private files and signed links
+
+Private files are uploaded to Cloudinary as `authenticated` assets: their storage URL doesn't work on its own. Responses never contain it. Instead, `photo_url` / `receipt_url` hold a **signed link to this API**:
+
+```
+https://api.example.co.mz/api/v1/media/report-photos/<id>?exp=1793620800&sig=…
+```
+
+- Only users allowed to see the record get the link, because the record endpoints are scoped by role.
+- The link needs no `Authorization` header, so it works directly in `<img src>`.
+- It is valid for 1–2 hours. The same link is issued throughout an hour, so browsers can cache the image. Fetch the record again for a fresh link.
+- Sending the link back in an update (e.g. saving a whole child record) is ignored: the stored file is kept. To replace a photo, upload a new file.
+
+#### `GET /media/:kind/:id?exp=…&sig=…`
+
+`kind` is `children`, `report-photos`, `pickup-persons` or `receipts`.
+
+- **Private file:** the API checks the signature, fetches the file from Cloudinary (images capped at 1600 px, compressed), and returns it with `Cache-Control: private` and `Cross-Origin-Resource-Policy: cross-origin`.
+- **Older public file or external URL:** `302` redirect to it (the API doesn't fetch arbitrary URLs).
+
+**Errors:** `403` invalid, tampered or expired link · `404` record or file missing · `502` Cloudinary unavailable.
+
+Configuration: `API_PUBLIC_URL` (required in production) is the base of the links. `MEDIA_URL_SECRET` is optional; it defaults to a secret derived from `JWT_SECRET`.
 
 ---
 
@@ -144,14 +168,28 @@ In production the auth limits are stored in MongoDB (collection `ratelimits`), s
 
 ## Roles & Permissions
 
-| Role | Label | Description |
-|------|-------|-------------|
-| `administrador` | Admin | Full access to all resources |
-| `staff` | Staff | Can manage children in assigned classes, write reports, record attendance |
-| `responsavel` | Parent/Guardian | Read-only access to data about their own children |
+| Role | Label | Sees |
+|------|-------|------|
+| `administrador` | Admin | Everything |
+| `staff` | Staff | The children in the classes they are assigned to (none while unassigned), and those children's records |
+| `responsavel` | Parent | Their own children and those children's records; their own invoices and payments |
 
-The middleware enforces the following hierarchy for route guards:  
-`requireAdmin` → `requireStaff` (staff + admin) → `authenticateToken` (any logged-in user)
+Route guards: `requireAdmin` → `requireStaff` (staff + admin) → `authenticateToken` (any logged-in user).
+
+### What each role can read
+
+Records that belong to a child follow the child: **attendance, daily reports, report photos, monthly reports, guardians, pickup persons**.
+
+- **Lists** only contain records in the caller's scope. A `child_id` filter for a child outside it answers `404`.
+- **Single records**, and the `/child/:childId` routes, answer `404` outside the scope, the same as a missing record, so their existence isn't revealed.
+- **Staff writes** (attendance, daily and monthly reports, photos) are limited to children in their classes. Updates can't move a record to another child.
+- **Monthly reports:** parents only see `validated` ones.
+- **Invoices and payments:** admins see all; parents only their own; staff get `403`.
+- **Expenses and expense categories:** admin only (`403` for others).
+- **Staff assignments:** staff and admins only.
+- **Calendar events:** centre-wide events (no `class_id`) are visible to everyone. Class events are only visible to that class's families and staff, and to admins.
+- **`GET /users`:** staff see staff, admins, and the parents of children in their classes.
+- **Classes and activities:** visible to every logged-in user.
 
 ---
 

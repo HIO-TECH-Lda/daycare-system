@@ -29,6 +29,8 @@ import expenseRoutes from './routes/expenses';
 import messageRoutes from './routes/messages';
 import monthlyReportRoutes from './routes/monthlyReports';
 import userRoutes from './routes/users';
+import mediaRoutes from './routes/media';
+import { isMediaUrl } from './utils/media';
 
 dotenv.config();
 
@@ -42,6 +44,14 @@ app.use(helmet());
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Clients may send back the signed media links they received (e.g. when saving a whole record):
+// drop them so the stored file URL is kept
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  for (const field of ['photo_url', 'receipt_url']) {
+    if (req.body && isMediaUrl(req.body[field])) delete req.body[field];
+  }
+  next();
+});
 app.use(auditLogMiddleware);
 
 const limiter = rateLimit({
@@ -82,7 +92,8 @@ app.get('/api/v1', (req: Request, res: Response) => {
       expenses: '/api/v1/expenses',
       messages: '/api/v1/messages',
       monthlyReports: '/api/v1/monthly-reports',
-      users: '/api/v1/users'
+      users: '/api/v1/users',
+      media: '/api/v1/media/:kind/:id (signed links only)'
     },
     authEndpoints: {
       login: 'POST /api/v1/auth/login',
@@ -120,6 +131,7 @@ app.use('/api/v1/expenses', expenseRoutes);
 app.use('/api/v1/messages', messageRoutes);
 app.use('/api/v1/monthly-reports', monthlyReportRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/media', mediaRoutes);
 
 app.use('*', (req: Request, res: Response) => {
   res.status(404).json({

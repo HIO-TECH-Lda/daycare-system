@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { mediaJsonTransform } from '../utils/media';
 
 export interface IChild {
   _id?: string;
@@ -96,7 +97,8 @@ const childSchema = new Schema<IChildDocument>(
     enrollment_signature: String,
     enrollment_date: Date
   },
-  { timestamps: true }
+  // The stored file URL is private: responses carry a signed media link instead
+  { timestamps: true, toJSON: { transform: mediaJsonTransform('children', 'photo_url') } }
 );
 
 childSchema.index({ parent_id: 1 });

@@ -490,7 +490,7 @@ WA_TEMPLATE_PASSWORD_RESET=sonho_password_reset
 
 ## How Notifications Are Triggered
 
-Notifications are called after the HTTP response is sent using an immediately-invoked async IIFE. This keeps the response fast and ensures a notification error never causes a `500`:
+Notifications run after the HTTP response is sent, through `runInBackground()` (`src/utils/background.ts`). On Vercel it keeps the function alive with `waitUntil` until the task finishes, so messages aren't dropped. A notification error never causes a `500`. WhatsApp numbers go through `NotificationService.whatsAppNumberFor(user)`, which is empty without the user's consent:
 
 ```typescript
 // Example from invoiceController.ts
@@ -500,23 +500,24 @@ static create = catchAsync(async (req: Request, res: Response) => {
   res.status(201).json(ApiResponse.success(invoice, 'Fatura criada com sucesso', 201));
 
   // Notification runs after response is sent — never blocks or fails the request
-  (async () => {
+  runInBackground('InvoiceController notification', async () => {
     try {
       const [parent, child] = await Promise.all([
         User.findById(invoice.parent_id),
         Child.findById(invoice.child_id)
       ]);
       if (parent && child) {
-        await NotificationService.newInvoice({ ... });
+        await NotificationService.newInvoice({ ...,
+          parentPhone: NotificationService.whatsAppNumberFor(parent) });
       }
     } catch (err) {
       console.error('[InvoiceController] Notification error:', err);
     }
-  })();
+  });
 });
 ```
 
-For `authController`, notifications are placed before the `return res.json(...)` call since the user data is already available in memory (no extra DB queries needed).
+Exceptions: invites and admin reset links (`POST /users`, `POST /users/:id/resend-invite`, `POST /users/:id/password-reset-link`) are awaited, with timeouts, so the admin sees which channels worked (`delivery`). `POST /auth/forgot-password` runs entirely in the background, so its response time doesn't reveal whether an account exists.
 
 ---
 

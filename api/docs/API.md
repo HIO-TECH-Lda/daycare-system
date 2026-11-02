@@ -49,11 +49,35 @@ The Sonho de Criança API is a RESTful backend for a daycare management system. 
 Endpoints that receive files use `multipart/form-data`. The API uploads the received file to Cloudinary and saves **only the resulting URL** in MongoDB.
 
 Cloudinary sub-folders used by this API:
-- `avatars` (user `avatar`)
-- `children` (child `photo_url`)
-- `pickup-persons` (pickup person `photo_url`)
-- `report-photos` (report photo `photo_url`)
-- `receipts` (expense `receipt_url`, supports images and PDFs)
+- `avatars` (user `avatar`): public
+- `children` (child `photo_url`): **private**
+- `pickup-persons` (pickup person `photo_url`): **private**
+- `report-photos` (report photo `photo_url`): **private**
+- `receipts` (expense `receipt_url`, supports images and PDFs): **private**
+
+### Private files and signed links
+
+Private files are uploaded to Cloudinary as `authenticated` assets: their storage URL doesn't work on its own. Responses never contain it. Instead, `photo_url` / `receipt_url` hold a **signed link to this API**:
+
+```
+https://api.example.co.mz/api/v1/media/report-photos/<id>?exp=1793620800&sig=…
+```
+
+- Only users allowed to see the record get the link, because the record endpoints are scoped by role.
+- The link needs no `Authorization` header, so it works directly in `<img src>`.
+- It is valid for 1–2 hours. The same link is issued throughout an hour, so browsers can cache the image. Fetch the record again for a fresh link.
+- Sending the link back in an update (e.g. saving a whole child record) is ignored: the stored file is kept. To replace a photo, upload a new file.
+
+#### `GET /media/:kind/:id?exp=…&sig=…`
+
+`kind` is `children`, `report-photos`, `pickup-persons` or `receipts`.
+
+- **Private file:** the API checks the signature, fetches the file from Cloudinary (images capped at 1600 px, compressed), and returns it with `Cache-Control: private` and `Cross-Origin-Resource-Policy: cross-origin`.
+- **Older public file or external URL:** `302` redirect to it (the API doesn't fetch arbitrary URLs).
+
+**Errors:** `403` invalid, tampered or expired link · `404` record or file missing · `502` Cloudinary unavailable.
+
+Configuration: `API_PUBLIC_URL` (required in production) is the base of the links. `MEDIA_URL_SECRET` is optional; it defaults to a secret derived from `JWT_SECRET`.
 
 ---
 

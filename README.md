@@ -11,7 +11,7 @@ A management system for a daycare centre in Mozambique. It has three portals:
 | Folder | What | Stack |
 |---|---|---|
 | [`api/`](api/) | REST API (`/api/v1`, port 3002) | Node.js, Express, TypeScript, MongoDB (Mongoose), JWT, Cloudinary, SMTP, WhatsApp Cloud API |
-| [`web-app/`](web-app/) | Web app for all three roles (port 3000) | Next.js, React, Tailwind CSS, shadcn/ui, TanStack Query |
+| [`web-app/`](web-app/) | Web app for all three roles (port 3000), installable as a PWA | Next.js 16, React 19, Tailwind CSS 4, shadcn/ui, TanStack Query |
 | [`reports/`](reports/) | Reviews and the implementation plan | — |
 
 The current roadmap is in [reports/2026-11-02-implementation-plan.md](reports/2026-11-02-implementation-plan.md).
@@ -59,7 +59,7 @@ GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on ev
 | App | Checks |
 |---|---|
 | API | typecheck, lint, tests |
-| Web app | lint, typecheck (reports but doesn't fail the build until the UI rebuild), build |
+| Web app | lint, typecheck, build |
 
 ## Deployment (planned)
 

@@ -1,114 +1,49 @@
-# Sistema de Gestão de Creche
+# Sonho de Criança — web app
 
-Sistema completo de gestão para creches dedicadas a crianças de 0 a 5 anos, desenvolvido com Next.js, TypeScript, Tailwind CSS e uma API backend (Node.js + Express + MongoDB).
+The portal for families (Encarregados de Educação), staff and the administration. It is a client-rendered Next.js app that talks to the API in `../api`.
 
-## Funcionalidades
+**Stack:**
+- Next.js 16 (App Router, Turbopack, Cache Components), React 19, TypeScript (strict)
+- Tailwind CSS 4 and shadcn/ui (Radix), themed with the brand tokens in `app/globals.css`
+- TanStack Query, react-hook-form + zod
+- Installable as a PWA (`app/manifest.ts`)
 
-### Portal do Responsável (Parent/Guardian)
-- **Dashboard**: Visão geral com resumos diários das crianças, mensagens não lidas e próximos eventos
-- **Rotina Diária**: Visualização detalhada dos relatórios diários com atividades (alimentação, sonecas, trocas de fraldas, atividades pedagógicas) e fotos
-- **Calendário**: Eventos relevantes para as turmas das crianças
-- **Mensagens**: Comunicação direta com staff e administração
-- **Faturamento**: Visualização de faturas pendentes e pagas
-- **Perfil**: Gerenciamento de informações pessoais e contatos de emergência
+> `AGENTS.md`: this Next.js version differs from older ones. Read the version-matched docs in `node_modules/next/dist/docs/` before changing framework-level code.
 
-### Portal do Educador (Staff)
-- **Dashboard**: Visão geral das turmas atribuídas e crianças presentes
-- **Preencher Relatório**: Interface otimizada para tablet/mobile para registrar atividades diárias
-- **Gestão da Turma**: Visualização das crianças da turma com informações de saúde importantes
-- **Presença**: Registro de check-in/check-out das crianças
-- **Comunicação**: Mensagens com responsáveis e administração
-
-### Portal Administrativo
-- **Dashboard**: Métricas gerais (ocupação, faturamento, estatísticas)
-- **Gestão de Alunos**: CRUD completo de crianças matriculadas
-- **Gestão de Staff**: Gerenciamento de educadores e atribuições de turmas
-- **Gestão de Turmas**: Configuração de turmas e capacidades
-- **Faturamento**: Visão geral de todas as faturas e geração de novas cobranças
-- **Gestão de Eventos**: Criação e gerenciamento de eventos no calendário
-- **Matrículas**: Gerenciamento do processo de matrícula e mudanças de turma
-
-## Tecnologias
-
-- **Framework**: Next.js 13 com App Router
-- **Linguagem**: TypeScript
-- **Estilização**: Tailwind CSS
-- **Componentes**: shadcn/ui
-- **Backend**: API em `../api` (Express, TypeScript, MongoDB, JWT auth)
-- **Autenticação**: Mock authentication (será integrado com a API JWT)
-- **Ícones**: Lucide React
-
-## Configuração
-
-### 1. Instalar Dependências
+## Run locally
 
 ```bash
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL, default http://localhost:3002
 npm install
+npm run dev                  # http://localhost:3000
 ```
 
-### 2. Backend (API)
+The API must be running (see `../api`). `npm run seed` there creates demo accounts.
 
-O frontend consome a API em `../api`. Para desenvolvimento:
+## Layout
 
-1. Entre na pasta da API e configure o ambiente:
-   ```bash
-   cd ../api
-   cp env.example .env
-   # Edite .env: MONGODB_URI, JWT_SECRET
-   npm install
-   npm run dev
-   ```
-2. A API roda em `http://localhost:3002` por padrão (health: `GET http://localhost:3002/health`).
-3. Documentação da API: `../api/docs/STARTER-KIT-GUIDE.md`.
-4. Como conectar o frontend à API: `docs/API-CONNECTION.md`.
-5. **Especificação do backend** (para a equipe da API): `docs/BACKEND-SPEC.md` — recursos, endpoints, regras de acesso e tipos esperados pelo frontend.
+| Path | What |
+|---|---|
+| `app/(public)/` | Login (email or phone), accept invite (`/convite/[token]`), password recovery (`/recuperar-senha`, `/redefinir-senha`) |
+| `app/admin`, `app/staff`, `app/responsavel` | Each role's area, behind `RoleGuard` + `AppShell` (sidebar on laptops, bottom tabs on phones and tablets) |
+| `lib/api/` | API client (tokens, automatic refresh) and endpoint helpers |
+| `lib/auth/` | Session context |
+| `lib/roles.ts` | Role labels (pt-MZ) and each role's navigation |
+| `components/ui/` | shadcn/ui components (`npx shadcn@latest add …`) |
+| `scripts/generate-icons.mjs` | Regenerates the favicon and PWA icons from the logo (`npm run icons`) |
 
-### 3. Executar o Frontend em Desenvolvimento
+Sections that aren't built yet show a placeholder (`[...section]` routes). Phase 3 replaces them screen by screen.
 
-```bash
-npm run dev
-```
+## Scripts
 
-O aplicativo estará disponível em `http://localhost:3000`
+| Command | Does |
+|---|---|
+| `npm run dev` / `npm run build` / `npm start` | Develop / production build / serve the build |
+| `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
+| `npm run icons` | Regenerate icons from `public/brand/logo-mark.svg` |
 
-## Contas de Demonstração
+## Notes
 
-Atualmente o login usa dados mock. Contas de teste:
-
-- **Responsável**: `responsavel@creche.com` — senha: qualquer valor
-- **Staff**: `staff@creche.com` — senha: qualquer valor
-- **Administrador**: `admin@creche.com` — senha: qualquer valor
-
-## Dados
-
-Em desenvolvimento, as páginas usam dados mock em `lib/mock-data.ts`. A integração com a API (login JWT + endpoints de crianças, turmas, faturas, mensagens, etc.) será feita conforme os recursos forem implementados no backend.
-
-## Design
-
-O sistema segue princípios de design modernos:
-
-- **Mobile-first**: Interface totalmente responsiva
-- **Paleta de cores**: Verde, azul e amarelo claro para transmitir segurança e educação infantil
-- **Tipografia**: Inter font para máxima legibilidade
-- **Componentes**: Design limpo com bordas arredondadas e alvos de toque grandes
-- **Acessibilidade**: Alto contraste e navegação clara
-
-## Localização
-
-Todo o sistema está em **Português Brasileiro**, incluindo:
-- Interface do usuário
-- Mensagens de erro
-- Notificações
-- Formatação de datas e valores monetários
-
-## Próximos Passos
-
-1. Integrar login com a API (JWT: register, login, refresh, me).
-2. Conectar as páginas aos endpoints da API (crianças, turmas, faturas, mensagens, etc.).
-3. Implementar upload de fotos (API já suporta Multer + Cloudinary).
-4. Adicionar middleware de proteção de rotas por role no frontend.
-5. Implementar geração de relatórios em PDF.
-
-## Licença
-
-Este projeto foi desenvolvido para fins de demonstração.
+- **Light theme only** for v1. The traced logo only works on light backgrounds.
+- **Copy is in Mozambican Portuguese.** The glossary is still to be confirmed with the client (see the plan, §2).
+- **Pages that read the URL on the client** (`useSearchParams`, `useParams`, `usePathname`) must sit inside `<Suspense>`, because Cache Components prerenders a static shell.

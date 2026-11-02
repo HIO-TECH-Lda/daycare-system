@@ -33,8 +33,10 @@
 | 1b — Access scoping | ✅ Done ([PR #4](https://github.com/HIO-TECH-Lda/daycare-system/pull/4), merged): every child record, list and finance endpoint scoped by role; staff writes limited to their classes; children's photos private and served through signed API links. |
 | 1c — Enrolment | ✅ Done ([PR #5](https://github.com/HIO-TECH-Lda/daycare-system/pull/5), merged): public enrolment form API, admin review queue, approval in one transaction. |
 | 1d — Missing features | ✅ Done ([PR #7](https://github.com/HIO-TECH-Lda/daycare-system/pull/7), merged): message recipients and sending rules, reports, overdue-invoice job, offline sync. |
-| 1e — Serverless & platform | 🔍 In review: serverless DB connection, modern `vercel.json` (Cape Town, cron, templates), upload limits, working production build, Mongoose 8. 146 API tests. **Phase 1 (backend) is complete once merged.** |
-| W, 2–6 | Not started. |
+| 1e — Serverless & platform | ✅ Done ([PR #8](https://github.com/HIO-TECH-Lda/daycare-system/pull/8), merged). **Phase 1 (backend) is complete.** |
+| 2a — UI foundation | 🔍 In review: new Next.js 16 app (old prototype tagged `legacy-ui`), brand theme, login by email or phone, invite and password pages, role-guarded app shell, PWA manifest and icons. Checked in the browser against the API. |
+| 2b — PWA offline, wireframes | Next: service worker (Serwist), offline queue for attendance and daily reports; wireframes of the key flows for client sign-off. |
+| W, 3–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
@@ -295,15 +297,15 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
   - staff/user management
 - [ ] Get sign-off on the wireframes and the glossary.
 
-**Stack**
-- [ ] Next.js 16 (or the current stable major at the start of Phase 2), React 19, TypeScript strict. Remove `ignoreBuildErrors` and `ignoreDuringBuilds`.
+**Stack** *(2a)*
+- [x] Next.js 16.4, React 19.3, TypeScript strict; no ignored build errors; ESLint CLI. Cache Components and Partial Prefetching on (the scaffold's defaults). Pages that read the URL on the client sit in `<Suspense>`. Signed-in areas opt out of instant-navigation validation (`instant = false`), because the session lives in the browser.
   - Next.js 16 builds with Turbopack by default: check Serwist's support, or build with `next build --webpack`.
   - `next lint` is gone: lint with the ESLint CLI, and update the CI step.
-- [ ] Tailwind CSS 4 + shadcn/ui, themed with the brand tokens from §2. Delete unused components.
-- [ ] Keep TanStack Query, react-hook-form + zod, sonner, lucide, recharts.
+- [x] Tailwind CSS 4 + shadcn/ui (Radix, "nova" preset), themed with the brand tokens from §2; only the components in use. Light theme only.
+- [x] TanStack Query, react-hook-form + zod 4, sonner, lucide (recharts added with the dashboards in Phase 3).
 
 **Design system**
-- [ ] Tokens, fonts, logo variants, favicon, PWA icons (192/512/maskable).
+- [x] Tokens, fonts (Nunito headings, Inter body), logo components, favicon, PWA icons (192/512/maskable, `npm run icons`), 44 px `touch` button size, pt-MZ formatters (phone, MT, dates). *(2a)*
 - [ ] Core components:
   - `PageHeader`
   - `DataTable` (cards on mobile)
@@ -319,16 +321,17 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
   - `EmptyState`
   - `OfflineBanner`
 
-**App shell, auth & routing**
-- [ ] Route groups:
+**App shell, auth & routing** *(2a)*
+- [x] Route groups:
   - `(public)`: `/login`, `/convite/[token]`, `/recuperar-senha`, `/redefinir-senha`, `/matricula`
   - Login and "forgot password" take **one field: email or phone number** (sent as `identifier`). The accept-invite page shows the WhatsApp consent checkbox, pre-ticked from the admin's record.
   - After `change-password`, store the new tokens from the response (the old ones stop working).
   - `(app)`: `admin` / `staff` / `responsavel`, each with a role-guarded layout
-- [ ] Navigation config per role. Sidebar on laptops; bottom tab bar on phones and tablets for staff and parents.
+- [x] Navigation config per role (`lib/roles.ts`). Sidebar on laptops; on phones and tablets a bottom tab bar (4 main sections + "Mais") for every role. Sections not built yet show a placeholder.
+- [x] Signing out reloads the page: Next.js keeps visited pages alive (hidden), which would leave the previous person's forms and data in memory on a shared tablet. Password forms also clear when hidden.
 
 **PWA**
-- [ ] Web app manifest (name, short name, icons, theme colour `primary`, `display: standalone`, start URL by role).
+- [x] Web app manifest (name, icons, theme colour, `display: standalone`). *(2a; start URL is `/`, which sends each role to its home)*
 - [ ] Service worker via **Serwist** (`@serwist/next`):
   - precaches the app shell and static assets
   - runtime-caches GETs with stale-while-revalidate for read-mostly data (classes, children of my classes, today's reports)
@@ -441,7 +444,7 @@ A screen is done when it:
    - WhatsApp templates approved and the business verified.
 
 ### Phase 6 — Cleanup
-- [ ] Delete `web-app/supabase/`, `web-app/.bolt/`, `lib/mock-data.ts`, and the unused shadcn components.
+- [x] Delete `web-app/supabase/`, `web-app/.bolt/`, `lib/mock-data.ts`, and the unused shadcn components. *(done in 2a, with the old prototype; it's kept as the git tag `legacy-ui`)*
 - [ ] Move `gerador.py` and the payroll `.xlsx` to `tools/payroll/`. A payroll module is a candidate for v2.
 - [ ] Update the READMEs and archive the March 2026 reports.
 

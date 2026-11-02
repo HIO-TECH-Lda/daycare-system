@@ -2,26 +2,20 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth/auth-context';
+import { ROLE_HOME } from '@/lib/roles';
+import { LoadingScreen } from '@/components/app/loading-screen';
 
-const ROLE_HOME: Record<string, string> = {
-  administrador: '/admin/dashboard',
-  staff: '/staff/dashboard',
-  responsavel: '/responsavel/dashboard',
-};
-
+/** Entry point: each role goes to its own area; everyone else to the login page. */
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return;
-    if (user) {
-      router.replace(ROLE_HOME[user.role] ?? '/admin/dashboard');
-    } else {
-      router.replace('/login');
-    }
+    if (!loading) router.replace(user ? ROLE_HOME[user.role] : '/login');
   }, [user, loading, router]);
 
-  return null;
+  return (
+    <LoadingScreen />
+  );
 }

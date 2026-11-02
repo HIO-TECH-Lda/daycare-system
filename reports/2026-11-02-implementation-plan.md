@@ -32,8 +32,9 @@
 | 1a — Accounts & security | ✅ Done ([PR #2](https://github.com/HIO-TECH-Lda/daycare-system/pull/2), merged): invite-only accounts, phone-or-email login, consent-aware WhatsApp, session revocation, audit log fix, CORS, shared rate limits. |
 | 1b — Access scoping | ✅ Done ([PR #4](https://github.com/HIO-TECH-Lda/daycare-system/pull/4), merged): every child record, list and finance endpoint scoped by role; staff writes limited to their classes; children's photos private and served through signed API links. |
 | 1c — Enrolment | ✅ Done ([PR #5](https://github.com/HIO-TECH-Lda/daycare-system/pull/5), merged): public enrolment form API, admin review queue, approval in one transaction. |
-| 1d — Missing features | 🔍 In review: message recipients (and sending rules), finance/payments/expenses/attendance reports, overdue-invoice job, offline sync for attendance and daily reports. 142 API tests. |
-| 1e, W, 2–6 | Not started. |
+| 1d — Missing features | ✅ Done ([PR #7](https://github.com/HIO-TECH-Lda/daycare-system/pull/7), merged): message recipients and sending rules, reports, overdue-invoice job, offline sync. |
+| 1e — Serverless & platform | 🔍 In review: serverless DB connection, modern `vercel.json` (Cape Town, cron, templates), upload limits, working production build, Mongoose 8. 146 API tests. **Phase 1 (backend) is complete once merged.** |
+| W, 2–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
@@ -267,12 +268,12 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
   - One record per child per calendar day (Maputo); a second device's write merges into it (newest wins) and the response reports the conflict with the previous values. Updates send `base_updated_at` and get the same conflict report.
 
 **1e — Serverless and platform (Vercel)**
-- [ ] Cache the database connection promise across invocations, and throw instead of calling `process.exit`.
+- [x] Cache the database connection promise across invocations, and throw instead of calling `process.exit` (the Vercel handler answers 503 and the next request retries).
 - [x] Notifications after the response with `waitUntil` from `@vercel/functions`, with timeouts. *(1a)* Results go to `NotificationLog` in Phase W.
-- [ ] Keep uploads under Vercel's ~4.5 MB body limit: compress on the client, and use signed direct-to-Cloudinary uploads for anything larger.
-- [ ] Move `vercel.json` off the legacy `builds`/`routes` format: it can't be combined with `functions`, which is needed for a longer `maxDuration` (awaited invites) and to include the email templates (`src/templates/**`, read from disk at runtime) in the bundle. Set `regions` and the cron there too.
-- [ ] Upgrade Mongoose 7 → 8. New Atlas clusters run MongoDB 8.0, newer than Mongoose 7's database driver; alternatively pin the cluster to 7.0.
-- [ ] `npm run build` doesn't copy the email templates into `dist/`: copy them, or don't support `npm start` outside Vercel.
+- [x] Uploads capped at 4 MB (Vercel's body limit is ~4.5 MB) with a clear 413; wrong file types get 400. The web app compresses photos before upload (Phase 2). Signed direct-to-Cloudinary uploads only if larger files are ever needed.
+- [x] `vercel.json` moved off the legacy `builds`/`routes` format: region `cpt1` (Cape Town), `maxDuration` 30 s, email templates included, daily cron for `mark-overdue` at 04:00 UTC (06:00 Maputo). **Verify on the first staging deploy** (not testable locally).
+- [x] Upgraded Mongoose 7 → 8 (MongoDB driver 6, supports MongoDB 8.0 on Atlas). Removed three duplicate index definitions it warned about.
+- [x] `npm run build` produces `dist/app.js` (what `npm start` runs; it used to produce `dist/src/app.js`, so `npm start` was broken) with the email templates, without the tests. Verified: the built server starts and answers.
 
 **Quality**
 - [ ] Integration tests: ~~auth, invites~~ *(1a)*, the enrolment approval transaction, per-role access, and the main CRUD flows.

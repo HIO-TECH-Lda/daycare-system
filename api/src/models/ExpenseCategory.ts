@@ -31,7 +31,6 @@ const expenseCategorySchema = new Schema<IExpenseCategoryDocument>(
   { timestamps: true }
 );
 
-expenseCategorySchema.index({ name: 1 }, { unique: true });
 expenseCategorySchema.index({ is_active: 1 });
 
 export default mongoose.model<IExpenseCategoryDocument>('ExpenseCategory', expenseCategorySchema);

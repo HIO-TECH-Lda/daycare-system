@@ -5,7 +5,6 @@ import { normalisePhone } from '../utils/phone';
 
 export interface IUserDocument extends Omit<IUser, '_id'>, Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
-  toJSON(): Record<string, unknown>;
   fullName: string;
 }
 

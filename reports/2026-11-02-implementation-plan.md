@@ -29,8 +29,9 @@
 | Phase | State |
 |---|---|
 | 0 — Foundations | ✅ Done ([PR #1](https://github.com/HIO-TECH-Lda/daycare-system/pull/1), merged into `dev`): CI, in-memory MongoDB tests, ESLint, README. |
-| 1a — Accounts & security | 🔍 In review ([PR #2](https://github.com/HIO-TECH-Lda/daycare-system/pull/2)): invite-only accounts, phone-or-email login, consent-aware WhatsApp, session revocation, audit log fix, CORS, shared rate limits. 74 API tests. |
-| 1b–1e, W, 2–6 | Not started. |
+| 1a — Accounts & security | ✅ Done ([PR #2](https://github.com/HIO-TECH-Lda/daycare-system/pull/2), merged): invite-only accounts, phone-or-email login, consent-aware WhatsApp, session revocation, audit log fix, CORS, shared rate limits. |
+| 1b — Access scoping | 🔍 In review: every child record, list and finance endpoint scoped by role; staff writes limited to their classes. 107 API tests. Photo delivery awaits a decision (below). |
+| 1c–1e, W, 2–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
@@ -243,8 +244,12 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
 **Security**
 - [x] CORS allowlist from `CORS_ORIGINS`: the Netlify production domain, the custom domain, and the deploy-preview pattern (`https://deploy-preview-*--<site>.netlify.app`) for staging only. *(1a)*
 - [x] Remove `/test` in production. Stricter rate limits on auth and invite endpoints, stored in MongoDB in production so they hold across serverless instances. *(1a; the enrolment endpoint gets its limit in 1c)*
-- [ ] **1b:** Shared `getAccessibleChildIds(user)` helper applied in every controller that reads child data, with tests for each role. Includes `GET /users` for staff (today staff can list every parent's contact details).
-- [ ] **1b:** Children's photos: deliver through signed or authenticated Cloudinary URLs instead of public links, and respect `image_usage_authorized`.
+- [x] **1b:** Shared access service (`AccessService` + route guards) applied to every endpoint that reads child data, with a per-role test matrix. Includes `GET /users` for staff, finance (staff no longer see invoices, payments or expenses), class-specific calendar events, and staff writes. Fixed: a staff member with no class assignment saw **every** child.
+- [ ] **1b — decision needed:** children's photos. Today any photo URL works for anyone who has it, forever. Options:
+  1. **Serve photos through the API** (recommended to start): the API checks access, then streams the image from a private Cloudinary asset. No extra Cloudinary cost; more traffic through Vercel (photos are compressed on upload anyway).
+  2. **Cloudinary token-based authentication:** short-lived signed URLs, served from Cloudinary's CDN. Fastest for users, but it's a paid Cloudinary add-on.
+  3. **Signed `authenticated` URLs without expiry:** URLs can't be guessed or derived, but a shared URL keeps working. Free, and only a small improvement on today.
+- [ ] **1b:** Respect `image_usage_authorized`: a child without it shouldn't appear in photos shared with other families.
 
 **1d — Missing features**
 - [ ] `GET /messages/recipients` (who the current user may message).

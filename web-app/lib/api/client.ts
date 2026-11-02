@@ -122,8 +122,10 @@ async function send<T>(method: Method, path: string, options: RequestOptions = {
     if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
   }
 
+  // FormData (file uploads) sets its own multipart Content-Type
+  const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (options.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   const token = options.auth === false ? null : session.token();  if (token) headers.Authorization = `Bearer ${token}`;
 
   let response: Response;
@@ -131,7 +133,7 @@ async function send<T>(method: Method, path: string, options: RequestOptions = {
     response = await fetch(url, {
       method,
       headers,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      body: options.body === undefined ? undefined : isForm ? (options.body as FormData) : JSON.stringify(options.body),
       signal: options.signal
     });
   } catch {

@@ -35,8 +35,10 @@
 | 1d — Missing features | ✅ Done ([PR #7](https://github.com/HIO-TECH-Lda/daycare-system/pull/7), merged): message recipients and sending rules, reports, overdue-invoice job, offline sync. |
 | 1e — Serverless & platform | ✅ Done ([PR #8](https://github.com/HIO-TECH-Lda/daycare-system/pull/8), merged). **Phase 1 (backend) is complete.** |
 | 2a — UI foundation | ✅ Done ([PR #9](https://github.com/HIO-TECH-Lda/daycare-system/pull/9), merged): new Next.js 16 app (old prototype tagged `legacy-ui`), brand theme, login by email or phone, invite and password pages, role-guarded app shell, PWA manifest and icons. |
-| 2b — PWA offline, wireframes | 🔍 In review: service worker (Serwist), offline write queue for attendance and daily reports, sessions that survive offline restarts, offline/sync banners, install prompt. Wireframes and glossary approved by the client on 2026-11-02 (14 improvement proposals awaiting a choice). |
-| W, 3–6 | Not started. |
+| 2b — PWA offline, wireframes | ✅ Done ([PR #10](https://github.com/HIO-TECH-Lda/daycare-system/pull/10), merged): service worker (Serwist), offline write queue for attendance and daily reports, sessions that survive offline restarts, offline/sync banners, install prompt. Wireframes and glossary approved by the client on 2026-11-02 (14 improvement proposals awaiting a choice). |
+| 3a — Staff screens | 🔍 In review: Hoje, Presenças (check-in, check-out against the authorised people, absences, confirmed bulk check-in), Turma (safety badges, contacts), Relatório diário (chips, nap, notes, autosave, photos) — all on live data and working offline. Approved glossary applied to the 2a screens. API: a sync merge is a conflict only when another user wrote the record last. |
+| 3b–3d | Next: 3b parents (Hoje, Relatórios, Facturação, Mensagens, Perfil, Eventos), 3c admin people (Painel, Matrículas, Pessoas, Turmas, Crianças), 3d admin finance and the rest (Facturação, Despesas, Relatórios, Relatórios mensais, Eventos, Mensagens, Notificações; staff Relatórios mensais and Mensagens; public `/matricula`). |
+| W, 4–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 

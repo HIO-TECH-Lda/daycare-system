@@ -35,7 +35,7 @@ function ResetPasswordForm() {
       await authApi.resetPassword(token!, values.password);
       setDone(true);
     } catch (e) {
-      setError(e instanceof ApiRequestError ? e.message : 'Não foi possível redefinir a senha. Tente novamente.');
+      setError(e instanceof ApiRequestError ? e.message : 'Não foi possível redefinir a palavra-passe. Tente novamente.');
     }
   }
 
@@ -55,7 +55,7 @@ function ResetPasswordForm() {
     return (
       <div className="flex flex-col items-center gap-4 text-center">
         <CircleCheck className="size-10 text-green-text" aria-hidden />
-        <h1 className="text-2xl font-bold">Senha alterada</h1>
+        <h1 className="text-2xl font-bold">Palavra-passe alterada</h1>
         <p className="text-sm text-muted-foreground">Por segurança, terminámos as sessões abertas noutros aparelhos.</p>
         <Button asChild size="touch" className="w-full">
           <Link href="/login">Entrar</Link>
@@ -67,8 +67,8 @@ function ResetPasswordForm() {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
       <div className="space-y-1 text-center">
-        <h1 className="text-2xl font-bold">Nova senha</h1>
-        <p className="text-sm text-muted-foreground">Escolha a nova senha para a sua conta.</p>
+        <h1 className="text-2xl font-bold">Nova palavra-passe</h1>
+        <p className="text-sm text-muted-foreground">Escolha a nova palavra-passe para a sua conta.</p>
       </div>
       {error && (
         <Alert variant="destructive">
@@ -80,7 +80,7 @@ function ResetPasswordForm() {
       )}
       <NewPasswordFields register={form.register} errors={errors} />
       <Button type="submit" size="touch" disabled={isSubmitting}>
-        {isSubmitting ? 'A guardar…' : 'Guardar senha'}
+        {isSubmitting ? 'A guardar…' : 'Guardar palavra-passe'}
       </Button>
     </form>
   );

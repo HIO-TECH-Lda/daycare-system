@@ -19,4 +19,4 @@ export const newPasswordForm = z
     password: passwordRule,
     confirmPassword: z.string()
   })
-  .refine((v) => v.password === v.confirmPassword, { message: 'As senhas não coincidem', path: ['confirmPassword'] });
+  .refine((v) => v.password === v.confirmPassword, { message: 'As palavras-passe não coincidem', path: ['confirmPassword'] });

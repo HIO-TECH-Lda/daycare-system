@@ -170,7 +170,7 @@ describe('overdue invoices job', () => {
 });
 
 describe('offline sync', () => {
-  it('attendance: a replayed client_id is saved once; another device for the same child and day merges', async () => {
+  it('attendance: a replayed client_id is saved once; another educator for the same child and day merges', async () => {
     const w = await world();
     const staff = as(w.staffX);
     const body = { child_id: id(w.childA), date: '2026-11-02T06:30:00Z', status: 'present', client_id: 'tablet-1-0001' };
@@ -183,8 +183,15 @@ describe('offline sync', () => {
     expect(replayed.status).toBe(200);
     expect(replayed.body.sync).toBe('replayed');
 
-    // Another tablet, offline, recorded the same child that day (different time of day, same calendar day in Maputo)
-    const merged = await staff.post('/attendance', { child_id: id(w.childA), date: '2026-11-02T21:30:00Z', status: 'late', client_id: 'tablet-2-0001' });
+    // The same educator's next write (e.g. check-out) merges without a conflict
+    const own = await staff.post('/attendance', { child_id: id(w.childA), date: '2026-11-02T14:00:00Z', status: 'present', client_id: 'tablet-1-0002' });
+    expect(own.body.sync).toBe('merged');
+    expect(own.body.conflict).toBeUndefined();
+
+    // Another educator's tablet, offline, recorded the same child that day (different time of day, same calendar day in Maputo)
+    const colleague = await createUser('staff', { firstName: 'Colega' });
+    await StaffAssignment.create({ staff_id: colleague._id, class_id: w.classX._id });
+    const merged = await as(colleague).post('/attendance', { child_id: id(w.childA), date: '2026-11-02T21:30:00Z', status: 'late', client_id: 'tablet-2-0001' });
     expect(merged.status).toBe(200);
     expect(merged.body).toMatchObject({ sync: 'merged', conflict: true });
     expect(merged.body.previous.status).toBe('present');

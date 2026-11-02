@@ -57,8 +57,8 @@ export default function ForgotPasswordPage() {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
       <div className="space-y-1 text-center">
-        <h1 className="text-2xl font-bold">Recuperar senha</h1>
-        <p className="text-sm text-muted-foreground">Enviamos um link por email ou WhatsApp para escolher uma nova senha.</p>
+        <h1 className="text-2xl font-bold">Recuperar palavra-passe</h1>
+        <p className="text-sm text-muted-foreground">Enviamos um link por email ou WhatsApp para escolher uma nova palavra-passe.</p>
       </div>
 
       {error && (

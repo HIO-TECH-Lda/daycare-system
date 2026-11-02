@@ -23,13 +23,13 @@ export function NewPasswordFields<T extends NewPasswordValues>({
   return (
     <FieldGroup>
       <Field data-invalid={!!errors.password}>
-        <FieldLabel htmlFor="password">Nova senha</FieldLabel>
+        <FieldLabel htmlFor="password">Nova palavra-passe</FieldLabel>
         <Input id="password" type="password" autoComplete="new-password" className="h-11" aria-invalid={!!errors.password} {...register('password' as Path<T>)} />
         <FieldDescription>{PASSWORD_HINT}</FieldDescription>
         <FieldError errors={[errors.password]} />
       </Field>
       <Field data-invalid={!!errors.confirmPassword}>
-        <FieldLabel htmlFor="confirmPassword">Confirmar senha</FieldLabel>
+        <FieldLabel htmlFor="confirmPassword">Confirmar palavra-passe</FieldLabel>
         <Input
           id="confirmPassword"
           type="password"

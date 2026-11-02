@@ -1,5 +1,5 @@
-import { RoleHome } from '@/components/app/role-home';
+import { StaffToday } from '@/components/staff/staff-today';
 
 export default function Page() {
-  return <RoleHome role="staff" />;
+  return <StaffToday />;
 }

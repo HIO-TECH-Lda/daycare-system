@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import User, { IUserDocument } from '../models/User';
 import { JWTPayload } from '../types';
 import Messages from '../utils/messages';
@@ -85,47 +85,39 @@ export class AuthService {
     role?: string;
     phone?: string;
   }): Promise<{ user: IUserDocument; token: string; refreshToken: string }> {
-    try {
-      const existingUser = await User.findOne({ email: userData.email });
+    const existingUser = await User.findOne({ email: userData.email });
 
-      if (existingUser) {
-        throw new Error(Messages.AUTH.EMAIL_ALREADY_EXISTS);
-      }
-
-      const user = new User({
-        ...userData,
-        role: userData.role || 'responsavel',
-        phone: userData.phone || ''
-      });
-
-      await user.save();
-
-      const token = this.generateToken(user);
-      const refreshToken = this.generateRefreshToken(user);
-
-      return { user, token, refreshToken };
-    } catch (error) {
-      throw error;
+    if (existingUser) {
+      throw new Error(Messages.AUTH.EMAIL_ALREADY_EXISTS);
     }
+
+    const user = new User({
+      ...userData,
+      role: userData.role || 'responsavel',
+      phone: userData.phone || ''
+    });
+
+    await user.save();
+
+    const token = this.generateToken(user);
+    const refreshToken = this.generateRefreshToken(user);
+
+    return { user, token, refreshToken };
   }
 
   // Login user
   static async loginUser(email: string, password: string): Promise<{ user: IUserDocument; token: string; refreshToken: string }> {
-    try {
-      const user = await this.verifyCredentials(email, password);
-      
-      if (!user) {
-        throw new Error(Messages.AUTH.INVALID_CREDENTIALS);
-      }
-
-      // Generate tokens
-      const token = this.generateToken(user);
-      const refreshToken = this.generateRefreshToken(user);
-
-      return { user, token, refreshToken };
-    } catch (error) {
-      throw error;
+    const user = await this.verifyCredentials(email, password);
+    
+    if (!user) {
+      throw new Error(Messages.AUTH.INVALID_CREDENTIALS);
     }
+
+    // Generate tokens
+    const token = this.generateToken(user);
+    const refreshToken = this.generateRefreshToken(user);
+
+    return { user, token, refreshToken };
   }
 
   // Refresh token — verifies with JWT_REFRESH_SECRET
@@ -160,104 +152,86 @@ export class AuthService {
 
   // Update user profile
   static async updateUserProfile(userId: string, updateData: Partial<IUserDocument>): Promise<IUserDocument | null> {
-    try {
-      // Remove sensitive fields that shouldn't be updated directly
-      const { password, email, role, status, ...safeUpdateData } = updateData as any;
+    // Remove sensitive fields that shouldn't be updated directly
+    const { password, email, role, status, ...safeUpdateData } = updateData as any;
 
-      // Upload avatar to Cloudinary if provided (base64 or file data)
-      if (safeUpdateData.avatar) {
-        const uploaded = await uploadBase64Image(safeUpdateData.avatar, 'avatars');
-        safeUpdateData.avatar = uploaded.url;
-      }
-
-      const user = await User.findByIdAndUpdate(
-        userId,
-        safeUpdateData,
-        { new: true, runValidators: true }
-      );
-
-      return user;
-    } catch (error) {
-      throw error;
+    // Upload avatar to Cloudinary if provided (base64 or file data)
+    if (safeUpdateData.avatar) {
+      const uploaded = await uploadBase64Image(safeUpdateData.avatar, 'avatars');
+      safeUpdateData.avatar = uploaded.url;
     }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      safeUpdateData,
+      { new: true, runValidators: true }
+    );
+
+    return user;
   }
 
   // Change password
   static async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
-    try {
-      const user = await User.findById(userId).select('+password');
-      
-      if (!user) {
-        throw new Error(Messages.USER.NOT_FOUND);
-      }
-
-      // Verify current password
-      const isCurrentPasswordValid = await user.comparePassword(currentPassword);
-      
-      if (!isCurrentPasswordValid) {
-        throw new Error(Messages.AUTH.CURRENT_PASSWORD_INCORRECT);
-      }
-
-      // Update password
-      user.password = newPassword;
-      await user.save();
-
-      return true;
-    } catch (error) {
-      throw error;
+    const user = await User.findById(userId).select('+password');
+    
+    if (!user) {
+      throw new Error(Messages.USER.NOT_FOUND);
     }
+
+    // Verify current password
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+    
+    if (!isCurrentPasswordValid) {
+      throw new Error(Messages.AUTH.CURRENT_PASSWORD_INCORRECT);
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    return true;
   }
 
   // Request password reset
   static async requestPasswordReset(email: string): Promise<{ user: IUserDocument; resetToken: string }> {
-    try {
-      const user = await User.findOne({ email: email.toLowerCase() });
-      
-      if (!user) {
-        // Don't reveal if email exists for security
-        throw new Error('If the email exists, a reset link will be sent');
-      }
-
-      // Generate reset token
-      const crypto = require('crypto');
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-      // Save hashed token and expiry
-      user.passwordResetToken = resetTokenHash;
-      user.passwordResetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-      await user.save();
-
-      return { user, resetToken };
-    } catch (error) {
-      throw error;
+    const user = await User.findOne({ email: email.toLowerCase() });
+    
+    if (!user) {
+      // Don't reveal if email exists for security
+      throw new Error('If the email exists, a reset link will be sent');
     }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Save hashed token and expiry
+    user.passwordResetToken = resetTokenHash;
+    user.passwordResetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await user.save();
+
+    return { user, resetToken };
   }
 
   // Reset password with token
   static async resetPassword(resetToken: string, newPassword: string): Promise<IUserDocument> {
-    try {
-      const crypto = require('crypto');
-      const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
 
-      const user = await User.findOne({
-        passwordResetToken: resetTokenHash,
-        passwordResetExpires: { $gt: new Date() }
-      }).select('+password');
+    const user = await User.findOne({
+      passwordResetToken: resetTokenHash,
+      passwordResetExpires: { $gt: new Date() }
+    }).select('+password');
 
-      if (!user) {
-        throw new Error(Messages.AUTH.INVALID_RESET_TOKEN);
-      }
-
-      // Update password and clear reset token
-      user.password = newPassword;
-      user.passwordResetToken = undefined;
-      user.passwordResetExpires = undefined;
-      await user.save();
-
-      return user;
-    } catch (error) {
-      throw error;
+    if (!user) {
+      throw new Error(Messages.AUTH.INVALID_RESET_TOKEN);
     }
+
+    // Update password and clear reset token
+    user.password = newPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    return user;
   }
 }

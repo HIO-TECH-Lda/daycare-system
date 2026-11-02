@@ -18,7 +18,7 @@ export class ApiResponse {
   }
 
   // Static helper for success responses
-  static success<T>(data: T, message = 'Operação realizada com sucesso', statusCode = 200) {
+  static success<T>(data: T, message = 'Operação realizada com sucesso', _statusCode = 200) {
     return {
       success: true,
       message,
@@ -31,7 +31,7 @@ export class ApiResponse {
     data: T[],
     pagination: PaginationParams,
     message = 'Dados recuperados com sucesso',
-    statusCode = 200
+    _statusCode = 200
   ) {
     return {
       success: true,
@@ -47,7 +47,7 @@ export class ApiResponse {
   }
 
   // Static helper for error responses
-  static error(message: string, statusCode = 400, error?: string) {
+  static error(message: string, _statusCode = 400, error?: string) {
     return {
       success: false,
       message,

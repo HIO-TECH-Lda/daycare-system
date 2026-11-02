@@ -149,7 +149,7 @@ export class AuthController {
   // Change password
   static async changePassword(req: Request, res: Response) {
     try {
-      const { currentPassword, newPassword, confirmNewPassword } = req.body;
+      const { currentPassword, newPassword } = req.body;
       
       await AuthService.changePassword(req.user!.userId, currentPassword, newPassword);
       
@@ -202,7 +202,7 @@ export class AuthController {
   static async resetPassword(req: Request, res: Response) {
     try {
       const { token, newPassword } = req.body;
-      const user = await AuthService.resetPassword(token, newPassword);
+      await AuthService.resetPassword(token, newPassword);
       
       return res.json({
         success: true,

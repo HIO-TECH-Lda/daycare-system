@@ -568,3 +568,101 @@ export const validateRequest = (schema: Joi.ObjectSchema) => {
     next();
   };
 };
+
+// ---------------------------------------------------------------------------
+// Enrolment (public form at /matricula, or an admin on a family's behalf)
+// ---------------------------------------------------------------------------
+
+const optionalText = Joi.string().trim().max(2000).allow('');
+
+const enrollmentChild = Joi.object({
+  name: Joi.string().trim().min(2).max(100).required().messages({ 'any.required': 'O nome da criança é obrigatório' }),
+  birth_date: Joi.date().max('now').required().messages({
+    'any.required': 'A data de nascimento é obrigatória',
+    'date.max': 'A data de nascimento não pode ser no futuro'
+  }),
+  gender: Joi.string().valid('Masculino', 'Feminino'),
+  nationality: optionalText,
+  address: optionalText,
+  languages_spoken: optionalText,
+  allergies: optionalText,
+  medications: optionalText,
+  dietary_restrictions: optionalText,
+  sleep_schedule: optionalText,
+  preferred_foods: optionalText,
+  separation_reaction: optionalText,
+  plays_with_others: Joi.boolean(),
+  behavior_notes: optionalText,
+  previous_center: optionalText,
+  transfer_reason: optionalText,
+  emergency_contact_name: optionalText,
+  emergency_contact_phone: phoneNumber.empty('')
+});
+
+const enrollmentGuardianFields = {
+  name: Joi.string().trim().min(2).max(100).required().messages({ 'any.required': 'O nome do encarregado é obrigatório' }),
+  relationship: optionalText,
+  phone: phoneNumber.empty(''),
+  email: emailAddress.empty(''),
+  profession: optionalText,
+  workplace: optionalText,
+  address: optionalText
+};
+
+const enrollmentPickupPerson = Joi.object({
+  name: Joi.string().trim().min(2).max(100).required(),
+  relationship: optionalText,
+  phone: phoneNumber.required().messages({ 'any.required': 'O telefone da pessoa autorizada é obrigatório' }),
+  id_document: optionalText
+});
+
+const enrollmentFields = {
+  child: enrollmentChild,
+  // The first guardian is the main contact: they get the parent account, so need a phone or an email
+  guardians: Joi.array()
+    .ordered(Joi.object(enrollmentGuardianFields).or('phone', 'email').messages({
+      'object.missing': 'O encarregado principal precisa de um telefone ou de um email'
+    }))
+    .items(Joi.object(enrollmentGuardianFields))
+    .min(1)
+    .max(4),
+  pickup_persons: Joi.array().items(enrollmentPickupPerson).max(6),
+  consents: Joi.object({
+    data_processing: Joi.boolean().valid(true).required().messages({
+      'any.only': 'É necessário aceitar o tratamento dos dados para submeter a matrícula',
+      'any.required': 'É necessário aceitar o tratamento dos dados para submeter a matrícula'
+    }),
+    image_usage_authorized: Joi.boolean().default(false),
+    whatsapp_opt_in: Joi.boolean().default(false)
+  }),
+  requested_class_id: Joi.string().hex().length(24).empty(''),
+  requested_start_date: Joi.date().empty(''),
+  notes: optionalText,
+  signature: Joi.string().trim().max(150).allow('')
+};
+
+export const submitEnrollmentSchema = Joi.object({
+  ...enrollmentFields,
+  child: enrollmentChild.required(),
+  guardians: enrollmentFields.guardians.required(),
+  consents: enrollmentFields.consents.required(),
+  // Honeypot: hidden on the form, so only bots fill it in
+  website: Joi.string().allow('')
+});
+
+// Admin corrections while the request is still open; status can only move to under_review here
+export const updateEnrollmentSchema = Joi.object({
+  ...enrollmentFields,
+  status: Joi.string().valid('under_review')
+}).min(1);
+
+export const approveEnrollmentSchema = Joi.object({
+  class_id: Joi.string().hex().length(24).required().messages({ 'any.required': 'Indique a turma' }),
+  start_date: Joi.date(),
+  // Approve even if the class is full
+  override_capacity: Joi.boolean().default(false)
+});
+
+export const rejectEnrollmentSchema = Joi.object({
+  reason: Joi.string().trim().min(3).max(1000).required().messages({ 'any.required': 'Indique o motivo' })
+});

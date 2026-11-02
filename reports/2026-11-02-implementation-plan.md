@@ -30,8 +30,9 @@
 |---|---|
 | 0 — Foundations | ✅ Done ([PR #1](https://github.com/HIO-TECH-Lda/daycare-system/pull/1), merged into `dev`): CI, in-memory MongoDB tests, ESLint, README. |
 | 1a — Accounts & security | ✅ Done ([PR #2](https://github.com/HIO-TECH-Lda/daycare-system/pull/2), merged): invite-only accounts, phone-or-email login, consent-aware WhatsApp, session revocation, audit log fix, CORS, shared rate limits. |
-| 1b — Access scoping | 🔍 In review ([PR #4](https://github.com/HIO-TECH-Lda/daycare-system/pull/4)): every child record, list and finance endpoint scoped by role; staff writes limited to their classes; children's photos private and served through signed API links. 114 API tests. |
-| 1c–1e, W, 2–6 | Not started. |
+| 1b — Access scoping | ✅ Done ([PR #4](https://github.com/HIO-TECH-Lda/daycare-system/pull/4), merged): every child record, list and finance endpoint scoped by role; staff writes limited to their classes; children's photos private and served through signed API links. |
+| 1c — Enrolment | 🔍 In review: public enrolment form API, admin review queue, approval in one transaction (parent account, child, guardians, pickup persons). 131 API tests. |
+| 1d–1e, W, 2–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
@@ -229,17 +230,19 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
 - [x] Audit log works, records each change once, and never stores passwords or tokens.
 - [x] Notifications run after the response (`waitUntil` on Vercel), with timeouts, and respect WhatsApp consent.
 
-**1c — Enrolment approval queue**
-- [ ] `Enrollment` model:
+**1c — Enrolment approval queue** *(PR for 1c)*
+- [x] `Enrollment` model:
   - Child fields (reuse the `Child` registration fields), guardian/parent details, pickup persons, consents (image use, WhatsApp).
   - `status`: `submitted → under_review → approved | rejected`, plus `reviewed_by`, `reviewed_at`, `rejection_reason`, `requested_class_id`.
-- [ ] `POST /enrollments` (public; rate-limited; honeypot) and `GET/PUT /enrollments` (admin).
-- [ ] `POST /enrollments/:id/approve` (admin, with an assigned class). In one transaction it:
+- [x] `POST /enrollments` (public; rate-limited; honeypot) and `GET/PUT /enrollments` (admin).
+- [x] `POST /enrollments/:id/approve` (admin, with an assigned class). In one transaction it:
   1. creates or links the parent user (invite sent if new)
   2. creates the `Child`, guardians and pickup persons
   3. marks the enrolment approved
   4. sends `sonho_enrollment_approved`
-- [ ] `POST /enrollments/:id/reject` with a reason.
+- [x] `POST /enrollments/:id/reject` with a reason.
+- [x] A family enrolling a second child is linked to its existing account (matched by phone or email). Class capacity is checked, and the admin can override it.
+- Note: transactions need a replica set. Atlas is one, and the tests run one; on a plain local `mongod`, approval runs without a transaction (with a warning).
 
 **Security**
 - [x] CORS allowlist from `CORS_ORIGINS`: the Netlify production domain, the custom domain, and the deploy-preview pattern (`https://deploy-preview-*--<site>.netlify.app`) for staging only. *(1a)*

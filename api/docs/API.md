@@ -124,6 +124,24 @@ In production the auth limits are stored in MongoDB (collection `ratelimits`), s
 
 ---
 
+## Offline sync (attendance and daily reports)
+
+The staff app may queue writes while offline and send them later, possibly twice. Attendance records and daily reports exist **once per child per day**. The day is the calendar day in Maputo, whatever time the device sends; it's stored as midnight UTC of that date.
+
+- **`client_id` on create:** the app's own id for the record (e.g. a UUID, max 64 chars).
+  - **The same `client_id` again** returns the record already saved: `200`, `"sync": "replayed"`. Nothing changes and no message is sent twice.
+  - **Reusing a `client_id` for another child** answers `409`.
+- **A record already exists for that child and day** (e.g. two tablets offline): the newest write wins. The response is `200`, `"sync": "merged"`, `"conflict": true`, and `"previous"` holds the values before the merge, so the app can show what changed.
+- **Otherwise** the record is created: `201`, `"sync": "created"`.
+- **`base_updated_at` on update:** the `updatedAt` of the version the app edited. If someone changed the record since, the update still applies (newest wins), and the response adds `"conflict": true` and `"previous"`.
+- **Updates can't change** a record's child or date.
+
+```json
+{ "success": true, "message": "Registro de presença guardado", "data": { ... }, "sync": "merged", "conflict": true, "previous": { "status": "present", ... } }
+```
+
+---
+
 ## Response Format
 
 ### Success (single item)
@@ -620,6 +638,62 @@ After that, a new parent gets the account invite. The family gets an "enrolment 
 #### `POST /enrollments/:id/reject` 🔒 (admin)
 
 **Body:** `{ "reason": "..." }`. Closes the request. No message is sent to the family: the centre contacts them itself. **Errors:** `409` already decided.
+
+---
+
+### Reports
+
+**Base path:** `/api/v1/reports`. Amounts are in MT. Periods: `from` and `to` as `YYYY-MM-DD`, both inclusive; the default is the current month so far. `400` for an invalid period.
+
+#### `GET /reports/finance/summary` 🔒 (admin)
+
+```json
+{
+  "period": { "from": "2026-11-01", "to": "2026-11-02" },
+  "invoiced": 1000, "received": 600, "expenses": 200, "net": 400,
+  "outstanding": { "amount": 400, "count": 1, "overdue_amount": 0, "overdue_count": 0 },
+  "by_month": [{ "month": "2026-11", "invoiced": 1000, "received": 600, "expenses": 200 }]
+}
+```
+
+- `invoiced`: invoices issued in the period, excluding cancelled ones.
+- `received`: payments in the period.
+- `net`: received minus expenses.
+- `outstanding`: **today's** unpaid balance (pending and overdue invoices, minus payments already made on them), whatever the period.
+
+#### `GET /reports/payments` 🔒 (admin)
+
+Query: `from`, `to`, `method`. Returns `total`, `count`, `by_method` [{ method, amount, count }] and `by_month`.
+
+#### `GET /reports/expenses` 🔒 (admin)
+
+Query: `from`, `to`, `category_id`. Returns `total`, `by_category` [{ category_id, category, amount, count }] and `by_month`.
+
+#### `GET /reports/attendance` 🔒 (staff+)
+
+Query: `month` (`YYYY-MM`, default current) and `class_id`. Admins may omit `class_id` (all classes). Staff must give one of their own classes (`403` otherwise).
+
+```json
+{
+  "month": "2026-10", "class_id": "...",
+  "totals": { "present": 2, "late": 1, "absent": 1, "excused": 0, "days": 4, "rate": 0.75 },
+  "children": [{ "child_id": "...", "name": "...", "class": "Turma X", "present": 1, "late": 1, "absent": 1, "excused": 0, "days": 3, "rate": 0.67 }]
+}
+```
+
+`rate` = (present + late) / days recorded (`null` when there are none).
+
+---
+
+### Scheduled jobs
+
+**Base path:** `/api/v1/jobs`. Called by Vercel Cron with `Authorization: Bearer <CRON_SECRET>`. **Without `CRON_SECRET` the jobs are disabled** (`503`); a wrong secret gets `401`.
+
+#### `GET|POST /jobs/mark-overdue`
+
+Run daily (suggested: 04:00 UTC, i.e. 06:00 in Maputo). It marks `pending` invoices whose due date is before today as `overdue`, and sends each family the overdue notification (WhatsApp only with consent). Running it twice in a day changes nothing the second time.
+
+**Response `200`** — `data: { "marked_overdue": 3 }`
 
 ---
 
@@ -1699,6 +1773,27 @@ All routes require authentication.
 > Messages can be sent to a specific user (`recipient_id`) or broadcast to all users with a given role (`recipient_role`). One of the two must be provided. Triggers an email/WhatsApp notification to each recipient (fire-and-forget).
 
 ---
+
+#### `GET /messages/recipients` 🔒
+
+Who the user may write to, for the recipient picker. Query: `search` (name).
+
+- **Parent:** the administration, and the staff of their children's classes.
+- **Staff:** colleagues, the administration, and the parents of children in their classes.
+- **Admin:** every active user.
+
+```json
+{ "data": [
+  { "id": "...", "name": "Joana Cossa", "role": "staff", "classes": ["Turma X"] },
+  { "id": "...", "name": "Ana Machava", "role": "responsavel", "children": ["Lara Machava"] }
+] }
+```
+
+`POST /messages` applies the same rules:
+- A `recipient_id` outside the list gets `404`.
+- Messages to a whole role (`recipient_role`) are for admins only (`403`).
+- A `child_id` must be one of the sender's children or classes (`404`).
+- Either `recipient_id` or `recipient_role` is required (`400`).
 
 #### `GET /messages/inbox` 🔒
 

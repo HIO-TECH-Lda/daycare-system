@@ -6,6 +6,7 @@ import { validateRequest, createMessageSchema } from '../utils/validation';
 const router = Router();
 router.use(authenticateToken);
 
+router.get('/recipients', MessageController.getRecipients);
 router.get('/inbox', MessageController.getInbox);
 router.get('/sent', MessageController.getSent);
 router.get('/:id', MessageController.getById);

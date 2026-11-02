@@ -1,31 +1,21 @@
 import DailyReport, { IDailyReportDocument } from '../models/DailyReport';
+import { writeDayRecord, SyncResult } from '../utils/syncWrite';
 import mongoose, { FilterQuery } from 'mongoose';
 
 export class DailyReportService {
-  static async create(data: {
-    child_id: string;
-    date: Date | string;
-    created_by: string;
-    meals?: any;
-    activities?: string[];
-    nap_time?: any;
-    mood?: string;
-    notes?: string;
-    behavior_notes?: string;
-    health_notes?: string;
-  }): Promise<IDailyReportDocument> {
-    const reportData = {
-      ...data,
-      child_id: new mongoose.Types.ObjectId(data.child_id),
-      created_by: new mongoose.Types.ObjectId(data.created_by),
-      date: typeof data.date === 'string' ? new Date(data.date) : data.date
-    };
-    const report = await DailyReport.create(reportData);
-    await report.populate([
+  /** Create or update the child's report for that day (offline-safe, see utils/syncWrite). */
+  static async record(
+    childId: string,
+    date: Date | string,
+    fields: Record<string, unknown> & { created_by: string },
+    clientId?: string
+  ): Promise<SyncResult<IDailyReportDocument>> {
+    const result = await writeDayRecord(DailyReport, childId, date, fields, clientId);
+    await result.doc.populate([
       { path: 'child_id', select: 'name birth_date' },
       { path: 'created_by', select: 'firstName lastName' }
     ]);
-    return report;
+    return result;
   }
 
   static async findByChildId(childId: string, startDate?: Date, endDate?: Date): Promise<IDailyReportDocument[]> {

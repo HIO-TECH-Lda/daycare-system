@@ -338,10 +338,15 @@ export const createDailyReportSchema = Joi.object({
   mood: Joi.string().optional().allow(''),
   notes: Joi.string().optional().allow(''),
   behavior_notes: Joi.string().optional().allow(''),
-  health_notes: Joi.string().optional().allow('')
+  health_notes: Joi.string().optional().allow(''),
+  // Offline sync: the app's id for this record (same id again = same record)
+  client_id: Joi.string().trim().max(64)
 });
 
-export const updateDailyReportSchema = createDailyReportSchema;
+// Updates can't move a report to another child or day; `base_updated_at` is the version the app edited
+export const updateDailyReportSchema = createDailyReportSchema
+  .fork(['child_id', 'date', 'client_id'], (field) => field.optional().strip())
+  .keys({ base_updated_at: Joi.date() });
 
 export const createActivitySchema = Joi.object({
   name: Joi.string().trim().required().messages({
@@ -379,14 +384,18 @@ export const createAttendanceSchema = Joi.object({
   status: Joi.string().valid('present', 'absent', 'late', 'excused').required().messages({
     'any.required': 'Status é obrigatório'
   }),
-  notes: Joi.string().optional().allow('')
+  notes: Joi.string().optional().allow(''),
+  // Offline sync: the app's id for this record (same id again = same record)
+  client_id: Joi.string().trim().max(64)
 });
 
 export const updateAttendanceSchema = Joi.object({
   check_in: Joi.date().optional(),
   check_out: Joi.date().optional(),
   status: Joi.string().valid('present', 'absent', 'late', 'excused').optional(),
-  notes: Joi.string().optional().allow('')
+  notes: Joi.string().optional().allow(''),
+  // The version the app edited: a newer stored version is reported as a conflict
+  base_updated_at: Joi.date()
 });
 
 export const createCalendarEventSchema = Joi.object({
@@ -512,7 +521,7 @@ export const createMessageSchema = Joi.object({
   }),
   message_type: Joi.string().valid('info', 'reminder', 'alert', 'general').optional(),
   child_id: Joi.string().optional()
-});
+}).or('recipient_id', 'recipient_role').messages({ 'object.missing': 'Indique o destinatário' });
 
 export const createMonthlyReportSchema = Joi.object({
   child_id: Joi.string().required().messages({

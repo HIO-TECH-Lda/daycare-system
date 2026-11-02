@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { runInBackground } from '../utils/background';
+import { changedSince } from '../utils/syncWrite';
+import Attendance from '../models/Attendance';
 import { AttendanceService } from '../services/attendanceService';
 import { NotificationService } from '../services/notificationService';
 import { catchAsync } from '../utils/catchAsync';
@@ -8,6 +10,29 @@ import { getPaginationParams } from '../utils/pagination';
 import Child from '../models/Child';
 import User from '../models/User';
 import { AccessService } from '../services/accessService';
+
+/** WhatsApp check-in/check-out message to the family (with consent), after the response. */
+function notifyAttendance(attendance: any, what: { checkIn: boolean; checkOut: boolean }): void {
+  if (!what.checkIn && !what.checkOut) return;
+  if (attendance.status !== 'present' && attendance.status !== 'late') return;
+  runInBackground('AttendanceController notification', async () => {
+    const child = await Child.findById(attendance.child_id?._id ?? attendance.child_id);
+    if (!child) return;
+    const parent = await User.findById(child.parent_id);
+    if (!parent || !NotificationService.whatsAppNumberFor(parent)) return;
+    const dateStr = new Date(attendance.date).toLocaleDateString('pt-PT');
+    const time = (value: Date) => new Date(value).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Maputo' });
+    const common = {
+      parentEmail: parent.email,
+      parentPhone: NotificationService.whatsAppNumberFor(parent),
+      parentName: parent.fullName,
+      childName: child.name,
+      date: dateStr
+    };
+    if (what.checkIn) await NotificationService.attendanceCheckIn({ ...common, checkInTime: time(attendance.check_in) });
+    if (what.checkOut) await NotificationService.attendanceCheckOut({ ...common, checkOutTime: time(attendance.check_out) });
+  });
+}
 
 export class AttendanceController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
@@ -53,80 +78,42 @@ export class AttendanceController {
     return res.json(ApiResponse.success(attendance, 'Registro de presença recuperado com sucesso'));
   });
 
+  // Offline-safe: a replayed client_id returns the saved record; an existing record for the
+  // child and day is updated (newest write wins) and the previous values are returned
   static create = catchAsync(async (req: Request, res: Response) => {
-    const attendance = await AttendanceService.create({
-      ...req.body,
-      recorded_by: req.user!.userId
+    const { child_id, date, client_id, ...fields } = req.body;
+    const { doc: attendance, outcome, previous } = await AttendanceService.record(
+      child_id, date, { ...fields, recorded_by: req.user!.userId }, client_id
+    );
+    res.status(outcome === 'created' ? 201 : 200).json({
+      ...ApiResponse.success(attendance, 'Registro de presença guardado'),
+      sync: outcome,
+      ...(outcome === 'merged' && { conflict: true, previous })
     });
-    res.status(201).json(ApiResponse.success(attendance, 'Registro de presença criado com sucesso', 201));
 
-    // Fire-and-forget check-in/check-out WhatsApp notification to parent
-    if (attendance.status === 'present' || attendance.status === 'late') {
-      runInBackground('AttendanceController notification', async () => {
-        try {
-          const child = await Child.findById(attendance.child_id);
-          if (!child) return;
-          const parent = await User.findById(child.parent_id);
-          if (!parent || !NotificationService.whatsAppNumberFor(parent)) return;
-          const dateStr = new Date(attendance.date).toLocaleDateString('pt-BR');
-          if (attendance.check_in) {
-            const timeStr = new Date(attendance.check_in).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            await NotificationService.attendanceCheckIn({
-              parentEmail: parent.email,
-              parentPhone: NotificationService.whatsAppNumberFor(parent),
-              parentName: parent.fullName,
-              childName: child.name,
-              checkInTime: timeStr,
-              date: dateStr
-            });
-          } else if (attendance.check_out) {
-            const timeStr = new Date(attendance.check_out).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            await NotificationService.attendanceCheckOut({
-              parentEmail: parent.email,
-              parentPhone: NotificationService.whatsAppNumberFor(parent),
-              parentName: parent.fullName,
-              childName: child.name,
-              checkOutTime: timeStr,
-              date: dateStr
-            });
-          }
-        } catch (err) {
-          console.error('[AttendanceController] Notification error:', err);
-        }
+    // Tell the family about a check-in/check-out only the first time it's recorded
+    if (outcome !== 'replayed') {
+      notifyAttendance(attendance, {
+        checkIn: !!attendance.check_in && !previous?.check_in,
+        checkOut: !!attendance.check_out && !previous?.check_out
       });
     }
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {
-    const attendance = await AttendanceService.update(req.params.id, req.body);
+    const { base_updated_at, ...changes } = req.body;
+    const before = await Attendance.findById(req.params.id).lean();
+    const attendance = await AttendanceService.update(req.params.id, changes);
     if (!attendance) {
       return res.status(404).json({ success: false, message: 'Registro de presença não encontrado' });
     }
-    res.json(ApiResponse.success(attendance, 'Registro de presença atualizado com sucesso'));
+    const conflict = changedSince(before, base_updated_at);
+    res.json({
+      ...ApiResponse.success(attendance, 'Registro de presença atualizado com sucesso'),
+      ...(conflict && { conflict: true, previous: before })
+    });
 
-    // Fire-and-forget check-out notification when check_out is recorded
-    if (req.body.check_out) {
-      runInBackground('AttendanceController notification', async () => {
-        try {
-          const child = await Child.findById(attendance.child_id);
-          if (!child) return;
-          const parent = await User.findById(child.parent_id);
-          if (!parent || !NotificationService.whatsAppNumberFor(parent)) return;
-          const timeStr = new Date(req.body.check_out).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-          const dateStr = new Date(attendance.date).toLocaleDateString('pt-BR');
-          await NotificationService.attendanceCheckOut({
-            parentEmail: parent.email,
-            parentPhone: NotificationService.whatsAppNumberFor(parent),
-            parentName: parent.fullName,
-            childName: child.name,
-            checkOutTime: timeStr,
-            date: dateStr
-          });
-        } catch (err) {
-          console.error('[AttendanceController] Notification error:', err);
-        }
-      });
-    }
+    notifyAttendance(attendance, { checkIn: false, checkOut: !!changes.check_out && !before?.check_out });
     return;
   });
 

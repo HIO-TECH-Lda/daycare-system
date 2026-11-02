@@ -70,6 +70,10 @@ const requiredEnvVars: RequiredEnvVars = {
     required: false,
     description: 'Secret for signed photo links (defaults to one derived from JWT_SECRET)'
   },
+  CRON_SECRET: {
+    required: false,
+    description: 'Secret Vercel Cron sends to /api/v1/jobs/*. Without it the overdue-invoice job is disabled.'
+  },
   CORS_ORIGINS: {
     required: false,
     description: 'Comma-separated browser origins allowed to call the API (supports * wildcards). Required in production.'
@@ -132,6 +136,10 @@ export function validateEnvironmentVariables(): boolean {
     });
     console.error('\nPlease set these variables in your .env file');
     return false;
+  }
+
+  if (process.env.NODE_ENV === 'production' && !process.env.CRON_SECRET) {
+    console.warn('⚠️  CRON_SECRET is not set: overdue invoices will not be marked automatically.');
   }
 
   if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGINS) {

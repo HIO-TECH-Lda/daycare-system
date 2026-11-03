@@ -78,12 +78,7 @@ export class AuthController {
     runInBackground('forgot-password', async () => {
       const result = await AuthService.requestPasswordReset(identifier);
       if (result?.kind === 'reset') {
-        await NotificationService.passwordReset({
-          email: result.user.email,
-          whatsappPhone: NotificationService.whatsAppNumberFor(result.user),
-          name: result.user.firstName,
-          resetToken: result.resetToken
-        });
+        await NotificationService.passwordReset({ user: result.user, resetToken: result.resetToken });
       } else if (result?.kind === 'invite') {
         await UserService.reissueInvite(result.user);
       }

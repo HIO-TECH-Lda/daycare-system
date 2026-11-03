@@ -1,5 +1,9 @@
 import Payment, { IPaymentDocument } from '../models/Payment';
 import { InvoiceService } from './invoiceService';
+import { NotificationService } from './notificationService';
+import { runInBackground } from '../utils/background';
+import User from '../models/User';
+import Child from '../models/Child';
 import mongoose from 'mongoose';
 
 export class PaymentService {
@@ -34,8 +38,16 @@ export class PaymentService {
       const invoice = await InvoiceService.findById(data.invoice_id);
       if (invoice) {
         const totalPaid = await this.getTotalPaidForInvoice(data.invoice_id);
-        if (totalPaid >= invoice.amount) {
+        if (totalPaid >= invoice.amount && invoice.status !== 'paid') {
           await InvoiceService.updateStatus(data.invoice_id, 'paid');
+          // "Payment confirmed" to the family, after the response
+          runInBackground('payment notification', async () => {
+            // findById populated these: look the full documents up (consent and preferences)
+            const idOf = (ref: any) => ref?._id ?? ref;
+            const [parent, child] = await Promise.all([User.findById(idOf(invoice.parent_id)), Child.findById(idOf(invoice.child_id))]);
+            if (!parent || !child) return;
+            await NotificationService.invoicePaid({ parent, childName: child.name, invoiceNumber: invoice.invoice_number, amount: invoice.amount });
+          });
         }
       }
     }

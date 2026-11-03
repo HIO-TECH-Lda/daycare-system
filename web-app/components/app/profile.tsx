@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth/auth-context';
-import { authApi } from '@/lib/api/auth';
+import { authApi, type NotificationPrefs, type PrefCategory, type User } from '@/lib/api/auth';
 import { formatPhone } from '@/lib/format';
 import { newPasswordForm } from '@/lib/validation';
 import { ROLE_LABELS } from '@/lib/roles';
@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 const passwordForm = newPasswordForm.and(z.object({ currentPassword: z.string().min(1, 'Indique a palavra-passe actual') }));
 type PasswordValues = z.infer<typeof passwordForm>;
 
-/** Own contacts, WhatsApp consent and password (email and role are set by the administration). */
+/** Own contacts, WhatsApp consent, notification choices and password (email and role are set by the administration). */
 export function Profile() {
   const { user, setUser } = useAuth();
   const [first, ...rest] = (user?.name ?? '').split(' ');
@@ -93,6 +93,8 @@ export function Profile() {
         </Button>
       </form>
 
+      <NotificationChoices user={user} onSaved={setUser} />
+
       <form method="post" className="grid gap-4 rounded-2xl border bg-card p-5" onSubmit={changePassword}>
         <h3 className="font-heading text-lg font-bold">Palavra-passe</h3>
         <Field data-invalid={!!password.formState.errors.currentPassword}>
@@ -106,5 +108,80 @@ export function Profile() {
         </Button>
       </form>
     </div>
+  );
+}
+
+const CHOICES: { category: PrefCategory; label: string; hint: string }[] = [
+  { category: 'attendance', label: 'Entradas e saídas', hint: 'Quando a criança chega e sai do centro (duas por dia).' },
+  { category: 'reports', label: 'Relatórios', hint: 'Relatório do dia e relatório mensal.' },
+  { category: 'billing', label: 'Propinas e facturas', hint: 'Novas facturas, atrasos e pagamentos confirmados.' },
+  { category: 'messages', label: 'Mensagens', hint: 'Mensagens novas do centro.' }
+];
+
+const DEFAULT_PREFS: NotificationPrefs = {
+  attendance: { whatsapp: true, email: false },
+  reports: { whatsapp: true, email: true },
+  billing: { whatsapp: true, email: true },
+  messages: { whatsapp: true, email: true }
+};
+
+/** Which channel each kind of message comes by. Saved on each change. */
+function NotificationChoices({ user, onSaved }: { user: User; onSaved: (user: User) => void }) {
+  const [prefs, setPrefs] = useState<NotificationPrefs>(user.notificationPrefs ?? DEFAULT_PREFS);
+  // Families get every kind; the centre's team only gets messages
+  const choices = user.role === 'responsavel' ? CHOICES : CHOICES.filter((choice) => choice.category === 'messages');
+  const canWhatsApp = user.whatsappOptIn && !!user.phone;
+  const canEmail = !!user.email;
+
+  const change = async (category: PrefCategory, channel: 'whatsapp' | 'email', value: boolean) => {
+    const previous = prefs;
+    setPrefs({ ...prefs, [category]: { ...prefs[category], [channel]: value } });
+    try {
+      onSaved(await authApi.updateProfile({ notificationPrefs: { [category]: { [channel]: value } } }));
+    } catch (error) {
+      setPrefs(previous);
+      toast.error(error instanceof Error ? error.message : 'Não foi possível guardar.');
+    }
+  };
+
+  return (
+    <section className="grid gap-3 rounded-2xl border bg-card p-5" aria-labelledby="choices-title">
+      <div className="space-y-1">
+        <h3 id="choices-title" className="font-heading text-lg font-bold">
+          Avisos
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Escolha como quer receber cada aviso. Convites e links de palavra-passe chegam sempre.
+          {!canWhatsApp && ' Para escolher WhatsApp, indique o telemóvel e aceite os avisos por WhatsApp acima.'}
+        </p>
+      </div>
+      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 gap-y-3">
+        <span />
+        <span className="text-center text-xs font-semibold text-muted-foreground">WhatsApp</span>
+        <span className="text-center text-xs font-semibold text-muted-foreground">Email</span>
+        {choices.map((choice) => (
+          <div key={choice.category} className="contents">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{choice.label}</p>
+              <p className="text-xs text-muted-foreground">{choice.hint}</p>
+            </div>
+            <Checkbox
+              aria-label={`${choice.label} por WhatsApp`}
+              className="mx-auto size-5"
+              checked={canWhatsApp && prefs[choice.category].whatsapp}
+              disabled={!canWhatsApp}
+              onCheckedChange={(value) => void change(choice.category, 'whatsapp', value === true)}
+            />
+            <Checkbox
+              aria-label={`${choice.label} por email`}
+              className="mx-auto size-5"
+              checked={canEmail && prefs[choice.category].email}
+              disabled={!canEmail}
+              onCheckedChange={(value) => void change(choice.category, 'email', value === true)}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

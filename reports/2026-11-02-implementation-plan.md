@@ -40,7 +40,8 @@
 | 3b — Parent screens | ✅ Done ([PR #12](https://github.com/HIO-TECH-Lda/daycare-system/pull/12), merged): Hoje (status, today's report and photos, Avisar ausência, Quem vem buscar hoje), Relatórios (daily timeline, validated monthly), Facturação (owed, Já paguei, history), Eventos, Mensagens (shared with staff), Perfil (contacts, WhatsApp, palavra-passe). API: parent absence notices, one-day pickup authorisations, payment claims. |
 | 3c — Admin people | ✅ Done ([PR #13](https://github.com/HIO-TECH-Lda/daycare-system/pull/13), merged): Painel (action queue, today's figures, attendance per class, parents' absence notices), Matrículas (review, class suggested by age with occupancy, approve with invite result, reject with reason), Pessoas (filters, create and invite, edit, resend invite, password link, deactivate, staff classes), Turmas (capacity, educators, create/edit/delete), Crianças (record, contacts and pickup people with photos, 30-day attendance). No API changes. |
 | 3d — Finance and the rest | 🔍 In review: admin Facturação (invoices, "Já paguei" confirmation, payments, monthly propina run, one-off invoices), Despesas, Relatórios (CSV), Relatórios mensais (validate / return; educators draft and submit), Eventos, admin Mensagens with "Comunicado", public `/matricula`. API: monthly invoice run, permission fixes (educators can't validate their own reports or manage other classes' events), partial updates, category list fix. **Phase 3 complete** except Notificações (delivery log), which moves to Phase W. |
-| W, 4–6 | Not started. |
+| W — WhatsApp | 🔍 In review: one `deliver()` for every notification (consent, then per-category preferences, email fallback, `NotificationLog`), retry with backoff, URL-button links, Graph API v23.0 and `pt_PT`, signed delivery webhook, admin **Notificações** (filters, resend), "Avisos" choices in Perfil, failed sends on the Painel, paid-invoice notice when a payment settles it. Template texts for the centre: `api/docs/WHATSAPP-TEMPLATES.md`. Meta setup (client) still pending. |
+| 4–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
@@ -180,12 +181,11 @@ WhatsApp is the main channel for families in Mozambique, so it is treated as cor
 - [ ] WhatsApp Business Account plus a **dedicated phone number**. It cannot also be in use on the WhatsApp app.
 - [ ] Display name approval ("Sonho de Criança").
 - [ ] A system user with a permanent token, and the Phone Number ID.
-- [ ] Submit the **message templates in Portuguese** for approval. Names must match `api/env.example`. Utility category:
+- [ ] Submit the **message templates in Portuguese** for approval. Names must match `api/env.example`. Utility category, language `pt_PT`; texts, examples and buttons in `api/docs/WHATSAPP-TEMPLATES.md`:
 
 | Template | Purpose |
 |---|---|
 | `sonho_invite` (**new**) | Account invitation with link |
-| `sonho_welcome` | Welcome |
 | `sonho_invoice_new` | New invoice |
 | `sonho_invoice_overdue` | Overdue invoice |
 | `sonho_invoice_paid` | Invoice paid |
@@ -199,18 +199,19 @@ WhatsApp is the main channel for families in Mozambique, so it is treated as cor
 | `sonho_enrollment_approved` (**new**) | Enrolment approved |
 
 **Development**
-- [ ] Review and test `whatsAppService.ts` against the Meta Cloud API, using the Meta test number while verification is pending.
-- [ ] Set `WHATSAPP_API_VERSION` to the current Graph API version (the default `v21.0` dates from October 2024; Meta supports each version for about two years).
-- [ ] Put links (invite, password reset, report) in a **URL button with a dynamic suffix** rather than in the body text, which Meta handles better. `sendTemplate` needs to support button parameters (`sub_type: 'url'`, `index`) for this.
+- [x] Rewrite `whatsAppService.ts` (never throws, retries, Meta's error codes in the log). *(W)*
+- [ ] Test against the Meta Cloud API with the Meta test number while verification is pending (needs the client's Meta app).
+- [x] Set `WHATSAPP_API_VERSION` to the current Graph API version (the default `v21.0` dates from October 2024; Meta supports each version for about two years).
+- [x] Put links (invite, password reset, report) in a **URL button with a dynamic suffix** rather than in the body text, which Meta handles better. `sendTemplate` needs to support button parameters (`sub_type: 'url'`, `index`) for this.
 - [x] Normalise phone numbers to E.164 (`+258…`) on input and validate them in Joi. *(Phase 1a)*
 - [x] **Consent:** `whatsappOptIn` + timestamp per user, captured by the admin (e.g. from the enrolment form), on the invite-acceptance page and on the profile. Every WhatsApp send goes through `whatsAppNumberFor(user)`. *(Phase 1a; the enrolment form will pass it on in 1c)*
-- [ ] **Notification preferences** per user (WhatsApp / email / both) for each category (attendance, reports, billing, messages).
-- [ ] **Delivery tracking:**
+- [x] **Notification preferences** per user (WhatsApp / email / both) for each category (attendance, reports, billing, messages).
+- [x] **Delivery tracking:**
   - A `NotificationLog` collection records channel, template, recipient, status, error and Meta message ID.
   - A webhook `POST /webhooks/whatsapp` (verify token + signature check) updates the status: sent → delivered → read → failed.
-- [ ] Retry failed sends with backoff (cap of 3), and fall back to email when WhatsApp fails.
-- [ ] Admin screen showing a notification log, filterable by failed sends, with a resend action.
-- [ ] Cost awareness: since July 2025 Meta charges **per delivered template message** (not per conversation); utility templates sent inside an open customer-service window are free. Check the rate card for Mozambique. Check-in/check-out notifications are the highest volume, so families can turn them off.
+- [x] Retry failed sends with backoff (cap of 3), and fall back to email when WhatsApp fails.
+- [x] Admin screen showing a notification log, filterable by failed sends, with a resend action.
+- [x] Cost awareness: since July 2025 Meta charges **per delivered template message** (not per conversation); utility templates sent inside an open customer-service window are free. Check the rate card for Mozambique. Check-in/check-out notifications are the highest volume, so families can turn them off. *(W: Perfil → Avisos; costs explained to the centre in WHATSAPP-TEMPLATES.md)*
 
 ### Phase 0 — Foundations ✅
 - [x] Branching:
@@ -394,7 +395,7 @@ A screen is done when it:
 | Eventos | Calendar + CRUD |
 | Relatórios mensais | Validate / reject queue |
 | Mensagens | Inbox + threads |
-| Notificações | WhatsApp/email log, failed sends, resend — *moved to Phase W: it needs a delivery log, filled by the WhatsApp webhooks* |
+| Notificações | WhatsApp/email log, failed sends, resend — built in Phase W ✅ |
 
 **Staff**
 

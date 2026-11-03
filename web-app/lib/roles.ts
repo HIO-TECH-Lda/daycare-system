@@ -56,7 +56,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { href: '/admin/relatorios-mensais', label: 'Relatórios mensais', icon: FileText, description: 'Relatórios de desenvolvimento por validar.' },
     { href: '/admin/eventos', label: 'Eventos', icon: CalendarDays, description: 'Calendário do centro e das turmas.' },
     { href: '/admin/mensagens', label: 'Mensagens', icon: MessageCircle, description: 'Conversas com famílias e equipa.' },
-    { href: '/admin/notificacoes', label: 'Notificações', icon: Bell, description: 'Envios por email e WhatsApp, e falhas. Chega com a integração do WhatsApp.' }
+    { href: '/admin/notificacoes', label: 'Notificações', icon: Bell, description: 'Avisos enviados por WhatsApp e email: entregues, lidos, falhados e reenvios.' }
   ],
   staff: [
     { href: '/staff', label: 'Hoje', icon: Home, tab: true, description: 'As suas turmas hoje: presenças e relatórios por preencher.' },

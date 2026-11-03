@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { useAllChildren, useClasses, useDashboard } from '@/lib/api/admin';
+import { useNotifications } from '@/lib/api/notifications';
 import { refId } from '@/lib/api/types';
 import { formatMT, formatTime, formatWeekday, greeting } from '@/lib/format';
 import { maputoDay } from '@/lib/offline/queue';
@@ -21,6 +22,7 @@ export function AdminDashboard() {
   const data = useDashboard(day);
   const classes = useClasses();
   const children = useAllChildren();
+  const failedNotices = useNotifications({ status: 'failed', page: 1 });
 
   const childCount = children.data?.length ?? 0;
   const capacity = (classes.data ?? []).reduce((sum, item) => sum + (item.capacity ?? 0), 0);
@@ -34,6 +36,7 @@ export function AdminDashboard() {
     { count: data.claims.data, label: 'Pagamentos por confirmar', detail: 'Avisos "Já paguei" dos encarregados', href: '/admin/facturacao', tone: 'teal' },
     { count: overdue?.overdue_count, label: 'Facturas em atraso', detail: overdue ? `${formatMT(overdue.overdue_amount)} no total` : undefined, href: '/admin/facturacao', tone: 'berry' },
     { count: toValidate, label: 'Relatórios mensais por validar', href: '/admin/relatorios-mensais', tone: 'sun' },
+    { count: failedNotices.data?.failedThisWeek, label: 'Avisos que falharam', detail: 'WhatsApp ou email, nos últimos 7 dias', href: '/admin/notificacoes', tone: 'berry' },
     { count: data.invited.data, label: 'Convites por aceitar', detail: 'Contas criadas que ainda não foram activadas', href: '/admin/pessoas?estado=invited', tone: 'muted' }
   ] as const;
   const pending = todo.filter((item) => (item.count ?? 0) > 0);

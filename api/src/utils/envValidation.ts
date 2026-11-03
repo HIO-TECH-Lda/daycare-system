@@ -81,11 +81,12 @@ const requiredEnvVars: RequiredEnvVars = {
   // WhatsApp (Meta Cloud API)
   WHATSAPP_TOKEN: { required: false, description: 'Meta permanent system-user access token' },
   WHATSAPP_PHONE_ID: { required: false, description: 'Meta Phone Number ID (not the actual phone number)' },
-  WHATSAPP_API_VERSION: { required: false, description: 'Meta Graph API version', defaultValue: 'v21.0' },
-  WHATSAPP_LANG: { required: false, description: 'BCP 47 language code for WhatsApp templates', defaultValue: 'pt_BR' },
+  WHATSAPP_API_VERSION: { required: false, description: 'Meta Graph API version', defaultValue: 'v23.0' },
+  WHATSAPP_LANG: { required: false, description: 'Language code the WhatsApp templates were approved in', defaultValue: 'pt_PT' },
+  WHATSAPP_VERIFY_TOKEN: { required: false, description: 'Token Meta sends when setting up the delivery webhook (/api/v1/webhooks/whatsapp)' },
+  WHATSAPP_APP_SECRET: { required: false, description: 'Meta app secret, to check webhook signatures. Without it (or the verify token) the webhook is disabled.' },
   // Optional: override default WhatsApp template names
   WA_TEMPLATE_INVITE: { required: false, description: 'WhatsApp template: account invite' },
-  WA_TEMPLATE_WELCOME: { required: false, description: 'WhatsApp template: welcome' },
   WA_TEMPLATE_INVOICE_NEW: { required: false, description: 'WhatsApp template: new invoice' },
   WA_TEMPLATE_INVOICE_OVERDUE: { required: false, description: 'WhatsApp template: overdue invoice' },
   WA_TEMPLATE_INVOICE_PAID: { required: false, description: 'WhatsApp template: invoice paid' },
@@ -94,7 +95,9 @@ const requiredEnvVars: RequiredEnvVars = {
   WA_TEMPLATE_NEW_MESSAGE: { required: false, description: 'WhatsApp template: new message received' },
   WA_TEMPLATE_ATTENDANCE_CHECKIN: { required: false, description: 'WhatsApp template: child checked in' },
   WA_TEMPLATE_ATTENDANCE_CHECKOUT: { required: false, description: 'WhatsApp template: child checked out' },
-  WA_TEMPLATE_PASSWORD_RESET: { required: false, description: 'WhatsApp template: password reset' }
+  WA_TEMPLATE_PASSWORD_RESET: { required: false, description: 'WhatsApp template: password reset' },
+  WA_TEMPLATE_ENROLLMENT_RECEIVED: { required: false, description: 'WhatsApp template: enrolment request received' },
+  WA_TEMPLATE_ENROLLMENT_APPROVED: { required: false, description: 'WhatsApp template: enrolment approved' }
 };
 
 export function validateEnvironmentVariables(): boolean {

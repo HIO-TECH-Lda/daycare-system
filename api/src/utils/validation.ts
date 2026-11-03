@@ -128,7 +128,11 @@ export const updateProfileSchema = Joi.object({
   }),
   phone: phoneNumber.allow(''),
   avatar: Joi.string().optional().allow(''),
-  whatsappOptIn: Joi.boolean()
+  whatsappOptIn: Joi.boolean(),
+  // Per kind of message: { attendance: { whatsapp: true, email: false }, ... }
+  notificationPrefs: Joi.object(
+    Object.fromEntries(['attendance', 'reports', 'billing', 'messages'].map((category) => [category, Joi.object({ whatsapp: Joi.boolean(), email: Joi.boolean() })]))
+  )
 });
 
 export const refreshTokenSchema = Joi.object({

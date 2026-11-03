@@ -119,13 +119,10 @@ export class MessageController {
           ]);
           if (sender && recipient) {
             await NotificationService.newMessage({
-              recipientEmail: recipient.email,
-              recipientPhone: NotificationService.whatsAppNumberFor(recipient),
-              recipientName: recipient.fullName,
+              recipient,
               senderName: sender.fullName,
               subject: message.subject,
-              preview: message.content,
-              role: recipient.role
+              preview: message.content
             });
           }
         } catch (err) {

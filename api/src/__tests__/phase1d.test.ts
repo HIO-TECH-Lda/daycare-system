@@ -146,7 +146,7 @@ describe('overdue invoices job', () => {
 
   it('marks pending invoices past their due date as overdue, once, and tells the family', async () => {
     process.env.CRON_SECRET = 'cron-secret';
-    const notify = jest.spyOn(NotificationService, 'invoiceOverdue').mockResolvedValue();
+    const notify = jest.spyOn(NotificationService, 'invoiceOverdue').mockResolvedValue({ email: true, whatsapp: false });
     const w = await world();
     const base = { child_id: w.childA._id, parent_id: w.parentA._id, issue_date: new Date('2026-09-01'), amount: 100, created_by: w.admin._id };
     const late = await Invoice.create({ ...base, invoice_number: 'A', due_date: new Date('2026-09-10'), status: 'pending' });
@@ -163,7 +163,7 @@ describe('overdue invoices job', () => {
 
     await settleBackgroundTasks();
     expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ invoiceNumber: 'A', parentPhone: '+258841111111' }));
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ invoiceNumber: 'A', parent: expect.objectContaining({ phone: '+258841111111' }) }));
 
     expect((await run()).body.data.marked_overdue).toBe(0);
   });
@@ -237,7 +237,7 @@ describe('offline sync', () => {
 
   it('daily report: one per child per day; the family is told only when it is first created', async () => {
     const w = await world();
-    const notify = jest.spyOn(NotificationService, 'newDailyReport').mockResolvedValue();
+    const notify = jest.spyOn(NotificationService, 'newDailyReport').mockResolvedValue({ email: true, whatsapp: false });
     const staff = as(w.staffX);
 
     const first = await staff.post('/daily-reports', { child_id: id(w.childA), date: '2026-11-02', mood: 'feliz', client_id: 'r-1' });

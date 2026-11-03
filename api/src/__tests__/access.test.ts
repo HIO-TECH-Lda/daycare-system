@@ -190,7 +190,7 @@ describe('per-role access: finance and admin data', () => {
 
   it('parents see only their own invoices and payments', async () => {
     expect(ids((await get(w.parentA, '/invoices')).body)).toEqual([id(w.a.invoice)]);
-    expect((await get(w.parentA, `/invoices/${id(w.b.invoice)}`)).status).toBe(403);
+    expect((await get(w.parentA, `/invoices/${id(w.b.invoice)}`)).status).toBe(404);
     expect(ids((await get(w.parentA, '/payments')).body)).toEqual([id(w.a.payment)]);
     expect((await get(w.parentA, `/payments/${id(w.b.payment)}`)).status).toBe(404);
     expect((await get(w.parentA, `/payments/invoice/${id(w.b.invoice)}`)).status).toBe(404);

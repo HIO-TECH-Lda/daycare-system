@@ -83,7 +83,7 @@ export function StaffMonthlyReports() {
       {rows.length === 0 ? (
         <EmptyState icon={FileText} title="Sem crianças nesta turma" />
       ) : (
-        <ul className="grid gap-2">
+        <ul className="grid grid-cols-1 gap-2">
           {rows.map((item) => {
             const report = reportFor(item._id);
             const [label, className] = STATUS[report?.status ?? 'none'];

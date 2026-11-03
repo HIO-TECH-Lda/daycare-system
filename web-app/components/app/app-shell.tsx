@@ -198,11 +198,14 @@ function UserMenu({ name, role, onLogout, compact }: { name: string; role: Role;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className={cn('h-auto gap-3 px-2 py-2', !compact && 'w-full justify-start')} aria-label="Menu da conta">
-          <Avatar className="size-8">
+        {/* Named by the person's name (what's on screen), not a separate label */}
+        <Button variant="ghost" className={cn('h-auto gap-3 px-2 py-2', !compact && 'w-full justify-start')}>
+          <Avatar className="size-8" aria-hidden>
             <AvatarFallback className="bg-teal-tint text-xs font-semibold text-teal-text">{initials(name)}</AvatarFallback>
           </Avatar>
-          {!compact && (
+          {compact ? (
+            <span className="sr-only">{name}</span>
+          ) : (
             <span className="min-w-0 text-left leading-tight">
               <span className="block truncate text-sm font-medium">{name}</span>
               <span className="block truncate text-xs text-muted-foreground">{ROLE_LABELS[role]}</span>

@@ -168,7 +168,7 @@ export function AttendanceBoard() {
           Quando a administração inscrever crianças nesta turma, aparecem aqui.
         </EmptyState>
       ) : (
-        <ul className="grid gap-2">
+        <ul className="grid grid-cols-1 gap-2">
           {rows.map((child) => (
             <AttendanceRow
               key={child._id}

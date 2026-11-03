@@ -101,9 +101,11 @@ export function Enrollments() {
             );
           })}
           {rows.length === 0 && (
-            <EmptyState icon={Inbox} title={tab === 'open' ? 'Nenhum pedido por analisar' : 'Nada aqui ainda'}>
-              {tab === 'open' ? 'Os pedidos feitos em /matricula aparecem aqui.' : undefined}
-            </EmptyState>
+            <li>
+              <EmptyState icon={Inbox} title={tab === 'open' ? 'Nenhum pedido por analisar' : 'Nada aqui ainda'}>
+                {tab === 'open' ? 'Os pedidos feitos em /matricula aparecem aqui.' : undefined}
+              </EmptyState>
+            </li>
           )}
         </ul>
 

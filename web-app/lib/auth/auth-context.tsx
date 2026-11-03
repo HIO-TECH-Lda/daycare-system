@@ -44,6 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!rejected) restored = session.cachedUser<User>();
           else {
             session.clear();
+            // Also from memory, so closing the app doesn't store it again
+            queryClient.clear();
             void clearOfflineData();
           }
         }
@@ -56,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [queryClient]);
 
   // Writes still waiting to sync stay on the device and are sent when this person signs in again
   const logout = useCallback(() => {

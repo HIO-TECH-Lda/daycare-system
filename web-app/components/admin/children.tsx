@@ -62,7 +62,7 @@ export function Children() {
           As crianças entram aqui quando uma matrícula é aprovada.
         </EmptyState>
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {rows.map((item) => (
             <li key={item._id}>
               <button type="button" onClick={() => setOpen(item._id)} className="flex h-full w-full items-center gap-3 rounded-xl border bg-card p-3 text-left hover:border-brand-green">

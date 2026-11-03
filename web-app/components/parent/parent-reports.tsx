@@ -125,7 +125,7 @@ function MonthlyList({ childId }: { childId: string }) {
   }
   return (
     <>
-      <ul className="grid gap-2">
+      <ul className="grid grid-cols-1 gap-2">
         {mine.map((report) => (
           <li key={report._id}>
             <button type="button" onClick={() => setOpen(report)} className="flex w-full items-center gap-3 rounded-xl border bg-card p-4 text-left hover:border-brand-green">

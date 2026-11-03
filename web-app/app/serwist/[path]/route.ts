@@ -4,13 +4,15 @@
  * route segment options (`dynamic`, `revalidate`, ...) that Serwist also returns.
  */
 import { createSerwistRoute } from '@serwist/turbopack';
+import { NAV } from '@/lib/roles';
 
 // Ties the precached files to a release, so a new deploy refreshes them
 const revision = process.env.COMMIT_REF ?? process.env.VERCEL_GIT_COMMIT_SHA ?? crypto.randomUUID();
 
-// The entry pages, so an installed tablet opens offline even before visiting them (other pages
-// are cached as they're visited)
-const pages = ['/', '/login', '/staff', '/responsavel', '/admin', '/~offline'];
+// Every screen in the navigation, so an installed tablet reopens offline on any of them. Pages
+// reached by tapping the menu are fetched as data, never as a document, so they wouldn't be
+// cached otherwise. They're static shells: each person's data comes from the API, not the page.
+const pages = ['/', '/login', '/~offline', ...new Set(Object.values(NAV).flatMap((items) => items.map((item) => item.href)))];
 
 const route = createSerwistRoute({
   swSrc: 'app/sw.ts',

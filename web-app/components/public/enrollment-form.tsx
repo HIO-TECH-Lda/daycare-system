@@ -200,7 +200,9 @@ export function EnrollmentForm() {
               <Field label="Data de nascimento">
                 <Input type="date" max={today} value={draft.child.birth_date} onChange={(e) => setChild({ birth_date: e.target.value })} className="h-11" />
               </Field>
-              <Field label="Sexo">
+              {/* Two buttons: a labelled group, not a <label> (which would name both buttons "Sexo …") */}
+              <div role="group" aria-labelledby="sexo-label" className="grid gap-1 text-sm font-medium">
+                <span id="sexo-label">Sexo</span>
                 <div className="flex gap-2">
                   {(['Feminino', 'Masculino'] as const).map((value) => (
                     <button
@@ -214,7 +216,7 @@ export function EnrollmentForm() {
                     </button>
                   ))}
                 </div>
-              </Field>
+              </div>
             </div>
             <Field label="Alergias" hint="Deixe vazio se nenhuma.">
               <Input value={draft.child.allergies} onChange={(e) => setChild({ allergies: e.target.value })} placeholder="Ex.: amendoim, leite" className="h-11" />

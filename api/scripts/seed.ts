@@ -28,6 +28,7 @@ import ReportPhoto from '../src/models/ReportPhoto';
 import Attendance from '../src/models/Attendance';
 import CalendarEvent from '../src/models/CalendarEvent';
 import Invoice from '../src/models/Invoice';
+import Counter from '../src/models/Counter';
 import Payment from '../src/models/Payment';
 import ExpenseCategory from '../src/models/ExpenseCategory';
 import Expense from '../src/models/Expense';
@@ -695,6 +696,13 @@ async function seedDatabase() {
       created_by: admin._id
     });
 
+    // The numbers above were set by hand: move the counters past them, or the next invoice the
+    // app issues would reuse INV-<year>-0001
+    for (const year of [...new Set([currentYear, prevMonthYear])]) {
+      const last = await Invoice.find({ invoice_number: new RegExp(`^INV-${year}-`) }).sort({ invoice_number: -1 }).limit(1).lean();
+      const seq = last[0] ? Number(last[0].invoice_number.split('-')[2]) : 0;
+      await Counter.findOneAndUpdate({ _id: `invoice_${year}` }, { seq }, { upsert: true });
+    }
     console.log('✅ 4 invoices created\n');
 
     // ── 13. Payments ─────────────────────────────────────────────────────────

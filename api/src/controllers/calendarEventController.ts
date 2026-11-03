@@ -4,6 +4,17 @@ import { catchAsync } from '../utils/catchAsync';
 import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
 import { AccessService } from '../services/accessService';
+import CalendarEvent from '../models/CalendarEvent';
+import { ApiError } from '../utils/ApiError';
+
+/** Educators manage their own classes' events; centre-wide events (no class) are the administration's. */
+async function assertCanManage(req: Request, classId: unknown): Promise<void> {
+  const scope = await AccessService.scopeFor(req);
+  if (scope.all) return;
+  if (!classId || !AccessService.canSeeClass(scope, classId)) {
+    throw new ApiError(403, 'Só pode gerir eventos das suas turmas');
+  }
+}
 
 export class CalendarEventController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
@@ -30,6 +41,7 @@ export class CalendarEventController {
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
+    await assertCanManage(req, req.body.class_id);
     const event = await CalendarEventService.create({
       ...req.body,
       created_by: req.user!.userId
@@ -38,6 +50,10 @@ export class CalendarEventController {
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {
+    const existing = await CalendarEvent.findById(req.params.id).select('class_id').lean();
+    if (!existing) return res.status(404).json({ success: false, message: 'Evento não encontrado' });
+    await assertCanManage(req, existing.class_id);
+    if ('class_id' in req.body) await assertCanManage(req, req.body.class_id);
     const event = await CalendarEventService.update(req.params.id, req.body);
     if (!event) {
       return res.status(404).json({ success: false, message: 'Evento não encontrado' });
@@ -46,6 +62,9 @@ export class CalendarEventController {
   });
 
   static delete = catchAsync(async (req: Request, res: Response) => {
+    const existing = await CalendarEvent.findById(req.params.id).select('class_id').lean();
+    if (!existing) return res.status(404).json({ success: false, message: 'Evento não encontrado' });
+    await assertCanManage(req, existing.class_id);
     const event = await CalendarEventService.delete(req.params.id);
     if (!event) {
       return res.status(404).json({ success: false, message: 'Evento não encontrado' });

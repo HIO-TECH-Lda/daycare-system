@@ -7,6 +7,7 @@ import { ChevronLeft, Megaphone, MessageCircle, Plus, Search, Send } from 'lucid
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth/auth-context';
 import { useConversations, useMarkRead, useRecipients, useSendMessage, type Conversation } from '@/lib/api/messages';
+import { useBroadcast } from '@/lib/api/finance';
 import { refId, type Message, type Recipient } from '@/lib/api/types';
 import { formatDate, formatTime, initials } from '@/lib/format';
 import { maputoDay } from '@/lib/offline/queue';
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from '@/components/app/page-states';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
@@ -39,6 +41,7 @@ export function Messages() {
   const data = useConversations();
   const recipients = useRecipients();
   const [picking, setPicking] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(false);
 
   if (data.isPending) return <ListSkeleton rows={5} />;
   if (data.error && !data.conversations.length) return <ErrorState error={data.error} onRetry={() => void data.refetch()} />;
@@ -54,10 +57,18 @@ export function Messages() {
         <PageHeader
           title="Mensagens"
           actions={
-            <Button size="touch" onClick={() => setPicking(true)}>
-              <Plus aria-hidden />
-              Nova mensagem
-            </Button>
+            <>
+              {user?.role === 'administrador' && (
+                <Button size="touch" variant="outline" onClick={() => setBroadcasting(true)}>
+                  <Megaphone aria-hidden />
+                  Comunicado
+                </Button>
+              )}
+              <Button size="touch" onClick={() => setPicking(true)}>
+                <Plus aria-hidden />
+                Nova mensagem
+              </Button>
+            </>
           }
         />
       </div>
@@ -101,7 +112,69 @@ export function Messages() {
       </div>
 
       <RecipientPicker open={picking} onClose={() => setPicking(false)} recipients={recipients.data ?? []} loading={recipients.isPending} pathname={pathname} />
+      {user?.role === 'administrador' && <BroadcastDialog open={broadcasting} onClose={() => setBroadcasting(false)} />}
     </div>
+  );
+}
+
+/** "Comunicado": one message to all parents or all staff (administration only). */
+function BroadcastDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const broadcast = useBroadcast();
+  const [role, setRole] = useState<'responsavel' | 'staff'>('responsavel');
+  const [subject, setSubject] = useState('');
+  const [content, setContent] = useState('');
+
+  const submit = async () => {
+    try {
+      await broadcast.mutateAsync({ role, subject: subject.trim(), content: content.trim() });
+      toast.success(role === 'responsavel' ? 'Comunicado enviado a todos os encarregados.' : 'Comunicado enviado a toda a equipa.');
+      setSubject('');
+      setContent('');
+      onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível enviar.');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Comunicado</DialogTitle>
+          <DialogDescription>Aparece em &quot;Comunicados do centro&quot; de cada pessoa.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="flex gap-2">
+            {(
+              [
+                ['responsavel', 'Todos os encarregados'],
+                ['staff', 'Toda a equipa']
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={role === value}
+                onClick={() => setRole(value)}
+                className={cn('h-11 rounded-full border px-4 text-sm', role === value ? 'border-green-text bg-green-tint font-semibold text-green-text' : 'bg-background')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <Input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Assunto" aria-label="Assunto" className="h-11" />
+          <Textarea value={content} onChange={(event) => setContent(event.target.value)} rows={5} placeholder="Mensagem" aria-label="Mensagem" />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button disabled={!subject.trim() || !content.trim() || broadcast.isPending} onClick={() => void submit()}>
+            Enviar a todos
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

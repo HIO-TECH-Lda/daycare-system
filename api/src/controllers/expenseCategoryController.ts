@@ -6,7 +6,8 @@ import { getPaginationParams } from '../utils/pagination';
 
 export class ExpenseCategoryController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
-    const activeOnly = req.query.active_only === 'true';
+    // Without ?active_only=true, list every category (active and inactive)
+    const activeOnly = req.query.active_only === 'true' ? true : undefined;
     const { page, limit } = getPaginationParams(req);
     const { categories, total } = await ExpenseCategoryService.findAll(activeOnly, page, limit);
     res.json(ApiResponse.paginated(categories, { page, limit, total }, 'Categorias de despesas recuperadas com sucesso'));

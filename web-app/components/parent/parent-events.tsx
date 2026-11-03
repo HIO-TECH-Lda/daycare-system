@@ -15,7 +15,8 @@ export function ParentEvents() {
 
   const months = new Map<string, typeof events.data>();
   for (const event of events.data) {
-    const month = monthFormat.format(new Date(event.start_date));
+    // "novembro de 2026" → "Novembro de 2026" (CSS capitalize would also capitalise "de")
+    const month = monthFormat.format(new Date(event.start_date)).replace(/^./, (letter) => letter.toUpperCase());
     months.set(month, [...(months.get(month) ?? []), event]);
   }
 
@@ -29,7 +30,7 @@ export function ParentEvents() {
       ) : (
         [...months].map(([month, items]) => (
           <section key={month} className="grid gap-2">
-            <h3 className="font-heading text-lg font-bold capitalize">{month}</h3>
+            <h3 className="font-heading text-lg font-bold">{month}</h3>
             <ul className="grid gap-2">
               {items.map((event) => (
                 <li key={event._id} className="rounded-2xl border bg-card p-4">

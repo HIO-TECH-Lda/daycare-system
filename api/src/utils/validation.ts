@@ -425,10 +425,12 @@ export const createCalendarEventSchema = Joi.object({
   end_date: Joi.date().optional(),
   is_all_day: Joi.boolean().optional(),
   event_type: Joi.string().valid('holiday', 'activity', 'meeting', 'reminder', 'other').optional(),
-  class_id: Joi.string().optional()
+  // null: the whole centre (lets an edit move a class event to everyone)
+  class_id: Joi.string().optional().allow(null)
 });
 
-export const updateCalendarEventSchema = createCalendarEventSchema;
+// Partial updates: only the fields sent change
+export const updateCalendarEventSchema = createCalendarEventSchema.fork(['title', 'start_date'], (field) => field.optional());
 
 export const createInvoiceSchema = Joi.object({
   child_id: Joi.string().required().messages({
@@ -452,7 +454,24 @@ export const createInvoiceSchema = Joi.object({
   })).required().messages({
     'any.required': 'Itens são obrigatórios'
   }),
-  notes: Joi.string().optional().allow('')
+  notes: Joi.string().optional().allow(''),
+  period: Joi.string().pattern(/^\d{4}-(0[1-9]|1[0-2])$/).optional()
+});
+
+// The month's propina for every child of the chosen classes (an amount per class)
+export const generateInvoicesSchema = Joi.object({
+  period: Joi.string().pattern(/^\d{4}-(0[1-9]|1[0-2])$/).required().messages({
+    'any.required': 'Indique o mês',
+    'string.pattern.base': 'Mês inválido (AAAA-MM)'
+  }),
+  due_date: Joi.date().required().messages({ 'any.required': 'Indique a data de vencimento' }),
+  amounts: Joi.array()
+    .items(Joi.object({ class_id: Joi.string().hex().length(24).required(), amount: Joi.number().positive().required() }))
+    .min(1)
+    .required()
+    .messages({ 'array.min': 'Indique o valor de pelo menos uma turma' }),
+  // Default: "Propina <Mês> <Ano>"
+  description: Joi.string().trim().max(120).optional().allow('')
 });
 
 export const updateInvoiceSchema = Joi.object({
@@ -594,7 +613,8 @@ export const createMonthlyReportSchema = Joi.object({
   parent_feedback: Joi.string().optional().allow('')
 });
 
-export const updateMonthlyReportSchema = createMonthlyReportSchema;
+// Partial updates; a report can't move to another child or month
+export const updateMonthlyReportSchema = createMonthlyReportSchema.fork(['child_id', 'month', 'year'], (field) => field.optional().strip());
 
 export const validateRequest = (schema: Joi.ObjectSchema) => {
   return (req: any, res: any, next: any) => {

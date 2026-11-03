@@ -27,6 +27,7 @@ export class InvoiceService {
       total: number;
     }>;
     notes?: string;
+    period?: string;
     created_by: string;
   }): Promise<IInvoiceDocument> {
     const invoiceNumber = await this.generateInvoiceNumber();

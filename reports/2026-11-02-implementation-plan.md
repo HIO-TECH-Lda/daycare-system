@@ -38,8 +38,8 @@
 | 2b — PWA offline, wireframes | ✅ Done ([PR #10](https://github.com/HIO-TECH-Lda/daycare-system/pull/10), merged): service worker (Serwist), offline write queue for attendance and daily reports, sessions that survive offline restarts, offline/sync banners, install prompt. Wireframes and glossary approved by the client on 2026-11-02 (v1 improvements chosen 2026-11-03, see Phase 3). |
 | 3a — Staff screens | ✅ Done ([PR #11](https://github.com/HIO-TECH-Lda/daycare-system/pull/11), merged): Hoje, Presenças (check-in, check-out against the authorised people, absences, confirmed bulk check-in), Turma (safety badges, contacts), Relatório diário (chips, nap, notes, autosave, photos) — all on live data and working offline. Approved glossary applied to the 2a screens. API: a sync merge is a conflict only when another user wrote the record last. |
 | 3b — Parent screens | ✅ Done ([PR #12](https://github.com/HIO-TECH-Lda/daycare-system/pull/12), merged): Hoje (status, today's report and photos, Avisar ausência, Quem vem buscar hoje), Relatórios (daily timeline, validated monthly), Facturação (owed, Já paguei, history), Eventos, Mensagens (shared with staff), Perfil (contacts, WhatsApp, palavra-passe). API: parent absence notices, one-day pickup authorisations, payment claims. |
-| 3c — Admin people | 🔍 In review: Painel (action queue, today's figures, attendance per class, parents' absence notices), Matrículas (review, class suggested by age with occupancy, approve with invite result, reject with reason), Pessoas (filters, create and invite, edit, resend invite, password link, deactivate, staff classes), Turmas (capacity, educators, create/edit/delete), Crianças (record, contacts and pickup people with photos, 30-day attendance). No API changes. |
-| 3d | Next: 3d admin finance and the rest (Facturação, Despesas, Relatórios, Relatórios mensais, Eventos, Mensagens, Notificações, plus confirming "Já paguei"; staff Relatórios mensais; public `/matricula`). |
+| 3c — Admin people | ✅ Done ([PR #13](https://github.com/HIO-TECH-Lda/daycare-system/pull/13), merged): Painel (action queue, today's figures, attendance per class, parents' absence notices), Matrículas (review, class suggested by age with occupancy, approve with invite result, reject with reason), Pessoas (filters, create and invite, edit, resend invite, password link, deactivate, staff classes), Turmas (capacity, educators, create/edit/delete), Crianças (record, contacts and pickup people with photos, 30-day attendance). No API changes. |
+| 3d — Finance and the rest | 🔍 In review: admin Facturação (invoices, "Já paguei" confirmation, payments, monthly propina run, one-off invoices), Despesas, Relatórios (CSV), Relatórios mensais (validate / return; educators draft and submit), Eventos, admin Mensagens with "Comunicado", public `/matricula`. API: monthly invoice run, permission fixes (educators can't validate their own reports or manage other classes' events), partial updates, category list fix. **Phase 3 complete** except Notificações (delivery log), which moves to Phase W. |
 | W, 4–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
@@ -363,8 +363,8 @@ Split into reviewable parts: **1a** accounts & security (PR #2) · **1b** access
 | 4 | Image consent: children without consent flagged for staff; no photos of them | 3a ✅ (badge, photo button hidden) |
 | 6 | Bulk check-in confirms the names; "Desfazer" after each attendance tap | 3a ✅ |
 | 8 | Parent "Avisar ausência" (e.g. illness), shown straight away on the educator's list | 3b ✅ |
-| 9 | "Já paguei": the parent sends the M-Pesa / e-Mola code, the administration confirms | 3b parent side and API ✅ · 3d admin confirmation screen |
-| 14 | Admin Painel wireframe (today's attendance, enrolments to review, overdue invoices, reports to validate) | Wireframe now; built in 3c |
+| 9 | "Já paguei": the parent sends the M-Pesa / e-Mola code, the administration confirms | 3b + 3d ✅ |
+| 14 | Admin Painel wireframe (today's attendance, enrolments to review, overdue invoices, reports to validate) | Wireframe added; built in 3c ✅ |
 
 Not in v1 (later): 3 medication/incident log, 5 report per class, 7 nappies/toilet, 10 due-date reminders, 11 waiting list and duplicate detection, 12 discounts and extra items, 13 invoice legal requirements (to confirm with the accountant before go-live).
 
@@ -394,7 +394,7 @@ A screen is done when it:
 | Eventos | Calendar + CRUD |
 | Relatórios mensais | Validate / reject queue |
 | Mensagens | Inbox + threads |
-| Notificações | WhatsApp/email log, failed sends, resend |
+| Notificações | WhatsApp/email log, failed sends, resend — *moved to Phase W: it needs a delivery log, filled by the WhatsApp webhooks* |
 
 **Staff**
 

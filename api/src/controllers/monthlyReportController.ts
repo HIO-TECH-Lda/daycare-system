@@ -8,9 +8,24 @@ import { getPaginationParams } from '../utils/pagination';
 import Child from '../models/Child';
 import User from '../models/User';
 import { AccessService } from '../services/accessService';
+import MonthlyReport from '../models/MonthlyReport';
+import { ApiError } from '../utils/ApiError';
 
 // Parents only see reports once the administration has validated them
 const visibleStatuses = (role: string) => (role === 'responsavel' ? { status: 'validated' } : {});
+
+/**
+ * Educators write drafts and submit them; only the administration validates or rejects (through
+ * /validate and /reject), so an educator can't publish a report to the family by setting its
+ * status, nor change one that's already validated.
+ */
+function educatorChanges(body: Record<string, unknown>): Record<string, unknown> {
+  const { status, rejection_reason: _reason, validated_by: _by, validated_at: _at, ...changes } = body;
+  if (status !== undefined && status !== 'draft' && status !== 'submitted') {
+    throw new ApiError(403, 'Só a administração pode validar ou recusar relatórios');
+  }
+  return status === undefined ? changes : { ...changes, status };
+}
 
 export class MonthlyReportController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
@@ -55,15 +70,25 @@ export class MonthlyReportController {
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
+    const body = req.user!.role === 'administrador' ? req.body : educatorChanges(req.body);
+    if (await MonthlyReport.exists({ child_id: body.child_id, month: body.month, year: body.year })) {
+      throw new ApiError(409, 'Já existe um relatório desta criança para este mês');
+    }
     const report = await MonthlyReportService.create({
-      ...req.body,
+      ...body,
       created_by: req.user!.userId
-    });
+    } as Parameters<typeof MonthlyReportService.create>[0]);
     return res.status(201).json(ApiResponse.success(report, 'Relatório mensal criado com sucesso', 201));
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {
-    const report = await MonthlyReportService.update(req.params.id, req.body);
+    let changes = req.body;
+    if (req.user!.role !== 'administrador') {
+      const current = await MonthlyReport.findById(req.params.id).select('status').lean();
+      if (current?.status === 'validated') throw new ApiError(409, 'Este relatório já foi validado e enviado à família');
+      changes = educatorChanges(req.body);
+    }
+    const report = await MonthlyReportService.update(req.params.id, changes);
     if (!report) {
       return res.status(404).json({ success: false, message: 'Relatório mensal não encontrado' });
     }

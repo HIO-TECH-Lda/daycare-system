@@ -7,6 +7,26 @@ import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
 import User from '../models/User';
 import Child from '../models/Child';
+import Invoice, { IInvoiceDocument } from '../models/Invoice';
+
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+/** "New invoice" to the family (WhatsApp with consent, else email), after the response. */
+function notifyNewInvoice(invoice: IInvoiceDocument): void {
+  runInBackground('InvoiceController notification', async () => {
+    const [parent, child] = await Promise.all([User.findById(invoice.parent_id), Child.findById(invoice.child_id)]);
+    if (!parent || !child) return;
+    await NotificationService.newInvoice({
+      parentEmail: parent.email,
+      parentPhone: NotificationService.whatsAppNumberFor(parent),
+      parentName: parent.fullName,
+      childName: child.name,
+      invoiceNumber: invoice.invoice_number,
+      amount: invoice.amount,
+      dueDate: new Date(invoice.due_date).toLocaleDateString('pt-PT', { timeZone: 'Africa/Maputo' })
+    });
+  });
+}
 
 export class InvoiceController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
@@ -43,28 +63,46 @@ export class InvoiceController {
     });
     res.status(201).json(ApiResponse.success(invoice, 'Fatura criada com sucesso', 201));
 
-    // Fire-and-forget new invoice notification
-    runInBackground('InvoiceController notification', async () => {
-      try {
-        const [parent, child] = await Promise.all([
-          User.findById(invoice.parent_id),
-          Child.findById(invoice.child_id)
-        ]);
-        if (parent && child) {
-          await NotificationService.newInvoice({
-            parentEmail: parent.email,
-            parentPhone: NotificationService.whatsAppNumberFor(parent),
-            parentName: parent.fullName,
-            childName: child.name,
-            invoiceNumber: invoice.invoice_number,
-            amount: invoice.amount,
-            dueDate: new Date(invoice.due_date).toLocaleDateString('pt-BR')
-          });
-        }
-      } catch (err) {
-        console.error('[InvoiceController] Notification error:', err);
-      }
-    });
+    notifyNewInvoice(invoice);
+  });
+
+  /**
+   * The month's propina for every child of the chosen classes, at each class's amount. Children
+   * who already have an invoice for that month are skipped, so running it twice is harmless.
+   */
+  static generate = catchAsync(async (req: Request, res: Response) => {
+    const { period, due_date, amounts, description } = req.body as {
+      period: string;
+      due_date: Date;
+      amounts: { class_id: string; amount: number }[];
+      description?: string;
+    };
+    const [year, month] = period.split('-').map(Number);
+    const label = description || `Propina ${MONTHS[month - 1]} ${year}`;
+    const amountFor = new Map(amounts.map((row) => [row.class_id, row.amount]));
+    const children = await Child.find({ class_id: { $in: [...amountFor.keys()] } }).select('class_id parent_id').lean();
+    const existing = new Set(
+      (await Invoice.find({ period, child_id: { $in: children.map((c) => c._id) }, status: { $ne: 'cancelled' } }).select('child_id').lean()).map((i) => String(i.child_id))
+    );
+
+    const created: IInvoiceDocument[] = [];
+    for (const child of children) {
+      if (existing.has(String(child._id)) || !child.parent_id) continue;
+      const amount = amountFor.get(String(child.class_id))!;
+      created.push(
+        await InvoiceService.create({
+          child_id: String(child._id),
+          parent_id: String(child.parent_id),
+          due_date: due_date,
+          amount,
+          items: [{ description: label, quantity: 1, unit_price: amount, total: amount }],
+          period,
+          created_by: req.user!.userId
+        })
+      );
+    }
+    res.status(201).json(ApiResponse.success({ created: created.length, skipped: children.length - created.length, invoices: created }, `${created.length} facturas emitidas`, 201));
+    created.forEach(notifyNewInvoice);
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {

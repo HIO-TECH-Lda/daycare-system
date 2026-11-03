@@ -126,6 +126,9 @@ export function hasHealthNote(text: string | undefined): boolean {
 
 export interface MonthlyReport {
   _id: Id;
+  rejection_reason?: string;
+  development_notes?: string;
+  behavior_summary?: string;
   child_id: Ref<{ _id: Id; name: string }>;
   month: number;
   year: number;
@@ -296,4 +299,50 @@ export interface FinanceSummary {
   expenses: number;
   net: number;
   outstanding: { amount: number; count: number; overdue_amount: number; overdue_count: number };
+}
+
+export interface AdminPaymentClaim extends PaymentClaim {
+  parent_id: Ref<PersonRef>;
+  notes?: string;
+}
+
+export interface ExpenseCategory {
+  _id: Id;
+  name: string;
+  description?: string;
+  is_active: boolean;
+}
+
+export interface Expense {
+  _id: Id;
+  category_id: Ref<{ _id: Id; name: string }>;
+  amount: number;
+  description: string;
+  expense_date: string;
+  /** Signed, short-lived link (or empty) */
+  receipt_url?: string;
+  vendor?: string;
+}
+
+export interface AttendanceReport {
+  month: string;
+  totals: { present: number; late: number; absent: number; excused: number; days: number; rate: number };
+  children: { child_id: Id; name: string; class: string; present: number; late: number; absent: number; excused: number; days: number; rate: number }[];
+}
+
+export interface PaymentsReport {
+  total: number;
+  count: number;
+  by_method: { method: string; amount: number; count: number }[];
+  by_month: { month: string; amount: number; count: number }[];
+}
+
+export interface ExpensesReport {
+  total: number;
+  by_category: { category_id: Id; category: string; amount: number; count: number }[];
+  by_month: { month: string; amount: number; count: number }[];
+}
+
+export interface FinanceReport extends FinanceSummary {
+  by_month: { month: string; invoiced: number; received: number; expenses: number }[];
 }

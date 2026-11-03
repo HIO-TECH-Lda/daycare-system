@@ -62,3 +62,10 @@ export function greeting(now: Date = new Date()): string {
   const hour = Number(new Intl.DateTimeFormat('pt-PT', { hour: 'numeric', hour12: false, timeZone: 'Africa/Maputo' }).format(now));
   return hour >= 5 && hour < 12 ? 'Bom dia' : hour >= 12 && hour < 18 ? 'Boa tarde' : 'Boa noite';
 }
+
+/** "hoje", "ontem", "há 5 dias" (calendar days in Maputo). */
+export function daysAgo(value: Date | string, now: Date = new Date()): { days: number; label: string } {
+  const day = (date: Date) => new Date(`${new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Maputo' }).format(date)}T00:00:00Z`).getTime();
+  const days = Math.max(0, Math.round((day(now) - day(new Date(value))) / 86_400_000));
+  return { days, label: days === 0 ? 'hoje' : days === 1 ? 'ontem' : `há ${days} dias` };
+}

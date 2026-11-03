@@ -215,3 +215,85 @@ export interface Recipient {
   children?: string[];
   classes?: string[];
 }
+
+export type EnrollmentStatus = 'submitted' | 'under_review' | 'approved' | 'rejected';
+
+export interface EnrollmentGuardian {
+  name: string;
+  relationship?: string;
+  phone?: string;
+  email?: string;
+  profession?: string;
+  workplace?: string;
+}
+
+export interface Enrollment {
+  _id: Id;
+  reference: string;
+  status: EnrollmentStatus;
+  source?: 'public' | 'admin';
+  child: {
+    name: string;
+    birth_date: string;
+    gender?: string;
+    allergies?: string;
+    medications?: string;
+    dietary_restrictions?: string;
+    languages_spoken?: string;
+    previous_center?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+  };
+  guardians: EnrollmentGuardian[];
+  pickup_persons?: { name: string; relationship?: string; phone: string }[];
+  consents: { data_processing: boolean; image_usage_authorized?: boolean; whatsapp_opt_in?: boolean };
+  requested_class_id?: Ref<ClassInfo>;
+  requested_start_date?: string;
+  notes?: string;
+  rejection_reason?: string;
+  createdAt: string;
+}
+
+/** Whether the invite reached the person: if neither, the admin shares the link by hand. */
+export interface Delivery {
+  email: boolean;
+  whatsapp: boolean;
+}
+
+export type UserStatus = 'invited' | 'active' | 'inactive' | 'suspended';
+
+export interface UserRow {
+  id: Id;
+  name: string;
+  email: string;
+  phone: string;
+  role: 'administrador' | 'staff' | 'responsavel';
+  status: UserStatus;
+}
+
+export interface AdminUser extends UserRow {
+  firstName: string;
+  lastName: string;
+  invitedAt?: string | null;
+  activatedAt?: string | null;
+  whatsappOptIn: boolean;
+}
+
+export interface Guardian {
+  _id: Id;
+  child_id: Ref<{ _id: Id; name: string }>;
+  name: string;
+  relationship?: string;
+  phone?: string;
+  email?: string;
+  profession?: string;
+  workplace?: string;
+}
+
+export interface FinanceSummary {
+  invoiced: number;
+  received: number;
+  expenses: number;
+  net: number;
+  outstanding: { amount: number; count: number; overdue_amount: number; overdue_count: number };
+}

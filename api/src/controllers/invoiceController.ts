@@ -11,15 +11,13 @@ import Invoice, { IInvoiceDocument } from '../models/Invoice';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-/** "New invoice" to the family (WhatsApp with consent, else email), after the response. */
+/** "New invoice" to the family (WhatsApp with consent and email, as they prefer), after the response. */
 function notifyNewInvoice(invoice: IInvoiceDocument): void {
   runInBackground('InvoiceController notification', async () => {
     const [parent, child] = await Promise.all([User.findById(invoice.parent_id), Child.findById(invoice.child_id)]);
     if (!parent || !child) return;
     await NotificationService.newInvoice({
-      parentEmail: parent.email,
-      parentPhone: NotificationService.whatsAppNumberFor(parent),
-      parentName: parent.fullName,
+      parent,
       childName: child.name,
       invoiceNumber: invoice.invoice_number,
       amount: invoice.amount,
@@ -132,19 +130,15 @@ export class InvoiceController {
           if (parent && child) {
             if (status === 'overdue') {
               await NotificationService.invoiceOverdue({
-                parentEmail: parent.email,
-                parentPhone: NotificationService.whatsAppNumberFor(parent),
-                parentName: parent.fullName,
+                parent,
                 childName: child.name,
                 invoiceNumber: invoice.invoice_number,
                 amount: invoice.amount,
-                dueDate: new Date(invoice.due_date).toLocaleDateString('pt-BR')
+                dueDate: new Date(invoice.due_date).toLocaleDateString('pt-PT', { timeZone: 'Africa/Maputo' })
               });
             } else {
               await NotificationService.invoicePaid({
-                parentEmail: parent.email,
-                parentPhone: NotificationService.whatsAppNumberFor(parent),
-                parentName: parent.fullName,
+                parent,
                 childName: child.name,
                 invoiceNumber: invoice.invoice_number,
                 amount: invoice.amount

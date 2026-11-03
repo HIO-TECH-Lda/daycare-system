@@ -45,7 +45,7 @@ function createTransporter() {
   });
 }
 
-function isEmailConfigured(): boolean {
+export function isEmailConfigured(): boolean {
   return !!(process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 

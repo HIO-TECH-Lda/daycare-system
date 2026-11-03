@@ -3,6 +3,13 @@ export type UserRole = 'responsavel' | 'staff' | 'administrador';
 
 export type UserStatus = 'invited' | 'active' | 'inactive' | 'suspended';
 
+/** Notification categories a person can tune (account and enrolment messages always go out). */
+export type PrefCategory = 'attendance' | 'reports' | 'billing' | 'messages';
+export interface ChannelPrefs {
+  whatsapp: boolean;
+  email: boolean;
+}
+
 export interface IUser {
   _id?: string;
   firstName: string;
@@ -23,6 +30,8 @@ export interface IUser {
   activatedAt?: Date;
   whatsappOptIn?: boolean;
   whatsappOptInAt?: Date;
+  /** Per category, which channels the person wants (missing = the defaults, see notificationPrefs) */
+  notificationPrefs?: Partial<Record<PrefCategory, ChannelPrefs>>;
   tokenVersion?: number;
   createdAt?: Date;
   updatedAt?: Date;

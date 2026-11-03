@@ -110,14 +110,7 @@ export class UserService {
 
   /** Sends an invite prepared with prepareInvite() (after it was saved). */
   static async sendInvite(user: IUserDocument, token: string): Promise<{ inviteLink: string; delivery: Delivery }> {
-    const delivery = await NotificationService.invite({
-      email: user.email,
-      whatsappPhone: NotificationService.whatsAppNumberFor(user),
-      name: user.firstName,
-      role: user.role,
-      inviteToken: token,
-      expiryDays: INVITE_EXPIRY_DAYS
-    });
+    const delivery = await NotificationService.invite({ user, inviteToken: token, expiryDays: INVITE_EXPIRY_DAYS });
 
     return { inviteLink: NotificationService.inviteLink(token), delivery };
   }
@@ -160,12 +153,7 @@ export class UserService {
     if (user.status !== 'active') throw new ApiError(409, Messages.USER.RESET_NEEDS_ACTIVE);
 
     const resetToken = await AuthService.issuePasswordReset(user);
-    const delivery = await NotificationService.passwordReset({
-      email: user.email,
-      whatsappPhone: NotificationService.whatsAppNumberFor(user),
-      name: user.firstName,
-      resetToken
-    });
+    const delivery = await NotificationService.passwordReset({ user, resetToken });
 
     return { user, resetLink: NotificationService.passwordResetLink(resetToken), delivery };
   }

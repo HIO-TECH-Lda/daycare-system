@@ -6,6 +6,8 @@ import { uploadBase64Image } from '../utils/cloudinary';
 import { ApiError } from '../utils/ApiError';
 import { generateOneTimeToken, hashToken } from '../utils/tokens';
 import { isEmailIdentifier, normalisePhone } from '../utils/phone';
+import { NotificationService } from './notificationService';
+import type { ChannelPrefs, PrefCategory } from '../types';
 
 const RESET_TOKEN_HOURS = 24;
 
@@ -17,7 +19,8 @@ export function formatUserForFrontend(user: IUserDocument) {
     name: user.fullName,
     role: user.role,
     phone: user.phone || '',
-    whatsappOptIn: !!user.whatsappOptIn
+    whatsappOptIn: !!user.whatsappOptIn,
+    notificationPrefs: NotificationService.prefsFor(user)
   };
 }
 
@@ -159,12 +162,12 @@ export class AuthService {
   // Update own profile: only these fields; email and role are managed by admins
   static async updateUserProfile(
     userId: string,
-    updateData: Partial<{ firstName: string; lastName: string; phone: string; avatar: string; whatsappOptIn: boolean }>
+    updateData: Partial<{ firstName: string; lastName: string; phone: string; avatar: string; whatsappOptIn: boolean; notificationPrefs: Partial<Record<PrefCategory, Partial<ChannelPrefs>>> }>
   ): Promise<IUserDocument | null> {
     const user = await User.findById(userId);
     if (!user) return null;
 
-    const { firstName, lastName, phone, avatar, whatsappOptIn } = updateData;
+    const { firstName, lastName, phone, avatar, whatsappOptIn, notificationPrefs } = updateData;
 
     if (phone !== undefined) {
       await assertPhoneFree(phone, userId);
@@ -177,6 +180,15 @@ export class AuthService {
       user.avatar = avatar.startsWith('http') ? avatar : (await uploadBase64Image(avatar, 'avatars')).url;
     }
     if (typeof whatsappOptIn === 'boolean') setWhatsAppConsent(user, whatsappOptIn);
+    // Merged over what's stored, so a client can change one category at a time
+    if (notificationPrefs) {
+      const current = NotificationService.prefsFor(user);
+      for (const [category, prefs] of Object.entries(notificationPrefs) as [PrefCategory, Partial<ChannelPrefs>][]) {
+        current[category] = { ...current[category], ...prefs };
+      }
+      user.notificationPrefs = current;
+      user.markModified('notificationPrefs');
+    }
 
     await user.save();
     return user;

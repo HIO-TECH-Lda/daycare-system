@@ -43,13 +43,11 @@ const markOverdue = catchAsync(async (_req: Request, res: Response) => {
       const [parent, child] = await Promise.all([User.findById(invoice.parent_id), Child.findById(invoice.child_id)]);
       if (!parent || !child) return;
       await NotificationService.invoiceOverdue({
-        parentEmail: parent.email,
-        parentPhone: NotificationService.whatsAppNumberFor(parent),
-        parentName: parent.fullName,
+        parent,
         childName: child.name,
         invoiceNumber: invoice.invoice_number,
         amount: invoice.amount,
-        dueDate: new Date(invoice.due_date).toLocaleDateString('pt-PT')
+        dueDate: new Date(invoice.due_date).toLocaleDateString('pt-PT', { timeZone: 'Africa/Maputo' })
       });
     });
   }

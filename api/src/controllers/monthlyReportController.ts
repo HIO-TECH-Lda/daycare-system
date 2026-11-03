@@ -118,11 +118,8 @@ export class MonthlyReportController {
         const parent = await User.findById(child.parent_id);
         if (!parent) return;
         await NotificationService.monthlyReportValidated({
-          parentEmail: parent.email,
-          parentPhone: NotificationService.whatsAppNumberFor(parent),
-          parentName: parent.fullName,
+          parent,
           childName: child.name,
-          childId: (child._id as any).toString(),
           month: report.month,
           year: report.year
         });

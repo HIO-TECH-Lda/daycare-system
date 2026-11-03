@@ -36,6 +36,8 @@ import mediaRoutes from './routes/media';
 import enrollmentRoutes from './routes/enrollments';
 import reportRoutes from './routes/reports';
 import jobRoutes from './routes/jobs';
+import webhookRoutes from './routes/webhooks';
+import notificationRoutes from './routes/notifications';
 import { isMediaUrl } from './utils/media';
 
 dotenv.config();
@@ -48,7 +50,8 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '10mb' }));
+// Keep the raw body: the WhatsApp webhook's signature is computed over the exact bytes Meta sent
+app.use(express.json({ limit: '10mb', verify: (req, _res, buf) => { (req as Request & { rawBody?: Buffer }).rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Clients may send back the signed media links they received (e.g. when saving a whole record):
 // drop them so the stored file URL is kept
@@ -102,7 +105,9 @@ app.get('/api/v1', (req: Request, res: Response) => {
       users: '/api/v1/users',
       media: '/api/v1/media/:kind/:id (signed links only)',
       enrollments: '/api/v1/enrollments',
-      reports: '/api/v1/reports'
+      reports: '/api/v1/reports',
+      notifications: '/api/v1/notifications',
+      whatsappWebhook: '/api/v1/webhooks/whatsapp'
     },
     authEndpoints: {
       login: 'POST /api/v1/auth/login',
@@ -145,6 +150,8 @@ app.use('/api/v1/media', mediaRoutes);
 app.use('/api/v1/enrollments', enrollmentRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/jobs', jobRoutes);
+app.use('/api/v1/webhooks', webhookRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 app.use('*', (req: Request, res: Response) => {
   res.status(404).json({

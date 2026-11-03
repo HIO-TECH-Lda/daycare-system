@@ -63,11 +63,8 @@ export class DailyReportController {
       const parent = await User.findById(child.parent_id);
       if (!parent) return;
       await NotificationService.newDailyReport({
-        parentEmail: parent.email,
-        parentPhone: NotificationService.whatsAppNumberFor(parent),
-        parentName: parent.fullName,
+        parent,
         childName: child.name,
-        childId: (child._id as any).toString(),
         reportDate: new Date(report.date).toLocaleDateString('pt-PT'),
         mood: report.mood
       });

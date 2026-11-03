@@ -2,7 +2,8 @@ import request from 'supertest';
 import { app } from '../app';
 import User from '../models/User';
 import { EmailService } from '../services/emailService';
-import { WhatsAppService } from '../services/whatsAppService';
+import { WhatsAppService, type TemplateMessage } from '../services/whatsAppService';
+import { NotificationService } from '../services/notificationService';
 import { normalisePhone } from '../utils/phone';
 import { settleBackgroundTasks } from '../utils/background';
 import { createUser, bearer, tokenFromInviteLink, tokenFromResetLink, TEST_PASSWORD } from './helpers';
@@ -12,14 +13,14 @@ const NEW_PASSWORD = 'Nova@12345';
 function spyOnChannels() {
   return {
     email: jest.spyOn(EmailService, 'send').mockResolvedValue(true),
-    whatsapp: jest.spyOn(WhatsAppService, 'sendTemplate').mockResolvedValue(true)
+    whatsapp: jest.spyOn(WhatsAppService, 'sendTemplate').mockResolvedValue({ ok: true, messageId: 'wamid.test', attempts: 1 })
   };
 }
 
-/** The link passed as the 2nd body parameter of a WhatsApp template call. */
+/** The link a WhatsApp template call opens: its URL button's suffix on the template's base URL. */
 function linkFromWhatsApp(call: unknown[]): string {
-  const components = call[3] as Array<{ parameters: Array<{ text: string }> }>;
-  return components[0].parameters[1].text;
+  const message = call[1] as TemplateMessage;
+  return message.template === 'sonho_invite' ? NotificationService.inviteLink(message.buttonSuffix!) : NotificationService.passwordResetLink(message.buttonSuffix!);
 }
 
 describe('normalisePhone', () => {
@@ -121,7 +122,7 @@ describe('invite delivery', () => {
     const withConsent = await request(app).post('/api/v1/users').set('Authorization', auth)
       .send({ firstName: 'Rui', lastName: 'Mondlane', phone: '842222222', role: 'responsavel', whatsappOptIn: true });
     expect(withConsent.body.data.delivery).toEqual({ email: false, whatsapp: true });
-    expect(channels.whatsapp).toHaveBeenCalledWith('258842222222', 'sonho_invite', expect.any(String), expect.any(Array));
+    expect(channels.whatsapp).toHaveBeenCalledWith(expect.stringContaining('842222222'), expect.objectContaining({ template: 'sonho_invite' }));
     expect(linkFromWhatsApp(channels.whatsapp.mock.calls[0])).toBe(withConsent.body.data.inviteLink);
   });
 });
@@ -136,7 +137,7 @@ describe('forgot password', () => {
     expect(res.status).toBe(200);
     await settleBackgroundTasks();
 
-    expect(channels.whatsapp).toHaveBeenCalledWith('258841234567', 'sonho_password_reset', expect.any(String), expect.any(Array));
+    expect(channels.whatsapp).toHaveBeenCalledWith(expect.stringContaining('841234567'), expect.objectContaining({ template: 'sonho_password_reset' }));
     const token = tokenFromResetLink(linkFromWhatsApp(channels.whatsapp.mock.calls[0]));
 
     const reset = await request(app).post('/api/v1/auth/reset-password').send({ token, newPassword: NEW_PASSWORD });

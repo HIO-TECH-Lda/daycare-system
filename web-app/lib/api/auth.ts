@@ -2,6 +2,10 @@ import { api, publicApi, session } from './client';
 
 export type Role = 'administrador' | 'staff' | 'responsavel';
 
+/** Kinds of message a person can choose channels for. */
+export type PrefCategory = 'attendance' | 'reports' | 'billing' | 'messages';
+export type NotificationPrefs = Record<PrefCategory, { whatsapp: boolean; email: boolean }>;
+
 /** The user as returned by the auth endpoints. */
 export interface User {
   id: string;
@@ -10,6 +14,8 @@ export interface User {
   phone: string;
   role: Role;
   whatsappOptIn: boolean;
+  /** Always the full set (the API fills in the defaults); missing in sessions saved by older versions */
+  notificationPrefs?: NotificationPrefs;
 }
 
 interface SessionPayload {
@@ -59,8 +65,10 @@ export const authApi = {
     await publicApi.post<null>('/auth/reset-password', { token, newPassword, confirmNewPassword: newPassword });
   },
 
-  /** Name, phone and WhatsApp consent (email and role are the administration's). */
-  async updateProfile(input: { firstName: string; lastName: string; phone: string; whatsappOptIn: boolean }): Promise<User> {
+  /** Name, phone, WhatsApp consent and notification choices (email and role are the administration's). */
+  async updateProfile(
+    input: Partial<{ firstName: string; lastName: string; phone: string; whatsappOptIn: boolean; notificationPrefs: Partial<Record<PrefCategory, Partial<NotificationPrefs[PrefCategory]>>> }>
+  ): Promise<User> {
     return (await api.put<{ user: User }>('/auth/me', input)).data.user;
   },
 

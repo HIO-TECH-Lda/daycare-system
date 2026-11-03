@@ -73,6 +73,7 @@ const userSchema = new Schema<IUserDocument>(
     activatedAt: { type: Date },
     whatsappOptIn: { type: Boolean, default: false },
     whatsappOptInAt: { type: Date },
+    notificationPrefs: { type: Schema.Types.Mixed, default: undefined },
     // Bumped on password change/reset: tokens issued with an older version stop working
     tokenVersion: { type: Number, default: 0 }
   },

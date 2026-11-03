@@ -16,7 +16,7 @@ import { startOfCentreDay } from '../utils/dates';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOTICE_MAX_DAYS = 60;
 
-/** WhatsApp check-in/check-out message to the family (with consent), after the response. */
+/** Check-in/check-out message to the family (as their preferences allow), after the response. */
 function notifyAttendance(attendance: any, what: { checkIn: boolean; checkOut: boolean }): void {
   if (!what.checkIn && !what.checkOut) return;
   if (attendance.status !== 'present' && attendance.status !== 'late') return;
@@ -24,16 +24,10 @@ function notifyAttendance(attendance: any, what: { checkIn: boolean; checkOut: b
     const child = await Child.findById(attendance.child_id?._id ?? attendance.child_id);
     if (!child) return;
     const parent = await User.findById(child.parent_id);
-    if (!parent || !NotificationService.whatsAppNumberFor(parent)) return;
+    if (!parent) return;
     const dateStr = new Date(attendance.date).toLocaleDateString('pt-PT');
     const time = (value: Date) => new Date(value).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Maputo' });
-    const common = {
-      parentEmail: parent.email,
-      parentPhone: NotificationService.whatsAppNumberFor(parent),
-      parentName: parent.fullName,
-      childName: child.name,
-      date: dateStr
-    };
+    const common = { parent, childName: child.name, date: dateStr };
     if (what.checkIn) await NotificationService.attendanceCheckIn({ ...common, checkInTime: time(attendance.check_in) });
     if (what.checkOut) await NotificationService.attendanceCheckOut({ ...common, checkOutTime: time(attendance.check_out) });
   });

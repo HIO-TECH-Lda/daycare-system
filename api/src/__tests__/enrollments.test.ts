@@ -37,7 +37,7 @@ async function newClass(capacity = 10) {
 function spyOnChannels() {
   return {
     email: jest.spyOn(EmailService, 'send').mockResolvedValue(true),
-    whatsapp: jest.spyOn(WhatsAppService, 'sendTemplate').mockResolvedValue(true)
+    whatsapp: jest.spyOn(WhatsAppService, 'sendTemplate').mockResolvedValue({ ok: true, messageId: 'wamid.test', attempts: 1 })
   };
 }
 
@@ -55,7 +55,7 @@ describe('submitting an enrolment', () => {
 
     await settleBackgroundTasks();
     expect(channels.email).toHaveBeenCalledWith('enrollment-received', 'ana@example.com', expect.any(String), expect.objectContaining({ reference: res.body.data.reference }));
-    expect(channels.whatsapp).toHaveBeenCalledWith('258841234567', 'sonho_enrollment_received', expect.any(String), expect.any(Array));
+    expect(channels.whatsapp).toHaveBeenCalledWith(expect.stringContaining('841234567'), expect.objectContaining({ template: 'sonho_enrollment_received' }));
 
     expect((await submit(form())).body.data.reference).toBe(`MAT-${new Date().getFullYear()}-0002`);
   });

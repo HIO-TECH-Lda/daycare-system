@@ -10,7 +10,7 @@ process.env.MONGODB_URI = process.env.MONGODB_URI_TEST;
 process.env.FRONTEND_URL = 'http://localhost:3000';
 // Never send real email/WhatsApp from tests, even if a local .env has credentials
 // (dotenv does not override variables that are already set, even to '').
-for (const key of ['SMTP_USER', 'SMTP_PASS', 'WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID', 'CORS_ORIGINS']) {
+for (const key of ['SMTP_USER', 'SMTP_PASS', 'WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID', 'WHATSAPP_API_VERSION', 'WHATSAPP_LANG', 'WHATSAPP_VERIFY_TOKEN', 'WHATSAPP_APP_SECRET', 'CORS_ORIGINS']) {
   process.env[key] = '';
 }
 

@@ -96,32 +96,47 @@ describe('errors', () => {
 
 describe('environment', () => {
   const saved = { ...process.env };
+  const LONG = 'x'.repeat(40);
+  const production = (overrides: Record<string, string | undefined> = {}) => {
+    Object.assign(process.env, {
+      NODE_ENV: 'production',
+      JWT_SECRET: `a${LONG}`,
+      JWT_REFRESH_SECRET: `b${LONG}`,
+      API_PUBLIC_URL: 'https://api.example.co.mz',
+      FRONTEND_URL: 'https://app.example.co.mz',
+      CORS_ORIGINS: 'https://app.example.co.mz'
+    });
+    for (const [key, value] of Object.entries(overrides)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  };
+  beforeEach(() => {
+    for (const method of ['error', 'log', 'warn'] as const) jest.spyOn(console, method).mockImplementation(() => undefined);
+  });
   afterEach(() => {
-    process.env.NODE_ENV = saved.NODE_ENV;
-    process.env.JWT_REFRESH_SECRET = saved.JWT_REFRESH_SECRET;
-    if (saved.API_PUBLIC_URL === undefined) delete process.env.API_PUBLIC_URL;
-    else process.env.API_PUBLIC_URL = saved.API_PUBLIC_URL;
+    process.env = { ...saved };
   });
 
-  it('refuses to start in production without JWT_REFRESH_SECRET', () => {
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    jest.spyOn(console, 'log').mockImplementation(() => undefined);
-    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    process.env.NODE_ENV = 'production';
-    process.env.API_PUBLIC_URL = 'https://api.example.co.mz';
-    delete process.env.JWT_REFRESH_SECRET;
-    expect(validateEnvironmentVariables()).toBe(false);
-
-    process.env.JWT_REFRESH_SECRET = 'another-secret';
+  it('starts in production with everything set', () => {
+    production();
     expect(validateEnvironmentVariables()).toBe(true);
   });
 
-  it('refuses to start in production without API_PUBLIC_URL (needed for photo links)', () => {
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    jest.spyOn(console, 'log').mockImplementation(() => undefined);
-    process.env.NODE_ENV = 'production';
-    process.env.JWT_REFRESH_SECRET = 'another-secret';
-    delete process.env.API_PUBLIC_URL;
+  it.each(['JWT_REFRESH_SECRET', 'API_PUBLIC_URL', 'FRONTEND_URL', 'CORS_ORIGINS'])('refuses to start in production without %s', (name) => {
+    production({ [name]: undefined });
     expect(validateEnvironmentVariables()).toBe(false);
+  });
+
+  it('refuses short token secrets in production', () => {
+    production({ JWT_SECRET: 'short-secret' });
+    expect(validateEnvironmentVariables()).toBe(false);
+  });
+
+  it('is lenient outside production', () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.FRONTEND_URL;
+    delete process.env.CORS_ORIGINS;
+    expect(validateEnvironmentVariables()).toBe(true);
   });
 });

@@ -5,6 +5,10 @@
  *   npm run seed          → safe mode: skips if demo data already exists
  *   npm run seed:fresh    → drops all collections first, then seeds
  *
+ * For local and staging databases only: it refuses to run with NODE_ENV=production, and wiping
+ * a database that isn't on this machine (e.g. staging on Atlas) needs `--yes`:
+ *   npm run seed:fresh -- --yes
+ *
  * Demo credentials (all passwords: Demo@2026):
  *   admin@sonhodecrianca.mz     — Administrador
  *   maria@sonhodecrianca.mz     — Staff (Educadora)
@@ -74,10 +78,33 @@ const prevMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+/** Where MONGODB_URI points (host and database, never the credentials). */
+function target(): { host: string; database: string; local: boolean } {
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URI || '';
+  const match = uri.match(/^mongodb(?:\+srv)?:\/\/(?:[^@/]*@)?([^/?]+)\/?([^?]*)/);
+  const host = match?.[1] ?? '?';
+  return { host, database: match?.[2] || '(default)', local: /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host) };
+}
+
+/** Demo data and --fresh wipes never reach a real centre's database by accident. */
+function assertSafeTarget(): void {
+  const { host, database, local } = target();
+  console.log(`   Database: ${database} on ${host}`);
+  if (process.env.NODE_ENV === 'production') {
+    console.error('\n❌ NODE_ENV is "production": the demo seed is for local and staging databases only.\n');
+    process.exit(1);
+  }
+  if (isFresh && !local && !process.argv.includes('--yes')) {
+    console.error(`\n❌ --fresh would wipe every collection on ${host}. If this is the staging database, run again with --yes.\n`);
+    process.exit(1);
+  }
+}
+
 async function seedDatabase() {
   try {
     console.log('\n🌱 Sonho de Criança — Database Seeder');
     console.log('─'.repeat(50));
+    assertSafeTarget();
     await connectDB();
 
     if (isFresh) {

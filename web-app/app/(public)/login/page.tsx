@@ -118,6 +118,11 @@ function LoginForm() {
           Pedir matrícula
         </Link>
       </p>
+      <p className="text-center text-xs">
+        <Link href="/privacidade" className="text-muted-foreground underline underline-offset-4">
+          Privacidade
+        </Link>
+      </p>
     </form>
   );
 }

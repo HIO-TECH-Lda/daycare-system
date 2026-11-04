@@ -27,6 +27,19 @@ test.describe('screens by role', () => {
   }
 });
 
+test.describe('unknown addresses', () => {
+  test('inside an area: "not found" with the menu still there; outside: the site-wide page', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin);
+    await page.goto('/admin/nao-existe');
+    await expect(page.getByRole('heading', { name: 'Página não encontrada' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Voltar ao início' })).toHaveAttribute('href', '/admin');
+    await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible();
+
+    await page.goto('/nao-existe');
+    await expect(page.getByRole('heading', { name: 'Página não encontrada' })).toBeVisible();
+  });
+});
+
 test.describe('records by ID (API)', () => {
   test('a parent can’t read another family’s child, reports or invoices', async ({ request }) => {
     const ana = await apiLogin(request, ACCOUNTS.ana);

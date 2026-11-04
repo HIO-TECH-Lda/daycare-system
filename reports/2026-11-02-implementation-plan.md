@@ -42,8 +42,8 @@
 | 3d — Finance and the rest | 🔍 In review: admin Facturação (invoices, "Já paguei" confirmation, payments, monthly propina run, one-off invoices), Despesas, Relatórios (CSV), Relatórios mensais (validate / return; educators draft and submit), Eventos, admin Mensagens with "Comunicado", public `/matricula`. API: monthly invoice run, permission fixes (educators can't validate their own reports or manage other classes' events), partial updates, category list fix. **Phase 3 complete** except Notificações (delivery log), which moves to Phase W. |
 | W — WhatsApp | ✅ Merged: one `deliver()` for every notification (consent, then per-category preferences, email fallback, `NotificationLog`), retry with backoff, URL-button links, Graph API v23.0 and `pt_PT`, signed delivery webhook, admin **Notificações** (filters, resend), "Avisos" choices in Perfil, failed sends on the Painel, paid-invoice notice when a payment settles it. Template texts for the centre: `api/docs/WHATSAPP-TEMPLATES.md`. Meta setup (client) still pending. |
 | 4 — QA | ✅ Merged: Playwright suite in `e2e/` (full journey across the four roles with an offline check-in, role access by URL and by ID, offline queue surviving an app restart, axe accessibility and 360–1440 px layout on 17 screens), run in CI against a throwaway seeded stack. Manual checks (devices, Meta, client copy review): `reports/2026-11-03-qa-checklist.md`. |
-| 5 — Deployment | 🔍 In review: deploy-ready repo and runbook (`docs/DEPLOYMENT.md`): security headers with a Content-Security-Policy (checked by the e2e suite), root `netlify.toml`, build-skipping on both platforms, stricter production checks in the API (`FRONTEND_URL`, `CORS_ORIGINS`, 32-character secrets), seed guard, privacy notice at `/privacidade`. **The deploys themselves need the centre's accounts** (Vercel Pro, Netlify, Atlas with backups, Cloudinary, SMTP, Meta). |
-| 6 | Not started. |
+| 5 — Deployment | ✅ Merged: deploy-ready repo and runbook (`docs/DEPLOYMENT.md`): security headers with a Content-Security-Policy (checked by the e2e suite), root `netlify.toml`, build-skipping on both platforms, stricter production checks in the API (`FRONTEND_URL`, `CORS_ORIGINS`, 32-character secrets), seed guard, privacy notice at `/privacidade`. **The deploys themselves need the centre's accounts** (Vercel Pro, Netlify, Atlas with backups, Cloudinary, SMTP, Meta). |
+| 6 — Cleanup | 🔍 In review: payroll tool moved to `tools/payroll/`, READMEs rewritten (the API's was still the starter kit's), `API.md` completed (payment claims, monthly invoice run, notifications, webhook, notification preferences), seed docs fixed, March 2026 docs archived, a stale Stripe setup script removed, and the old "em construção" placeholders replaced by proper not-found pages. **Development work for v1 is complete;** go-live waits on the centre's accounts and the manual checks. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
@@ -471,8 +471,9 @@ Automated part done in `e2e/` (runs in CI against a throwaway seeded stack rathe
 
 ### Phase 6 — Cleanup
 - [x] Delete `web-app/supabase/`, `web-app/.bolt/`, `lib/mock-data.ts`, and the unused shadcn components. *(done in 2a, with the old prototype; it's kept as the git tag `legacy-ui`)*
-- [ ] Move `gerador.py` and the payroll `.xlsx` to `tools/payroll/`. A payroll module is a candidate for v2.
-- [ ] Update the READMEs and archive the March 2026 reports.
+- [x] Move `gerador.py` and the payroll `.xlsx` to `tools/payroll/` (with a README). A payroll module is a candidate for v2.
+- [x] Update the READMEs and archive the March 2026 reports (`reports/archive/2026-03/`, with the starter-kit guide and the old integration guide).
+- [x] Replace the "em construção" placeholders with not-found pages; complete `API.md`; fix the seed docs; remove the unused Stripe setup script.
 
 ---
 
@@ -493,7 +494,7 @@ Prices change; check each at setup time.
 ## 5. Out of scope for v1 (candidates for v2)
 - Online payments (M-Pesa / e-Mola).
 - Web push notifications (WhatsApp covers alerts).
-- Payroll module (from `gerador.py`).
+- Payroll module (from `tools/payroll/gerador.py`).
 - Offline support for parent and admin screens.
 - Multiple languages.
 

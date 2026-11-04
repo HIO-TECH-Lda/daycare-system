@@ -16,6 +16,9 @@
    - [Health Check](#health-check)
    - [Auth](#auth)
    - [Users](#users)
+   - [Enrolments](#enrolments)
+   - [Reports](#reports)
+   - [Scheduled jobs](#scheduled-jobs)
    - [Classes](#classes)
    - [Children](#children)
    - [Staff Assignments](#staff-assignments)
@@ -28,10 +31,13 @@
    - [Calendar Events](#calendar-events)
    - [Invoices](#invoices)
    - [Payments](#payments)
+   - [Payment claims](#payment-claims-já-paguei)
    - [Expense Categories](#expense-categories)
    - [Expenses](#expenses)
    - [Messages](#messages)
    - [Monthly Reports](#monthly-reports)
+   - [Notifications](#notifications)
+   - [WhatsApp webhook](#whatsapp-webhook)
 6. [Pagination](#pagination)
 7. [Error Reference](#error-reference)
 
@@ -299,7 +305,7 @@ Exchange a refresh token for a new token pair.
 
 Get the profile of the currently authenticated user.
 
-**Response `200`** — `data: { "user": { ... } }`
+**Response `200`** — `data: { "user": { "id", "email", "name", "role", "phone", "whatsappOptIn", "notificationPrefs" } }`. `notificationPrefs` always has all four categories, with the defaults filled in (everything on both channels, except `attendance`: WhatsApp only).
 
 ---
 
@@ -317,6 +323,7 @@ Supports `multipart/form-data` upload for the `avatar` file field. The uploaded 
 | `lastName` | string | 2–50 chars |
 | `phone` | string | Any common format; `""` removes it (only if the user has an email). Must be unique |
 | `whatsappOptIn` | boolean | Give or withdraw consent to WhatsApp messages |
+| `notificationPrefs` | object | Channels per kind of message, merged over what's stored, so one category can be sent alone: `{ "attendance": { "whatsapp": false } }`. Categories `attendance`, `reports`, `billing`, `messages`; each `{ whatsapp?, email? }` (booleans). WhatsApp still needs `whatsappOptIn`. |
 | `avatar` | string / file | A URL string (JSON) or a file upload (field name `avatar`) |
 
 **Response `200`** — Updated user object. **Errors:** `400` validation (e.g. removing the only contact) · `409` phone already registered.
@@ -1575,6 +1582,23 @@ Change only the status. Triggers a **overdue** or **paid** notification dependin
 
 ---
 
+#### `POST /invoices/generate` 🔒 Admin
+
+The monthly propina run: one invoice per child of the given classes, for a month. Children who already have that month's invoice (not cancelled), or have no parent account, are skipped, so it's safe to run again. Each family is notified.
+
+**Body**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `period` | string | `YYYY-MM` (required) |
+| `due_date` | date | Required |
+| `amounts` | array | `[{ "class_id", "amount" }]`, at least one class |
+| `description` | string | Optional; default "Propina <Mês> <Ano>" |
+
+**Response `201`** — `data: { "created": 18, "skipped": 2, "invoices": [ ... ] }`
+
+---
+
 ### Payments
 
 **Base path:** `/api/v1/payments`  
@@ -1646,6 +1670,37 @@ Returns all payments linked to a specific invoice.
 #### `DELETE /payments/:id` 🔒 (admin)
 
 **Response `200`**
+
+---
+
+### Payment claims ("Já paguei")
+
+**Base path:** `/api/v1/payment-claims`. A parent tells the centre they paid an invoice (M-Pesa, e-Mola, transfer, cash); the administration checks the statement and confirms (which records the payment) or rejects with a reason the parent sees.
+
+#### `GET /payment-claims` 🔒 Admin, Responsável
+
+Parents see their own; admins see all. Query: `status` (`pending`, `confirmed`, `rejected`), `invoice_id`, `page`, `limit`. Paginated.
+
+#### `POST /payment-claims` 🔒 Responsável
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `invoice_id` | string | Required; one of the parent's own invoices |
+| `amount` | number | Required, > 0 |
+| `method` | string | `mpesa`, `emola`, `bank_transfer`, `cash` |
+| `reference` | string | Transaction code; required except for `cash` |
+| `paid_on` | date | Optional; default today |
+| `notes` | string | Optional, ≤ 300 chars |
+
+**Response `201`.** **Errors:** `404` not the parent's invoice · `409` invoice already paid or cancelled, or a claim for it is already pending.
+
+#### `PATCH /payment-claims/:id/confirm` 🔒 Admin
+
+Records the payment (body `amount` optional, to record a different amount than claimed); the invoice becomes `paid` when covered, and the family is told. **Errors:** `409` already handled.
+
+#### `PATCH /payment-claims/:id/reject` 🔒 Admin
+
+Body `{ "reason": "…" }` (required). **Errors:** `409` already handled.
 
 ---
 
@@ -1993,6 +2048,29 @@ Marks the report as `validated`. Triggers a **monthly report validated** email/W
 #### `DELETE /monthly-reports/:id` 🔒 (admin)
 
 **Response `200`**
+
+---
+
+### Notifications
+
+**Base path:** `/api/v1/notifications` 🔒 Admin. The log of every WhatsApp and email sent (kept 6 months), for the Notificações screen. How channels are chosen, fallback and statuses: [NOTIFICATIONS.md](NOTIFICATIONS.md).
+
+#### `GET /notifications`
+
+Query: `status` (`sent`, `delivered`, `read`, `failed`, `skipped`), `channel` (`whatsapp`, `email`), `category` (`account`, `enrollment`, `billing`, `reports`, `attendance`, `messages`), `search` (name, email or phone), `page`, `limit` (default 30). Paginated, newest first. Each row has `user_id` populated (`firstName`, `lastName`, `role`), `resendable` and `handled` (already resent, or covered by an email fallback); message contents are not returned. Extra `meta: { "failed_this_week", "whatsapp_configured", "email_configured" }`.
+
+#### `POST /notifications/:id/resend`
+
+Sends the message again from what was stored, as a new log row (`resend_of`). WhatsApp re-checks the person's current consent. **Errors:** `404` · `422` with the reason (account messages, which are re-issued from Users instead; consent withdrawn; failed again).
+
+---
+
+### WhatsApp webhook
+
+**Base path:** `/api/v1/webhooks/whatsapp`. For Meta, not for the app. Disabled (`503`) until `WHATSAPP_VERIFY_TOKEN` and `WHATSAPP_APP_SECRET` are set.
+
+- `GET`: Meta's verification (`hub.mode=subscribe`, `hub.verify_token`, `hub.challenge`) → the challenge, or `403`.
+- `POST`: delivery statuses, signed with `X-Hub-Signature-256` (HMAC-SHA256 of the raw body with the app secret; `401` otherwise). Updates the log (`sent` → `delivered` → `read`, never backwards); `failed` sends the email fallback once.
 
 ---
 

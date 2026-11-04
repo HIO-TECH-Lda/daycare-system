@@ -1,136 +1,43 @@
-# Database Seed Data Guide
+# Demo data (seed)
 
-This document describes how to populate the database with test data for development and testing purposes.
-
-## Quick Start
-
-Run the seed script to populate the database with test data:
+`scripts/seed.ts` fills a database with a small, realistic centre for development, staging and demos. **Never run it against production**: it refuses `NODE_ENV=production`.
 
 ```bash
-npm run seed
+npm run seed                    # skips if the demo data is already there
+npm run seed:fresh              # wipes every collection first, then seeds
+npm run seed:fresh -- --yes     # the same against a database that isn't on this machine (e.g. staging on Atlas)
 ```
 
-## What Gets Created
+It uses `MONGODB_URI` from the environment or `api/.env`, and prints the database and host before doing anything.
 
-The seed script creates comprehensive test data including:
+## Accounts
 
-### Users (6 total)
-- **1 Administrator**: `admin@daycare.com`
-- **2 Staff Members**: `maria@daycare.com`, `joao@daycare.com`
-- **3 Responsáveis**: `ana.silva@example.com`, `carlos.santos@example.com`, `patricia.oliveira@example.com`
+Password for all: **`Demo@2026`**. Each also signs in with its phone number.
 
-**⚠️ Important**: All users have the password: `test1234`
+| Role | Email | Phone | Notes |
+|---|---|---|---|
+| Administrador | `admin@sonhodecrianca.mz` | 84 100 0001 | |
+| Educador | `maria@sonhodecrianca.mz` | 84 100 0002 | Berçário A, Maternal I |
+| Educador | `joao@sonhodecrianca.mz` | 84 100 0003 | Maternal II, Jardim I |
+| Encarregado de Educação | `ana.silva@demo.com` | 84 100 0004 | Two children |
+| Encarregado de Educação | `carlos.santos@demo.com` | 84 100 0005 | One child |
+| Encarregado de Educação | `patricia.oliveira@demo.com` | 84 100 0006 | One child |
 
-### Classes (5 total)
-- Berçário A (0-12 months, capacity: 10)
-- Maternal I (12-24 months, capacity: 12)
-- Maternal II (24-36 months, capacity: 15)
-- Jardim I (36-48 months, capacity: 18)
-- Jardim II (48-60 months, capacity: 20)
+## What it creates
 
-### Children (4 total)
-- Lucas Silva (Berçário A) - Parent: Ana Silva
-- Sofia Santos (Maternal I) - Parent: Carlos Santos
-- Pedro Oliveira (Maternal II) - Parent: Patricia Oliveira
-- Isabella Silva (Jardim I) - Parent: Ana Silva
+| | |
+|---|---|
+| Classes | 5: Berçário A, Maternal I, Maternal II, Jardim I, Jardim II (by age, with capacity) |
+| Children | 4, in four classes, with guardians, 2 pickup people, allergies on some |
+| Today | Attendance (5 records, some already checked out), 3 daily reports with 3 photos, 3 activities |
+| Billing | 4 invoices (pending, paid, overdue), 2 payments, 5 expense categories, 3 expenses |
+| Other | 4 calendar events, 4 messages, 4 monthly reports (draft, submitted, validated) |
 
-### Other Data
-- **4 Staff Assignments** - Staff members assigned to classes
-- **4 Guardians** - Guardians for children
-- **2 Pickup Persons** - Authorized pickup persons
-- **2 Activities** - Educational activities
-- **3 Daily Reports** - Daily reports for children
-- **2 Report Photos** - Photos attached to reports
-- **4 Attendance Records** - Check-in/out records
-- **3 Calendar Events** - Calendar events (party, meeting, holiday)
-- **3 Invoices** - Billing invoices (2 pending, 1 paid)
-- **2 Payments** - Payment records
-- **4 Expense Categories** - Categories for expenses
-- **3 Expenses** - Expense records
-- **3 Messages** - Messages between users
-- **3 Monthly Reports** - Monthly reports (draft, submitted, validated)
+Dates are relative to the day it runs ("today", this month, last month), so the screens always have something current to show.
 
-## Test User Credentials
+## Used by
 
-| Role | Email | Password |
-|------|-------|----------|
-| Administrador | admin@daycare.com | test1234 |
-| Staff | maria@daycare.com | test1234 |
-| Staff | joao@daycare.com | test1234 |
-| Responsável | ana.silva@example.com | test1234 |
-| Responsável | carlos.santos@example.com | test1234 |
-| Responsável | patricia.oliveira@example.com | test1234 |
+- **The end-to-end tests** (`e2e/`): they seed a throwaway in-memory database on every run and rely on these accounts and classes.
+- **Staging** (see `docs/DEPLOYMENT.md` §7).
 
-## Usage
-
-### Prerequisites
-
-1. Ensure MongoDB is running and accessible
-2. Set `MONGODB_URI` in your `.env` file
-3. Install dependencies: `npm install`
-
-### Running the Seed Script
-
-```bash
-# Using npm script
-npm run seed
-
-# Or directly with ts-node
-npx ts-node scripts/seed.ts
-```
-
-### What Happens
-
-1. **Connects** to MongoDB using your `MONGODB_URI`
-2. **Clears** all existing data (optional - can be commented out)
-3. **Creates** all test data in the correct order
-4. **Displays** a summary of created data
-5. **Disconnects** from the database
-
-### Warning
-
-⚠️ **The seed script will DELETE all existing data** before creating new test data. This is intentional for development/testing purposes. If you want to keep existing data, comment out the deletion section in `scripts/seed.ts`.
-
-## Customizing Seed Data
-
-To customize the seed data:
-
-1. Open `scripts/seed.ts`
-2. Modify the data objects as needed
-3. Run `npm run seed` again
-
-## Troubleshooting
-
-### Error: Cannot connect to MongoDB
-- Check your `MONGODB_URI` in `.env`
-- Ensure MongoDB is running
-- Verify network connectivity
-
-### Error: Duplicate key error
-- The script clears existing data first, but if it fails partway through, you may need to manually clear collections
-- Or comment out the deletion section and manually delete specific collections
-
-### Error: Validation errors
-- Check that all required fields are provided
-- Ensure date formats are correct
-- Verify ObjectId references exist
-
-## Data Relationships
-
-The seed script creates data with proper relationships:
-
-- Children are linked to classes and parents
-- Staff assignments link staff to classes
-- Guardians and pickup persons are linked to children
-- Daily reports are linked to children and created by staff
-- Attendance records are linked to children
-- Invoices are linked to children and parents
-- Payments are linked to invoices, parents, and children
-- Monthly reports are linked to children and created by staff
-
-## Notes
-
-- All dates use current date or recent dates for realistic test data
-- Passwords are hashed using bcrypt (same as production)
-- All users have `emailVerified: true` and `status: 'active'`
-- The script creates a realistic data set for testing all features
+To change the data, edit `scripts/seed.ts` and run `npm run seed:fresh`. If you rename accounts or classes, update `e2e/tests/support.ts` too.

@@ -1,7 +1,7 @@
 {
   "name": "sonho-de-crianca-api",
   "version": "1.0.0",
-  "description": "Express + TypeScript + MongoDB API starter kit with auth, upload (Cloudinary), and audit logging",
+  "description": "API for the Sonho de Criança daycare system (Express, TypeScript, MongoDB)",
   "main": "dist/app.js",
   "scripts": {
     "start": "node dist/app.js",

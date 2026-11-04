@@ -25,6 +25,7 @@ The API must be running (see `../api`). `npm run seed` there creates demo accoun
 | Path | What |
 |---|---|
 | `app/(public)/` | Login (email or phone), accept invite (`/convite/[token]`), password recovery (`/recuperar-senha`, `/redefinir-senha`) |
+| `app/matricula`, `app/privacidade` | Public enrolment form and privacy notice |
 | `app/admin`, `app/staff`, `app/responsavel` | Each role's area, behind `RoleGuard` + `AppShell` (sidebar on laptops, bottom tabs on phones and tablets) |
 | `lib/api/` | API client (tokens, automatic refresh) and endpoint helpers |
 | `lib/auth/` | Session context |
@@ -34,7 +35,7 @@ The API must be running (see `../api`). `npm run seed` there creates demo accoun
 | `components/ui/` | shadcn/ui components (`npx shadcn@latest add …`) |
 | `scripts/generate-icons.mjs` | Regenerates the favicon and PWA icons from the logo (`npm run icons`) |
 
-Sections that aren't built yet show a placeholder (`[...section]` routes). Phase 3 replaces them screen by screen.
+The `[...section]` routes catch any address that isn't a screen, inside each role's area.
 
 ## Scripts
 
@@ -48,11 +49,16 @@ Sections that aren't built yet show a placeholder (`[...section]` routes). Phase
 
 - **Light theme only** for v1. The traced logo only works on light backgrounds.
 - **Copy is in Mozambican Portuguese.** Approved glossary: Encarregado de Educação, Propina, Telemóvel, Educador, Criança, Presenças, Palavra-passe (see the plan, §2).
+- **Security headers** (Content-Security-Policy and others) are set in `next.config.ts`, for production builds. The policy only allows connections to `NEXT_PUBLIC_API_URL` (and images from Cloudinary): a new external service needs adding there.
 - **Pages that read the URL on the client** (`useSearchParams`, `useParams`, `usePathname`) must sit inside `<Suspense>`, because Cache Components prerenders a static shell.
 
 ## Offline (PWA)
 
-- **The service worker only runs in production builds.** To try it: `npm run build && npm start`, open the app once online, then go offline.
-- **It caches the app, never API data.** A tablet is shared, so API responses (personal data) aren't cached by the worker. Data a screen needs offline is kept per person: give its query `meta: { offline: true }` (stored in IndexedDB for 24 h and wiped at sign-out and sign-in).
+- **The service worker only runs in production builds.** To try it: `npm run build && npm start`, open the app once online, then go offline. It precaches every screen in the navigation (`lib/roles.ts`), so a new screen there is available offline automatically.
+- **It caches the app, never API data.** A tablet is shared, so API responses (personal data) aren't cached by the worker. Data a screen needs offline is kept per person: give its query `meta: { offline: true }` (stored in IndexedDB for 24 h, saved also when the app is hidden or closed, and wiped at sign-out and sign-in).
 - **Staff writes go through the queue.** Use `recordAttendance` / `saveDailyReport` instead of calling the API directly: they work offline, can't create duplicates when retried (`client_id`), and sync on their own. Show `usePendingWrites()` as a "por enviar" badge.
 - **A write the API refuses** (e.g. a child no longer in the class) is set aside, and the banner lets staff retry or discard it.
+
+## Tests
+
+The end-to-end suite in `../e2e` (Playwright) runs this app's production build against a throwaway API: the full journey, role access, offline restart, accessibility and layout. See the root README.

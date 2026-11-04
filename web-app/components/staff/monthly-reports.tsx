@@ -69,7 +69,7 @@ export function StaffMonthlyReports() {
   const done = rows.filter((item) => ['submitted', 'validated'].includes(reportFor(item._id)?.status ?? '')).length;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <PageHeader
         title="Relatórios mensais"
         description={`${MONTHS[monthNumber - 1]} ${year} · ${done} de ${rows.length} submetidos`}
@@ -132,7 +132,7 @@ function MonthlyEditor({ child, month, report, previous, next }: { child: Child;
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="max-w-3xl space-y-4">
       <Link href={PAGE} className="inline-flex items-center gap-1 text-sm font-medium text-teal-text">
         <ChevronLeft className="size-4" aria-hidden />
         Todas as crianças

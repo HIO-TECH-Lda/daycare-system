@@ -30,7 +30,7 @@ export function Expenses() {
   const total = (expenses.data ?? []).reduce((sum, expense) => sum + expense.amount, 0);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <div className="max-w-5xl space-y-5">
       <PageHeader
         title="Despesas"
         actions={

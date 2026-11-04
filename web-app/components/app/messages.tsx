@@ -52,7 +52,7 @@ export function Messages() {
   const showingThread = !!open;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="space-y-5">
       <div className={cn(showingThread && 'hidden lg:block')}>
         <PageHeader
           title="Mensagens"

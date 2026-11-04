@@ -131,7 +131,10 @@ export function AppShell({ role, children }: { role: Role; children: React.React
 
         <OfflineBanner />
         <InstallPrompt />
-        <main className="flex-1 px-4 pt-5 pb-28 sm:px-6 lg:px-10 lg:pt-8 lg:pb-10">{children}</main>
+        <main className="flex-1 px-4 pt-5 pb-28 sm:px-6 lg:px-10 lg:pt-8 lg:pb-10">
+          {/* One frame for every page, so content always starts at the same place; narrower pages stay left-aligned in it. */}
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </main>
 
         {/* Bottom tab bar (phones and tablets) */}
         <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">

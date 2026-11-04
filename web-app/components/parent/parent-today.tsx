@@ -48,7 +48,7 @@ export function ParentToday() {
   const nextEvent = events.data?.[0];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <PageHeader title={`${greeting()}, ${user?.name.split(' ')[0] ?? ''}`} description={formatWeekday(new Date())} />
 
       {!child ? (

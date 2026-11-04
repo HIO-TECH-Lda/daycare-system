@@ -56,7 +56,7 @@ export function Profile() {
   });
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="max-w-xl space-y-6">
       <PageHeader title="Perfil" description={`${ROLE_LABELS[user.role]}${user.email ? ` · ${user.email}` : ''}`} />
 
       <form method="post"

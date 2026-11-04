@@ -60,7 +60,7 @@ export function People() {
   const [open, setOpen] = useState<string | null>(null);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="space-y-5">
       <PageHeader
         title="Pessoas"
         actions={

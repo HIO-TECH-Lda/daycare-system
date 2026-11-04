@@ -49,7 +49,7 @@ export function AdminMonthlyReports() {
   const count = (status: Tab) => reports.data.filter((report) => report.status === status).length;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="space-y-5">
       <PageHeader
         title="Relatórios mensais"
         actions={

@@ -75,7 +75,7 @@ export function DailyReports() {
   const filled = expected.filter((item) => isFilled(reports.byChild.get(item._id))).length;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <PageHeader
         title="Relatório diário"
         description={`${formatWeekday(new Date())} · ${currentClass?.name ?? ''} · ${filled} de ${expected.length} preenchidos`}
@@ -194,7 +194,7 @@ function ReportEditor({
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 pb-20">
+    <div className="max-w-3xl space-y-4 pb-20">
       <Link href={PAGE} className="inline-flex items-center gap-1 text-sm font-medium text-teal-text">
         <ChevronLeft className="size-4" aria-hidden />
         Todas as crianças
@@ -283,27 +283,29 @@ function ReportEditor({
 
       <p className="text-xs text-muted-foreground">Cada alteração é guardada logo neste aparelho, mesmo sem internet, e enviada quando houver ligação.</p>
 
-      <nav aria-label="Crianças" className="fixed inset-x-0 bottom-16 z-10 border-t bg-background/95 px-4 py-2 backdrop-blur lg:bottom-0 lg:left-64">
-        <div className="mx-auto flex max-w-3xl gap-2">
-          <Button asChild={!!previous} variant="outline" size="touch" className="flex-1" disabled={!previous}>
-            {previous ? (
-              <Link href={`${PAGE}?crianca=${previous._id}`} onClick={flush}>
-                <ChevronLeft aria-hidden />
-                Anterior
+      <nav aria-label="Crianças" className="fixed inset-x-0 bottom-16 z-10 border-t bg-background/95 px-4 py-2 backdrop-blur sm:px-6 lg:bottom-0 lg:left-64 lg:px-10">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex max-w-3xl gap-2">
+            <Button asChild={!!previous} variant="outline" size="touch" className="flex-1" disabled={!previous}>
+              {previous ? (
+                <Link href={`${PAGE}?crianca=${previous._id}`} onClick={flush}>
+                  <ChevronLeft aria-hidden />
+                  Anterior
+                </Link>
+              ) : (
+                <span>
+                  <ChevronLeft aria-hidden />
+                  Anterior
+                </span>
+              )}
+            </Button>
+            <Button asChild size="touch" className="flex-[2]">
+              <Link href={next ? `${PAGE}?crianca=${next._id}` : PAGE} onClick={flush}>
+                {next ? 'Próxima criança' : 'Concluir'}
+                {next && <ChevronRight aria-hidden />}
               </Link>
-            ) : (
-              <span>
-                <ChevronLeft aria-hidden />
-                Anterior
-              </span>
-            )}
-          </Button>
-          <Button asChild size="touch" className="flex-[2]">
-            <Link href={next ? `${PAGE}?crianca=${next._id}` : PAGE} onClick={flush}>
-              {next ? 'Próxima criança' : 'Concluir'}
-              {next && <ChevronRight aria-hidden />}
-            </Link>
-          </Button>
+            </Button>
+          </div>
         </div>
       </nav>
     </div>

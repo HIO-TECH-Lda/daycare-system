@@ -27,7 +27,7 @@ export function StaffToday() {
   if (!children.data) return <ErrorState error={children.error} onRetry={() => void children.refetch()} />;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <PageHeader
         title={`${greeting()}, ${user?.name.split(' ')[0] ?? ''}!`}
         description={formatWeekday(new Date())}

@@ -53,7 +53,7 @@ export function ParentBilling() {
   const owed = open.reduce((sum, invoice) => sum + Math.max(0, invoice.amount - paidFor(invoice._id)), 0);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <PageHeader title="Facturação" />
 
       <section className={cn('rounded-2xl p-5', owed > 0 ? 'border bg-card' : 'bg-green-tint text-green-text')}>

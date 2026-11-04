@@ -88,7 +88,7 @@ export function AdminBilling() {
   const counts = (value: InvoiceStatus) => invoices.data.filter((invoice) => invoice.status === value).length;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="space-y-5">
       <PageHeader
         title="Facturação"
         actions={

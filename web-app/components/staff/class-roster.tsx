@@ -35,7 +35,7 @@ export function ClassRoster() {
   const flagged = rows.filter((child) => hasHealthNote(child.allergies) || hasHealthNote(child.medications)).length;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <div className="max-w-5xl space-y-5">
       <PageHeader
         title={currentClass?.name ?? 'Turma'}
         description={`${rows.length === 1 ? '1 criança' : `${rows.length} crianças`}${flagged ? ` · ${flagged} com alergias ou medicação` : ''}`}

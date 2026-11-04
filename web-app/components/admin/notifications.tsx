@@ -81,7 +81,7 @@ export function Notifications() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="space-y-5">
       <PageHeader title="Notificações" description="Avisos enviados por WhatsApp e email nos últimos 6 meses." />
 
       {log.data && (!log.data.whatsappConfigured || !log.data.emailConfigured) && (

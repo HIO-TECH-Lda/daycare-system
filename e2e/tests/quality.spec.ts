@@ -30,6 +30,23 @@ async function settle(page: Page, path: string) {
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
 }
 
+/** Every page of a role starts its content at the same place, whatever its own width. */
+test('page content starts at the same place on every page of a role', async ({ browser }) => {
+  for (const { who, paths } of SCREENS.filter((screen) => screen.who)) {
+    // A fresh browser per role, so nothing is left over from the previous one
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await signIn(page, who!);
+    const edges = new Map<string, number>();
+    for (const path of paths) {
+      await settle(page, path);
+      edges.set(path, await page.locator('main h2').first().evaluate((heading) => Math.round(heading.getBoundingClientRect().left)));
+    }
+    expect(new Set(edges.values()).size, `${who}: ${JSON.stringify(Object.fromEntries(edges))}`).toBe(1);
+    await context.close();
+  }
+});
+
 for (const { who, paths } of SCREENS) {
   test.describe(who ?? 'public', () => {
     test.beforeEach(async ({ page }) => {

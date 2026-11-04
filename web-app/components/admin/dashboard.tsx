@@ -43,7 +43,7 @@ export function AdminDashboard() {
   const loading = data.enrollments.isPending || data.claims.isPending || data.finance.isPending;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="space-y-6">
       <PageHeader title={`${greeting()}, ${user?.name.split(' ')[0] ?? ''}`} description={formatWeekday(new Date())} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

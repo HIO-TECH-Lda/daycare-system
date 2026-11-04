@@ -50,7 +50,7 @@ export function Enrollments() {
   const openCount = all.data.filter((item) => item.status === 'submitted' || item.status === 'under_review').length;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="space-y-5">
       <div className={cn(open && 'hidden lg:block')}>
         <PageHeader
           title="Matrículas"

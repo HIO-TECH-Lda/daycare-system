@@ -35,7 +35,7 @@ export function AdminEvents() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <PageHeader
         title="Eventos"
         actions={

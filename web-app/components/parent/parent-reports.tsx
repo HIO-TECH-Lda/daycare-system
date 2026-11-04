@@ -23,7 +23,7 @@ export function ParentReports() {
   const child = children.data.find((item) => item._id === childId) ?? children.data[0];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <PageHeader title="Relatórios" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div role="tablist" className="inline-flex rounded-full border bg-card p-1">

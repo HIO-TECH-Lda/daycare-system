@@ -138,7 +138,7 @@ export function AttendanceBoard() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <PageHeader
         title="Presenças"
         description={`${formatWeekday(now)} · ${currentClass?.name ?? ''}`}

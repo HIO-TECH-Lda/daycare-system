@@ -31,7 +31,7 @@ export function Classes() {
   if (!classes.data) return <ErrorState error={classes.error} onRetry={() => void classes.refetch()} />;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="space-y-5">
       <PageHeader
         title="Turmas"
         actions={

@@ -21,7 +21,7 @@ export function ParentEvents() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <PageHeader title="Eventos" />
       {events.data.length === 0 ? (
         <EmptyState icon={CalendarDays} title="Sem eventos marcados">

@@ -40,7 +40,7 @@ export function Reports() {
   const period = `${monthLabel(fromMonth)} – ${monthLabel(toMonth)}`;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Relatórios"
         actions={

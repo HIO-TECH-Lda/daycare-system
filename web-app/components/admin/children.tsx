@@ -36,7 +36,7 @@ export function Children() {
   const child = children.data.find((item) => item._id === open) ?? null;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="space-y-5">
       <PageHeader title="Crianças" description={`${children.data.length} inscritas`} />
       <div className="flex flex-wrap gap-2">
         <div className="relative min-w-56 flex-1">

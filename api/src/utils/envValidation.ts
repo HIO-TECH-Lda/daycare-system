@@ -106,6 +106,9 @@ export function validateEnvironmentVariables(): boolean {
 
   console.log('🔍 Validating environment variables...');
 
+  // Read before the development defaults below are filled in (FRONTEND_URL defaults to localhost)
+  const frontendUrlSet = !!process.env.FRONTEND_URL;
+
   for (const [varName, config] of Object.entries(requiredEnvVars)) {
     const value = process.env[varName];
 
@@ -119,15 +122,34 @@ export function validateEnvironmentVariables(): boolean {
     }
   }
 
-  // Without its own secret, a 30-day refresh token would be signed with the access-token secret
   if (process.env.NODE_ENV === 'production') {
-    if (!process.env.API_PUBLIC_URL) {
-      missingVars.push('API_PUBLIC_URL');
+    // Links in invites and emails, signed photo links and browser access all depend on these
+    for (const name of ['API_PUBLIC_URL', 'CORS_ORIGINS']) {
+      if (!process.env[name]) missingVars.push(name);
     }
+    if (!frontendUrlSet) missingVars.push('FRONTEND_URL');
+    // Without its own secret, a 30-day refresh token would be signed with the access-token secret
     if (!process.env.JWT_REFRESH_SECRET) {
       missingVars.push('JWT_REFRESH_SECRET');
     } else if (process.env.JWT_REFRESH_SECRET === process.env.JWT_SECRET) {
       console.warn('⚠️  JWT_REFRESH_SECRET should differ from JWT_SECRET.');
+    }
+    // Guessable secrets would let anyone sign tokens: at least 32 characters
+    for (const name of ['JWT_SECRET', 'JWT_REFRESH_SECRET']) {
+      const value = process.env[name];
+      if (value && value.length < 32) {
+        console.error(`❌ ${name} is too short (${value.length} characters; use at least 32, e.g. openssl rand -base64 48).`);
+        missingVars.push(name);
+      }
+    }
+    if (process.env.FRONTEND_URL?.includes('localhost')) {
+      console.warn('⚠️  FRONTEND_URL points to localhost: links in invites and emails will not work.');
+    }
+    if (process.env.WHATSAPP_TOKEN && !(process.env.WHATSAPP_VERIFY_TOKEN && process.env.WHATSAPP_APP_SECRET)) {
+      console.warn('⚠️  WhatsApp is on but its delivery webhook is not (WHATSAPP_VERIFY_TOKEN, WHATSAPP_APP_SECRET): no delivery status or email fallback for late failures.');
+    }
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('⚠️  Email is not configured (SMTP_USER, SMTP_PASS).');
     }
   }
 
@@ -135,7 +157,7 @@ export function validateEnvironmentVariables(): boolean {
     console.error('❌ Missing required environment variables:');
     missingVars.forEach(varName => {
       const config = requiredEnvVars[varName];
-      console.error(`   ${varName}: ${config.description}`);
+      console.error(`   ${varName}: ${config?.description ?? ''}`);
     });
     console.error('\nPlease set these variables in your .env file');
     return false;
@@ -143,10 +165,6 @@ export function validateEnvironmentVariables(): boolean {
 
   if (process.env.NODE_ENV === 'production' && !process.env.CRON_SECRET) {
     console.warn('⚠️  CRON_SECRET is not set: overdue invoices will not be marked automatically.');
-  }
-
-  if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGINS) {
-    console.warn('⚠️  CORS_ORIGINS is not set: browsers will be blocked from calling the API in production.');
   }
 
   if (warnings.length > 0) {

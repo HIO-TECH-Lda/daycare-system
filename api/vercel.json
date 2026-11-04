@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["cpt1"],
+  "regions": [
+    "cpt1"
+  ],
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
   "functions": {
     "api/index.ts": {
       "maxDuration": 30,
@@ -8,9 +11,15 @@
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api" }
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
   ],
   "crons": [
-    { "path": "/api/v1/jobs/mark-overdue", "schedule": "0 4 * * *" }
+    {
+      "path": "/api/v1/jobs/mark-overdue",
+      "schedule": "0 4 * * *"
+    }
   ]
 }

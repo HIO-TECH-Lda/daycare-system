@@ -303,7 +303,10 @@ export function EnrollmentForm() {
               <Textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} rows={3} />
             </Field>
             <Consent checked={draft.consents.data} onChange={(value) => setDraft({ ...draft, consents: { ...draft.consents, data: value } })}>
-              <strong>Autorizo o tratamento destes dados</strong> pelo Centro Infantil Sonho de Criança, para a matrícula e o acompanhamento da criança. (Obrigatório)
+              <strong>Autorizo o tratamento destes dados</strong> pelo Centro Infantil Sonho de Criança, para a matrícula e o acompanhamento da criança. (Obrigatório){' '}
+              <a href="/privacidade" target="_blank" rel="noopener" className="font-medium text-teal-text underline underline-offset-4">
+                Como tratamos os dados
+              </a>
             </Consent>
             <Consent checked={draft.consents.images} onChange={(value) => setDraft({ ...draft, consents: { ...draft.consents, images: value } })}>
               Autorizo fotografias da criança nas actividades, partilhadas só com a família no portal.

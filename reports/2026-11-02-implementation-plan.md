@@ -41,8 +41,9 @@
 | 3c — Admin people | ✅ Done ([PR #13](https://github.com/HIO-TECH-Lda/daycare-system/pull/13), merged): Painel (action queue, today's figures, attendance per class, parents' absence notices), Matrículas (review, class suggested by age with occupancy, approve with invite result, reject with reason), Pessoas (filters, create and invite, edit, resend invite, password link, deactivate, staff classes), Turmas (capacity, educators, create/edit/delete), Crianças (record, contacts and pickup people with photos, 30-day attendance). No API changes. |
 | 3d — Finance and the rest | 🔍 In review: admin Facturação (invoices, "Já paguei" confirmation, payments, monthly propina run, one-off invoices), Despesas, Relatórios (CSV), Relatórios mensais (validate / return; educators draft and submit), Eventos, admin Mensagens with "Comunicado", public `/matricula`. API: monthly invoice run, permission fixes (educators can't validate their own reports or manage other classes' events), partial updates, category list fix. **Phase 3 complete** except Notificações (delivery log), which moves to Phase W. |
 | W — WhatsApp | ✅ Merged: one `deliver()` for every notification (consent, then per-category preferences, email fallback, `NotificationLog`), retry with backoff, URL-button links, Graph API v23.0 and `pt_PT`, signed delivery webhook, admin **Notificações** (filters, resend), "Avisos" choices in Perfil, failed sends on the Painel, paid-invoice notice when a payment settles it. Template texts for the centre: `api/docs/WHATSAPP-TEMPLATES.md`. Meta setup (client) still pending. |
-| 4 — QA | 🔍 In review: Playwright suite in `e2e/` (full journey across the four roles with an offline check-in, role access by URL and by ID, offline queue surviving an app restart, axe accessibility and 360–1440 px layout on 17 screens), run in CI against a throwaway seeded stack. Manual checks (devices, Meta, client copy review): `reports/2026-11-03-qa-checklist.md`. |
-| 5–6 | Not started. |
+| 4 — QA | ✅ Merged: Playwright suite in `e2e/` (full journey across the four roles with an offline check-in, role access by URL and by ID, offline queue surviving an app restart, axe accessibility and 360–1440 px layout on 17 screens), run in CI against a throwaway seeded stack. Manual checks (devices, Meta, client copy review): `reports/2026-11-03-qa-checklist.md`. |
+| 5 — Deployment | 🔍 In review: deploy-ready repo and runbook (`docs/DEPLOYMENT.md`): security headers with a Content-Security-Policy (checked by the e2e suite), root `netlify.toml`, build-skipping on both platforms, stricter production checks in the API (`FRONTEND_URL`, `CORS_ORIGINS`, 32-character secrets), seed guard, privacy notice at `/privacidade`. **The deploys themselves need the centre's accounts** (Vercel Pro, Netlify, Atlas with backups, Cloudinary, SMTP, Meta). |
+| 6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
@@ -449,10 +450,10 @@ Automated part done in `e2e/` (runs in CI against a throwaway seeded stack rathe
 | Domains | e.g. `app.<domain>` → Netlify, `api.<domain>` → Vercel | Using one parent domain keeps CORS and links simple. |
 
 **Steps**
-1. Add `netlify.toml`: build command, base dir, Node version, headers for `sw.js` and the manifest, and **security headers** (Content-Security-Policy, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`). Login tokens live in `localStorage`, so an XSS bug would mean account takeover; the CSP is the main defence.
+1. ✅ Add `netlify.toml` (build) and the headers for `sw.js` and the manifest, plus **security headers** (in `web-app/next.config.ts`, so they're the same everywhere and tested end to end) (Content-Security-Policy, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`). Login tokens live in `localStorage`, so an XSS bug would mean account takeover; the CSP is the main defence.
 2. Deploy **staging** (`dev` branch) on all three platforms; seed demo data; run Phase 4.
 3. Set the environment variables:
-   - **Vercel (API):** `NODE_ENV`, `MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, `FRONTEND_URL`, `CRON_SECRET`, Cloudinary, SMTP, `WHATSAPP_*`, `WA_TEMPLATE_*`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`.
+   - **Vercel (API):** `NODE_ENV`, `MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `API_PUBLIC_URL`, `CORS_ORIGINS`, `FRONTEND_URL`, `MEDIA_URL_SECRET`, `CRON_SECRET`, Cloudinary, SMTP, `WHATSAPP_*`, `WA_TEMPLATE_*`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`. Table with values: `docs/DEPLOYMENT.md` §3.
    - **Netlify (web):** `NEXT_PUBLIC_API_URL`.
 4. Production: run `scripts/create-admin.ts`, load classes and staff, and send invites to staff first, then families.
 5. Monitoring:
@@ -463,9 +464,9 @@ Automated part done in `e2e/` (runs in CI against a throwaway seeded stack rathe
    - Optional: Sentry on both apps.
 6. Go-live checklist:
    - Secrets rotated.
-   - Demo-account buttons removed from the login page.
+   - ✅ No demo-account buttons on the login page (there are none); the seed refuses production.
    - Backups tested.
-   - A privacy notice covering children's data, photos and WhatsApp consent.
+   - ✅ A privacy notice covering children's data, photos and WhatsApp consent (`/privacidade`, to be reviewed by the centre).
    - WhatsApp templates approved and the business verified.
 
 ### Phase 6 — Cleanup

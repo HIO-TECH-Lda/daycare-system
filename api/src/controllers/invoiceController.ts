@@ -42,14 +42,10 @@ export class InvoiceController {
 
   static getById = catchAsync(async (req: Request, res: Response) => {
     const invoice = await InvoiceService.findById(req.params.id);
-    if (!invoice) {
-      return res.status(404).json({ success: false, message: 'Fatura não encontrada' });
-    }
-    if (req.user!.role === 'responsavel') {
-      const parentId = (invoice.parent_id as any)?._id?.toString() ?? invoice.parent_id?.toString();
-      if (parentId !== req.user!.userId) {
-        return res.status(403).json({ success: false, message: 'Acesso negado' });
-      }
+    const parentId = (invoice?.parent_id as any)?._id?.toString() ?? invoice?.parent_id?.toString();
+    // Another family's invoice looks the same as one that doesn't exist
+    if (!invoice || (req.user!.role === 'responsavel' && parentId !== req.user!.userId)) {
+      return res.status(404).json({ success: false, message: 'Factura não encontrada' });
     }
     return res.json(ApiResponse.success(invoice, 'Fatura recuperada com sucesso'));
   });

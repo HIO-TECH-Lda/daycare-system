@@ -31,7 +31,7 @@ export function ParentEvents() {
         [...months].map(([month, items]) => (
           <section key={month} className="grid gap-2">
             <h3 className="font-heading text-lg font-bold">{month}</h3>
-            <ul className="grid gap-2">
+            <ul className="grid grid-cols-1 gap-2">
               {items.map((event) => (
                 <li key={event._id} className="rounded-2xl border bg-card p-4">
                   <p className="font-semibold">{event.title}</p>

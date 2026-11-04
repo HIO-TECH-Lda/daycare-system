@@ -60,3 +60,51 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_API_URL: https://api.example.invalid
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.mongodb-binaries
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            web-app/package-lock.json
+            e2e/package-lock.json
+      - name: Cache MongoDB binary (mongodb-memory-server)
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('api/package-lock.json') }}
+      - run: npm ci
+        working-directory: api
+      - run: npm ci
+        working-directory: web-app
+      - run: npm ci
+        working-directory: e2e
+      - name: Build the web app against the test API
+        working-directory: web-app
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3102
+          NEXT_DIST_DIR: .next-e2e
+        run: npm run build
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - run: npm run typecheck
+        working-directory: e2e
+      - run: npx playwright test
+        working-directory: e2e
+        env:
+          E2E_SKIP_BUILD: '1'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7

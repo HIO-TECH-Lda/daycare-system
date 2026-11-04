@@ -60,10 +60,10 @@
   --color-brand-berry: #dd1e25;
   --color-brand-sky: #035dce;
   --color-brand-grape: #5e2e87;
-  /* Text-safe shades (AA on white) and soft tints for backgrounds */
-  --color-green-text: #608034;
-  --color-teal-text: #0b837c;
-  --color-sun-text: #b06211;
+  /* Text-safe shades (AA, 4.5:1, on white, the page background and their own tints) and soft tints */
+  --color-green-text: #56732f;
+  --color-teal-text: #087670;
+  --color-sun-text: #9a5510;
   --color-green-tint: #eef5e4;
   --color-teal-tint: #e3f4f2;
   --color-sun-tint: #fdf0e1;
@@ -83,7 +83,7 @@
   --card-foreground: #2b2118;
   --popover: #ffffff;
   --popover-foreground: #2b2118;
-  --primary: #608034;
+  --primary: #56732f;
   --primary-foreground: #ffffff;
   --secondary: #e3f4f2;
   --secondary-foreground: #0b5e59;
@@ -92,12 +92,12 @@
   --accent: #eef5e4;
   --accent-foreground: #3f5622;
   --destructive: #c81e25;
-  --success: #608034;
+  --success: #56732f;
   --warning: #b06211;
   --info: #035dce;
   --border: #e7e1d6;
   --input: #d9d0c2;
-  --ring: #0b837c;
+  --ring: #087670;
   --chart-1: #8bb74d;
   --chart-2: #0ea49b;
   --chart-3: #ec9439;
@@ -106,12 +106,12 @@
   --radius: 0.75rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #2b2118;
-  --sidebar-primary: #608034;
+  --sidebar-primary: #56732f;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #eef5e4;
   --sidebar-accent-foreground: #3f5622;
   --sidebar-border: #e7e1d6;
-  --sidebar-ring: #0b837c;
+  --sidebar-ring: #087670;
 }
 
 @layer base {

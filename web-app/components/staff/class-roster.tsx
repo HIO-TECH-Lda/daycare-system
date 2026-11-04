@@ -44,7 +44,7 @@ export function ClassRoster() {
       {rows.length === 0 ? (
         <EmptyState icon={School} title="Sem crianças nesta turma" />
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {rows.map((child) => (
             <li key={child._id}>
               <button

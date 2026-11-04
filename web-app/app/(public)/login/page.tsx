@@ -114,7 +114,7 @@ function LoginForm() {
 
       <p className="text-center text-xs text-muted-foreground">
         Ainda não tem conta? As contas são criadas pela administração do centro, que lhe envia um convite.{' '}
-        <Link href="/matricula" className="text-teal-text underline-offset-4 hover:underline">
+        <Link href="/matricula" className="font-medium text-teal-text underline underline-offset-4">
           Pedir matrícula
         </Link>
       </p>

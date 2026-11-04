@@ -40,8 +40,9 @@
 | 3b — Parent screens | ✅ Done ([PR #12](https://github.com/HIO-TECH-Lda/daycare-system/pull/12), merged): Hoje (status, today's report and photos, Avisar ausência, Quem vem buscar hoje), Relatórios (daily timeline, validated monthly), Facturação (owed, Já paguei, history), Eventos, Mensagens (shared with staff), Perfil (contacts, WhatsApp, palavra-passe). API: parent absence notices, one-day pickup authorisations, payment claims. |
 | 3c — Admin people | ✅ Done ([PR #13](https://github.com/HIO-TECH-Lda/daycare-system/pull/13), merged): Painel (action queue, today's figures, attendance per class, parents' absence notices), Matrículas (review, class suggested by age with occupancy, approve with invite result, reject with reason), Pessoas (filters, create and invite, edit, resend invite, password link, deactivate, staff classes), Turmas (capacity, educators, create/edit/delete), Crianças (record, contacts and pickup people with photos, 30-day attendance). No API changes. |
 | 3d — Finance and the rest | 🔍 In review: admin Facturação (invoices, "Já paguei" confirmation, payments, monthly propina run, one-off invoices), Despesas, Relatórios (CSV), Relatórios mensais (validate / return; educators draft and submit), Eventos, admin Mensagens with "Comunicado", public `/matricula`. API: monthly invoice run, permission fixes (educators can't validate their own reports or manage other classes' events), partial updates, category list fix. **Phase 3 complete** except Notificações (delivery log), which moves to Phase W. |
-| W — WhatsApp | 🔍 In review: one `deliver()` for every notification (consent, then per-category preferences, email fallback, `NotificationLog`), retry with backoff, URL-button links, Graph API v23.0 and `pt_PT`, signed delivery webhook, admin **Notificações** (filters, resend), "Avisos" choices in Perfil, failed sends on the Painel, paid-invoice notice when a payment settles it. Template texts for the centre: `api/docs/WHATSAPP-TEMPLATES.md`. Meta setup (client) still pending. |
-| 4–6 | Not started. |
+| W — WhatsApp | ✅ Merged: one `deliver()` for every notification (consent, then per-category preferences, email fallback, `NotificationLog`), retry with backoff, URL-button links, Graph API v23.0 and `pt_PT`, signed delivery webhook, admin **Notificações** (filters, resend), "Avisos" choices in Perfil, failed sends on the Painel, paid-invoice notice when a payment settles it. Template texts for the centre: `api/docs/WHATSAPP-TEMPLATES.md`. Meta setup (client) still pending. |
+| 4 — QA | 🔍 In review: Playwright suite in `e2e/` (full journey across the four roles with an offline check-in, role access by URL and by ID, offline queue surviving an app restart, axe accessibility and 360–1440 px layout on 17 screens), run in CI against a throwaway seeded stack. Manual checks (devices, Meta, client copy review): `reports/2026-11-03-qa-checklist.md`. |
+| 5–6 | Not started. |
 
 Web app type errors: 104 → 88 (the shared data layer is clean; the rest are in pages the rebuild replaces).
 
@@ -420,17 +421,21 @@ A screen is done when it:
 | Perfil | Contacts, avatar, password, **notification preferences** (WhatsApp/email per category) |
 
 ### Phase 4 — QA
-- [ ] Playwright end-to-end tests against the seeded staging stack:
+Automated part done in `e2e/` (runs in CI against a throwaway seeded stack rather than staging, so every PR is checked); the rest is in `reports/2026-11-03-qa-checklist.md`.
+
+- [x] Playwright end-to-end tests:
   - Public: submit an enrolment.
   - Admin: approve it → the parent receives the invite.
   - Parent: accept the invite.
   - Staff: check in **while offline**, sync, fill in the daily report.
   - Parent: sees the report.
   - Admin: issues an invoice → records the payment.
-- [ ] Role-access tests (URLs and API IDs belonging to other users).
-- [ ] PWA checks: Lighthouse PWA/performance/accessibility; installs on Android tablet, iPad and laptop; offline queue survives an app restart.
-- [ ] WhatsApp: every template sent to real test numbers; webhook statuses arrive; email fallback works.
-- [ ] Responsive (360 px → 1440 px) and accessibility pass; client review of pt-MZ copy.
+- [x] Role-access tests (URLs and API IDs belonging to other users).
+- [x] Offline queue survives an app restart (automated).
+- [ ] PWA checks on devices: installs on Android tablet, iPad and laptop; Lighthouse performance/accessibility (Lighthouse no longer has a PWA category). *(checklist)*
+- [ ] WhatsApp: every template sent to real test numbers; webhook statuses arrive; email fallback works. *(checklist; needs the Meta setup)*
+- [x] Responsive (360 → 1440 px, no sideways scroll) and axe accessibility on the main screens (automated).
+- [ ] Manual layout, keyboard and screen-reader pass; client review of pt-MZ copy. *(checklist)*
 
 ### Phase 5 — Deployment
 | Piece | Platform | Notes |

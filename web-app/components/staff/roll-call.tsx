@@ -71,7 +71,7 @@ export function RollCallButton({ className }: { className?: string }) {
                   : `${inSchool.length - missing} de ${inSchool.length} contadas · faltam ${missing}`}
             </SheetDescription>
           </SheetHeader>
-          <ul className="grid gap-2 px-4 pb-6">
+          <ul className="grid grid-cols-1 gap-2 px-4 pb-6">
             {inSchool.map((child) => {
               const done = counted.has(child._id);
               const phone = guardianPhone(child);

@@ -132,7 +132,7 @@ function ChildDay({ child, record, report }: { child: Child; record: DayAttendan
                   ? `Na escola desde as ${formatTime(record!.checkIn!)}`
                   : 'Ainda não chegou'}
           </p>
-          <p className="text-sm opacity-80">
+          <p className="text-sm">
             {absent ? (record?.notes ?? '') : record?.checkOut && record.notes ? record.notes.replace(/^com /, 'Com ') : child.name}
           </p>
         </div>

@@ -16,6 +16,9 @@
    - [Health Check](#health-check)
    - [Auth](#auth)
    - [Users](#users)
+   - [Enrolments](#enrolments)
+   - [Reports](#reports)
+   - [Scheduled jobs](#scheduled-jobs)
    - [Classes](#classes)
    - [Children](#children)
    - [Staff Assignments](#staff-assignments)
@@ -28,10 +31,13 @@
    - [Calendar Events](#calendar-events)
    - [Invoices](#invoices)
    - [Payments](#payments)
+   - [Payment claims](#payment-claims-já-paguei)
    - [Expense Categories](#expense-categories)
    - [Expenses](#expenses)
    - [Messages](#messages)
    - [Monthly Reports](#monthly-reports)
+   - [Notifications](#notifications)
+   - [WhatsApp webhook](#whatsapp-webhook)
 6. [Pagination](#pagination)
 7. [Error Reference](#error-reference)
 
@@ -49,11 +55,35 @@ The Sonho de Criança API is a RESTful backend for a daycare management system. 
 Endpoints that receive files use `multipart/form-data`. The API uploads the received file to Cloudinary and saves **only the resulting URL** in MongoDB.
 
 Cloudinary sub-folders used by this API:
-- `avatars` (user `avatar`)
-- `children` (child `photo_url`)
-- `pickup-persons` (pickup person `photo_url`)
-- `report-photos` (report photo `photo_url`)
-- `receipts` (expense `receipt_url`, supports images and PDFs)
+- `avatars` (user `avatar`): public
+- `children` (child `photo_url`): **private**
+- `pickup-persons` (pickup person `photo_url`): **private**
+- `report-photos` (report photo `photo_url`): **private**
+- `receipts` (expense `receipt_url`, supports images and PDFs): **private**
+
+### Private files and signed links
+
+Private files are uploaded to Cloudinary as `authenticated` assets: their storage URL doesn't work on its own. Responses never contain it. Instead, `photo_url` / `receipt_url` hold a **signed link to this API**:
+
+```
+https://api.example.co.mz/api/v1/media/report-photos/<id>?exp=1793620800&sig=…
+```
+
+- Only users allowed to see the record get the link, because the record endpoints are scoped by role.
+- The link needs no `Authorization` header, so it works directly in `<img src>`.
+- It is valid for 1–2 hours. The same link is issued throughout an hour, so browsers can cache the image. Fetch the record again for a fresh link.
+- Sending the link back in an update (e.g. saving a whole child record) is ignored: the stored file is kept. To replace a photo, upload a new file.
+
+#### `GET /media/:kind/:id?exp=…&sig=…`
+
+`kind` is `children`, `report-photos`, `pickup-persons` or `receipts`.
+
+- **Private file:** the API checks the signature, fetches the file from Cloudinary (images capped at 1600 px, compressed), and returns it with `Cache-Control: private` and `Cross-Origin-Resource-Policy: cross-origin`.
+- **Older public file or external URL:** `302` redirect to it (the API doesn't fetch arbitrary URLs).
+
+**Errors:** `403` invalid, tampered or expired link · `404` record or file missing · `502` Cloudinary unavailable.
+
+Configuration: `API_PUBLIC_URL` (required in production) is the base of the links. `MEDIA_URL_SECRET` is optional; it defaults to a secret derived from `JWT_SECRET`.
 
 ---
 
@@ -65,7 +95,56 @@ Pass the access token in the `Authorization` header on every protected request:
 Authorization: Bearer <token>
 ```
 
-Tokens are short-lived JWTs. Use `POST /auth/refresh` to obtain a new pair when the access token expires.
+- **Access tokens** (`token`, 7 days) authenticate requests. **Refresh tokens** (`refreshToken`, 30 days) only work on `POST /auth/refresh`; using one as an access token gets `403`.
+- An expired access token gets `401` with `"Token expirado"`: call `POST /auth/refresh` and retry.
+- Every protected request also checks the account in the database:
+  - a user who is deactivated, or whose role changes, is affected on their next request;
+  - **changing or resetting the password ends every existing session** (`401` `"A sua sessão terminou. Entre novamente."`).
+
+### Accounts are invite-only
+
+There is no public registration. An administrator creates the user with `POST /users`. The user gets an invite link (by email and/or WhatsApp; the link is also returned to the admin to share by hand). Opening the link, the user chooses a password via `POST /auth/accept-invite`, which activates the account and logs them in.
+
+User `status` values: `invited` (created, invite not yet accepted) · `active` · `inactive` · `suspended`.
+
+The first administrator is created from the command line: `npm run create-admin -- --first <name> --last <surname> --email <email> [--phone <phone>] [--whatsapp]` (run it with `FRONTEND_URL` set to the real site, since the printed link uses it).
+
+### Email or phone
+
+A user has an **email, a phone number, or both** (at least one), and can log in with either. Both are unique.
+
+- Phone numbers are accepted in any common format (`84 123 4567`, `+258 84 123 4567`, `00258…`, or another country's number with its code) and stored in E.164 format: `+258841234567`.
+- **WhatsApp is only used with the user's consent** (`whatsappOptIn`). Consent is recorded by the admin when creating the user (e.g. from the enrolment form), by the user when accepting the invite, or on their profile. Without consent, messages go by email only; a user with neither email nor consent must get links from the admin.
+
+### Rate limits
+
+| Endpoints | Limit (15 min unless stated) |
+|---|---|
+| `POST /auth/login` | 20 *failed* attempts per IP (successful logins don't count) |
+| `GET /auth/invite/:token`, `POST /auth/accept-invite` | 30 per invite link |
+| `POST /auth/forgot-password` | 30 per IP, and 3 per account per hour |
+| `POST /auth/reset-password` | 10 per reset link |
+| Everything else | 1000 per IP |
+
+In production the auth limits are stored in MongoDB (collection `ratelimits`), so they hold across serverless instances.
+
+---
+
+## Offline sync (attendance and daily reports)
+
+The staff app may queue writes while offline and send them later, possibly twice. Attendance records and daily reports exist **once per child per day**. The day is the calendar day in Maputo, whatever time the device sends; it's stored as midnight UTC of that date.
+
+- **`client_id` on create:** the app's own id for the record (e.g. a UUID, max 64 chars).
+  - **The same `client_id` again** returns the record already saved: `200`, `"sync": "replayed"`. Nothing changes and no message is sent twice.
+  - **Reusing a `client_id` for another child** answers `409`.
+- **A record already exists for that child and day** (e.g. two tablets offline): the newest write wins. The response is `200`, `"sync": "merged"`, `"conflict": true`, and `"previous"` holds the values before the merge, so the app can show what changed.
+- **Otherwise** the record is created: `201`, `"sync": "created"`.
+- **`base_updated_at` on update:** the `updatedAt` of the version the app edited. If someone changed the record since, the update still applies (newest wins), and the response adds `"conflict": true` and `"previous"`.
+- **Updates can't change** a record's child or date.
+
+```json
+{ "success": true, "message": "Registro de presença guardado", "data": { ... }, "sync": "merged", "conflict": true, "previous": { "status": "present", ... } }
+```
 
 ---
 
@@ -113,14 +192,28 @@ Tokens are short-lived JWTs. Use `POST /auth/refresh` to obtain a new pair when 
 
 ## Roles & Permissions
 
-| Role | Label | Description |
-|------|-------|-------------|
-| `administrador` | Admin | Full access to all resources |
-| `staff` | Staff | Can manage children in assigned classes, write reports, record attendance |
-| `responsavel` | Parent/Guardian | Read-only access to data about their own children |
+| Role | Label | Sees |
+|------|-------|------|
+| `administrador` | Admin | Everything |
+| `staff` | Staff | The children in the classes they are assigned to (none while unassigned), and those children's records |
+| `responsavel` | Parent | Their own children and those children's records; their own invoices and payments |
 
-The middleware enforces the following hierarchy for route guards:  
-`requireAdmin` → `requireStaff` (staff + admin) → `authenticateToken` (any logged-in user)
+Route guards: `requireAdmin` → `requireStaff` (staff + admin) → `authenticateToken` (any logged-in user).
+
+### What each role can read
+
+Records that belong to a child follow the child: **attendance, daily reports, report photos, monthly reports, guardians, pickup persons**.
+
+- **Lists** only contain records in the caller's scope. A `child_id` filter for a child outside it answers `404`.
+- **Single records**, and the `/child/:childId` routes, answer `404` outside the scope, the same as a missing record, so their existence isn't revealed.
+- **Staff writes** (attendance, daily and monthly reports, photos) are limited to children in their classes. Updates can't move a record to another child.
+- **Monthly reports:** parents only see `validated` ones.
+- **Invoices and payments:** admins see all; parents only their own; staff get `403`.
+- **Expenses and expense categories:** admin only (`403` for others).
+- **Staff assignments:** staff and admins only.
+- **Calendar events:** centre-wide events (no `class_id`) are visible to everyone. Class events are only visible to that class's families and staff, and to admins.
+- **`GET /users`:** staff see staff, admins, and the parents of children in their classes.
+- **Classes and activities:** visible to every logged-in user.
 
 ---
 
@@ -150,50 +243,29 @@ Public endpoint. Verifies the server is running.
 
 **Base path:** `/api/v1/auth`
 
----
-
-#### `POST /auth/register`
-
-Create a new user account. Sends a welcome email/WhatsApp notification after registration.
-
-**Body**
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| `firstName` | string | ✅ | 2–50 chars |
-| `lastName` | string | ✅ | 2–50 chars |
-| `email` | string | ✅ | Valid email |
-| `password` | string | ✅ | Min 8 chars, must contain uppercase, lowercase, digit, special char |
-| `confirmPassword` | string | ✅ | Must match `password` |
-| `role` | string | — | `responsavel` \| `staff` \| `administrador` — defaults to `responsavel` |
-| `phone` | string | — | Any format |
-
-**Response `201`**
+The user object returned by auth endpoints:
 
 ```json
-{
-  "success": true,
-  "message": "Usuário registrado com sucesso",
-  "data": {
-    "user": { "id": "...", "firstName": "...", "lastName": "...", "email": "...", "role": "responsavel" },
-    "token": "<access_jwt>",
-    "refreshToken": "<refresh_jwt>"
-  }
-}
+{ "id": "...", "email": "ana@example.com", "name": "Ana Cossa", "role": "responsavel", "phone": "+258841234567", "whatsappOptIn": true }
 ```
+
+`email` or `phone` may be `""` (a user has at least one).
 
 ---
 
 #### `POST /auth/login`
 
-Authenticate a user and receive tokens.
+Log in with an email **or** a phone number.
 
 **Body**
 
-| Field | Type | Required |
-|-------|------|----------|
-| `email` | string | ✅ |
-| `password` | string | ✅ |
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `identifier` | string | ✅* | Email or phone number, any format |
+| `email` | string | ✅* | Older clients: same as `identifier` |
+| `password` | string | ✅ | |
+
+\* Send `identifier` (preferred) or `email`.
 
 **Response `200`**
 
@@ -209,13 +281,13 @@ Authenticate a user and receive tokens.
 }
 ```
 
-**Errors:** `401` — Invalid credentials.
+**Errors:** `401` — Invalid credentials, or account not active (`"Conta desactivada. Contacte a administração."` is only returned after a correct password). A server problem is a `500` with a generic message.
 
 ---
 
 #### `POST /auth/refresh`
 
-Exchange a refresh token for a new access token pair.
+Exchange a refresh token for a new token pair.
 
 **Body**
 
@@ -223,20 +295,9 @@ Exchange a refresh token for a new access token pair.
 |-------|------|----------|
 | `refreshToken` | string | ✅ |
 
-**Response `200`**
+**Response `200`** — `data: { "token": "<new_access_jwt>", "refreshToken": "<new_refresh_jwt>" }`
 
-```json
-{
-  "success": true,
-  "message": "Token renovado com sucesso",
-  "data": {
-    "token": "<new_access_jwt>",
-    "refreshToken": "<new_refresh_jwt>"
-  }
-}
-```
-
-**Errors:** `401` — Invalid or expired refresh token.
+**Errors:** `401` — Invalid, expired or revoked refresh token, an access token, or an account that is no longer active.
 
 ---
 
@@ -244,23 +305,15 @@ Exchange a refresh token for a new access token pair.
 
 Get the profile of the currently authenticated user.
 
-**Response `200`**
-
-```json
-{
-  "success": true,
-  "message": "Perfil recuperado com sucesso",
-  "data": { "user": { ... } }
-}
-```
+**Response `200`** — `data: { "user": { "id", "email", "name", "role", "phone", "whatsappOptIn", "notificationPrefs" } }`. `notificationPrefs` always has all four categories, with the defaults filled in (everything on both channels, except `attendance`: WhatsApp only).
 
 ---
 
 #### `PUT /auth/me` 🔒
 
-Update the authenticated user's profile.
+Update the authenticated user's own profile. Email and role are managed by admins.
 
-Supports `multipart/form-data` upload for the `avatar` file field. The uploaded file is sent to Cloudinary and the returned URL is stored in `avatar` in the database (no base64 storage).
+Supports `multipart/form-data` upload for the `avatar` file field. The uploaded file is sent to Cloudinary and the returned URL is stored in `avatar` (no base64 storage).
 
 **Body (JSON or multipart)**
 
@@ -268,14 +321,18 @@ Supports `multipart/form-data` upload for the `avatar` file field. The uploaded 
 |-------|------|-------|
 | `firstName` | string | 2–50 chars |
 | `lastName` | string | 2–50 chars |
-| `phone` | string | |
-| `avatar` | string / file | Send a Cloudinary URL as a string (JSON) or upload a file via multipart (field name `avatar`) |
+| `phone` | string | Any common format; `""` removes it (only if the user has an email). Must be unique |
+| `whatsappOptIn` | boolean | Give or withdraw consent to WhatsApp messages |
+| `notificationPrefs` | object | Channels per kind of message, merged over what's stored, so one category can be sent alone: `{ "attendance": { "whatsapp": false } }`. Categories `attendance`, `reports`, `billing`, `messages`; each `{ whatsapp?, email? }` (booleans). WhatsApp still needs `whatsappOptIn`. |
+| `avatar` | string / file | A URL string (JSON) or a file upload (field name `avatar`) |
 
-**Response `200`** — Updated user object.
+**Response `200`** — Updated user object. **Errors:** `400` validation (e.g. removing the only contact) · `409` phone already registered.
 
 ---
 
 #### `PUT /auth/change-password` 🔒
+
+Changes the password and **ends every other session**. The response carries new tokens for the current session: store them, the old ones stop working.
 
 **Body**
 
@@ -288,81 +345,362 @@ Supports `multipart/form-data` upload for the `avatar` file field. The uploaded 
 **Response `200`**
 
 ```json
-{ "success": true, "message": "Senha alterada com sucesso" }
+{ "success": true, "message": "Senha alterada. As outras sessões foram terminadas.", "data": { "token": "...", "refreshToken": "..." } }
 ```
 
----
-
-#### `POST /auth/forgot-password`
-
-Request a password reset token. Always returns `200` regardless of whether the email exists (to prevent email enumeration). Sends a reset link via email/WhatsApp if configured.
-
-**Body**
-
-| Field | Type | Required |
-|-------|------|----------|
-| `email` | string | ✅ |
-
-**Response `200`**
-
-```json
-{ "success": true, "message": "Se este email estiver cadastrado, você receberá um link de redefinição." }
-```
+**Errors:** `400` — Validation failed, or wrong current password.
 
 ---
 
-#### `POST /auth/reset-password`
+#### `GET /auth/invite/:token`
 
-Complete the password reset flow using the token received by email.
-
-**Body**
-
-| Field | Type | Required |
-|-------|------|----------|
-| `token` | string | ✅ |
-| `newPassword` | string | ✅ |
-
-**Response `200`**
-
-```json
-{ "success": true, "message": "Senha redefinida com sucesso" }
-```
-
----
-
-#### `POST /auth/logout` 🔒
-
-Invalidates the session on the client side (token removal is client-handled).
-
-**Response `200`**
-
-```json
-{ "success": true, "message": "Logout realizado com sucesso" }
-```
-
----
-
-### Users
-
-**Base path:** `/api/v1/users`  
-All routes require authentication.
-
----
-
-#### `GET /users` 🔒 (staff+)
-
-Return a flat list of all users. Used by staff/admin to look up user IDs for assigning children, sending messages, etc.
+Look up a pending invite, so the accept page can greet the user. Public.
 
 **Response `200`**
 
 ```json
 {
   "success": true,
-  "data": [
-    { "_id": "...", "firstName": "...", "lastName": "...", "email": "...", "role": "...", "phone": "..." }
-  ]
+  "message": "Convite válido",
+  "data": { "firstName": "Joana", "lastName": "Cossa", "email": "joana@example.com", "phone": "+258841234567", "role": "staff", "whatsappOptIn": false }
 }
 ```
+
+`whatsappOptIn` is the consent recorded by the admin, so the page can pre-tick it.
+
+**Errors:** `400` — Invite invalid, expired (7 days), already used, or cancelled (the user was deactivated).
+
+---
+
+#### `POST /auth/accept-invite`
+
+Set the password and activate the account. Returns tokens (the user is logged in). Each invite works once.
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `token` | string | ✅ | From the invite link `/convite/<token>` |
+| `password` | string | ✅ | Min 8 chars, with uppercase, lowercase, digit and special char (`@$!%*?&`) |
+| `confirmPassword` | string | ✅ | Must match `password` |
+| `whatsappOptIn` | boolean | — | The user's WhatsApp choice. When omitted, the consent recorded by the admin is kept |
+
+**Response `200`** — same shape as login.
+
+**Errors:** `400` — Validation failed, or invite invalid/expired/used.
+
+---
+
+#### `POST /auth/forgot-password`
+
+Request a password reset by email **or** phone. Always returns the same `200` immediately, whether or not the account exists; the work happens after the response.
+
+- Active account: a reset link (`{FRONTEND_URL}/redefinir-senha?token=…`, valid 24 h) is sent by email and/or WhatsApp (WhatsApp only with consent).
+- Account that was invited but never activated: the invite is sent again instead (new link; the old one stops working).
+
+**Body:** `identifier` (email or phone), or `email` from older clients.
+
+**Response `200`**
+
+```json
+{ "success": true, "message": "Se a conta existir, enviaremos um link de redefinição por email ou WhatsApp", "data": null }
+```
+
+---
+
+#### `POST /auth/reset-password`
+
+Complete the password reset using the token from the link. **Ends every existing session.**
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `token` | string | ✅ | |
+| `newPassword` | string | ✅ | Same rules as `password` above |
+| `confirmNewPassword` | string | — | Must match `newPassword` if sent |
+
+**Response `200`** — `{ "success": true, "message": "Senha redefinida com sucesso", "data": null }`
+
+**Errors:** `400` — Validation failed, or token invalid/expired.
+
+---
+
+#### `POST /auth/logout` 🔒
+
+The client discards its tokens (they are not revoked server-side; changing the password does that).
+
+**Response `200`** — `{ "success": true, "message": "Logout realizado com sucesso" }`
+
+---
+
+### Users
+
+**Base path:** `/api/v1/users`
+All routes require authentication. Everything except the list is admin-only.
+
+The admin user object:
+
+```json
+{
+  "id": "...", "name": "Joana Cossa", "firstName": "Joana", "lastName": "Cossa",
+  "email": "joana@example.com", "phone": "+258841234567", "role": "staff", "status": "invited",
+  "invitedAt": "2026-11-02T10:00:00.000Z", "activatedAt": null,
+  "whatsappOptIn": false, "whatsappOptInAt": null, "createdAt": "2026-11-02T10:00:00.000Z"
+}
+```
+
+Invite and reset responses include `delivery`, saying which channels the message actually went out on: `{ "email": true, "whatsapp": false }`. When both are `false` (no email, no WhatsApp consent, or the services aren't configured), show the admin the link to share by hand.
+
+---
+
+#### `GET /users` 🔒 (staff+)
+
+List users (paginated), e.g. to pick a parent for a child or a message recipient.
+
+| Query | Notes |
+|---|---|
+| `role` | `responsavel` \| `staff` \| `administrador` |
+| `search` | Matches first name, last name, email, or phone digits (3+) |
+| `status` | Admin only: `invited` \| `active` \| `inactive` \| `suspended` \| `all`. Staff always get `active` users |
+| `page`, `limit` | Pagination |
+
+**Response `200`** — `data: [{ "id", "name", "email", "phone", "role", "status" }]` plus `pagination`.
+
+---
+
+#### `POST /users` 🔒 (admin)
+
+Create a user and send them an invite.
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `firstName` | string | ✅ | 2–50 chars |
+| `lastName` | string | ✅ | 2–50 chars |
+| `email` | string | ✅* | Unique |
+| `phone` | string | ✅* | Unique; any common format |
+| `role` | string | ✅ | `responsavel` \| `staff` \| `administrador` |
+| `whatsappOptIn` | boolean | — | The person already agreed to WhatsApp messages (e.g. on the enrolment form). Default `false` |
+
+\* At least one of `email` / `phone`.
+
+**Response `201`**
+
+```json
+{
+  "success": true,
+  "message": "Utilizador criado e convite enviado",
+  "data": {
+    "user": { "...": "admin user object, status invited" },
+    "inviteLink": "https://app.../convite/<token>",
+    "delivery": { "email": true, "whatsapp": false }
+  }
+}
+```
+
+**Errors:** `400` validation (including neither email nor phone) · `409` email or phone already registered.
+
+---
+
+#### `GET /users/:id` 🔒 (admin)
+
+**Response `200`** — admin user object. **Errors:** `400` malformed id · `404` not found.
+
+---
+
+#### `PUT /users/:id` 🔒 (admin)
+
+Update `firstName`, `lastName`, `email`, `phone`, `role` and/or `whatsappOptIn` (at least one). `""` removes the email or phone, as long as the user keeps one of them.
+
+**Errors:** `400` validation, or an admin changing their own role · `404` · `409` email or phone already registered.
+
+---
+
+#### `PATCH /users/:id/status` 🔒 (admin)
+
+**Body:** `{ "status": "active" | "inactive" | "suspended" }`. Deactivation takes effect on the user's next request, and also cancels a pending invite link.
+
+**Errors:** `400` an admin changing their own status · `404` · `409` activating someone who never set a password (re-invite them instead).
+
+---
+
+#### `POST /users/:id/resend-invite` 🔒 (admin)
+
+For someone who never activated their account (status `invited`, or deactivated before activating): generates a new invite link (the previous one stops working), sets the status to `invited`, and sends it. Same response as `POST /users`.
+
+**Errors:** `404` · `409` the user has already activated their account (use a password-reset link).
+
+---
+
+#### `POST /users/:id/password-reset-link` 🔒 (admin)
+
+For an active user who forgot their password and can't receive the link themselves: creates a reset link (24 h), sends it on the user's channels, and returns it.
+
+**Response `200`** — `data: { "user": { ... }, "resetLink": "https://app.../redefinir-senha?token=…", "delivery": { ... } }`
+
+**Errors:** `404` · `409` the user isn't active (for someone who never activated, resend the invite).
+
+---
+
+### Enrolments
+
+**Base path:** `/api/v1/enrollments`
+
+A family fills in the public form (`/matricula`); an admin can also enter it for them. The request waits in a queue. **Nothing is created until an admin approves it.**
+
+`status`: `submitted` → `under_review` → `approved` | `rejected`. Approved and rejected requests can't be changed.
+
+---
+
+#### `POST /enrollments` (public)
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `child` | object | ✅ | `name`, `birth_date` (not in the future) required. Optional: `gender` (`Masculino`/`Feminino`), `nationality`, `address`, `languages_spoken`, `allergies`, `medications`, `dietary_restrictions`, `sleep_schedule`, `preferred_foods`, `separation_reaction`, `plays_with_others`, `behavior_notes`, `previous_center`, `transfer_reason`, `emergency_contact_name`, `emergency_contact_phone` |
+| `guardians` | array (1–4) | ✅ | `name` required; `relationship`, `phone`, `email`, `profession`, `workplace`, `address`. **The first guardian is the main contact** and gets the parent account, so needs a phone or an email |
+| `pickup_persons` | array (0–6) | — | `name`, `phone` required; `relationship`, `id_document` |
+| `consents` | object | ✅ | `data_processing` must be `true`; `image_usage_authorized`, `whatsapp_opt_in` (default `false`) |
+| `requested_class_id` | string | — | |
+| `requested_start_date` | date | — | |
+| `notes` | string | — | |
+| `signature` | string | — | Full name typed as signature |
+| `website` | string | — | Honeypot: hidden on the form. When filled in, the API answers as usual but stores nothing |
+
+**Response `201`** — only the reference, never the data:
+
+```json
+{ "success": true, "message": "Pedido de matrícula recebido", "data": { "reference": "MAT-2026-0001", "status": "submitted" } }
+```
+
+The main guardian gets a confirmation by email and/or WhatsApp (WhatsApp only with `whatsapp_opt_in`).
+
+When a logged-in admin submits, the request is recorded as theirs (`source: "admin"`, `submitted_by`) and isn't rate-limited. Otherwise: 10 per hour per IP.
+
+**Errors:** `400` validation · `429` too many requests.
+
+---
+
+#### `GET /enrollments` 🔒 (admin)
+
+Paginated, newest first. Query: `status` (`submitted` | `under_review` | `approved` | `rejected`), `page`, `limit`.
+
+#### `GET /enrollments/:id` 🔒 (admin)
+
+#### `PUT /enrollments/:id` 🔒 (admin)
+
+Correct an open request (same fields as the form, all optional) and/or move it to review: `{ "status": "under_review" }`. **Errors:** `409` already approved or rejected.
+
+---
+
+#### `POST /enrollments/:id/approve` 🔒 (admin)
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `class_id` | string | ✅ | The class the child joins |
+| `start_date` | date | — | Defaults to the requested start date, or today |
+| `override_capacity` | boolean | — | Approve even if the class is full |
+
+In **one transaction** (all or nothing), approval:
+1. finds the family's account by the main guardian's phone or email (a second child), or creates an invited parent account, with WhatsApp consent from the form;
+2. creates the child (class, parent, image consent, signature, enrolment date);
+3. creates all guardians (the first as primary) and the pickup persons (authorised);
+4. marks the request `approved`.
+
+After that, a new parent gets the account invite. The family gets an "enrolment approved" message.
+
+**Response `200`**
+
+```json
+{
+  "success": true,
+  "message": "Matrícula aprovada",
+  "data": {
+    "enrollment": { "...": "status approved, child_id, parent_user_id" },
+    "child": { "...": "the new child" },
+    "parent": { "id": "...", "created": true },
+    "inviteLink": "https://app.../convite/<token>",
+    "delivery": { "email": true, "whatsapp": true }
+  }
+}
+```
+
+`inviteLink` and `delivery` are only there when a parent account was created (see `POST /users`).
+
+**Errors:**
+- `404` request or class not found.
+- `409`:
+  - already decided;
+  - class full (without `override_capacity`);
+  - the guardian's phone and email belong to two different accounts;
+  - the contact belongs to a staff or admin account.
+
+---
+
+#### `POST /enrollments/:id/reject` 🔒 (admin)
+
+**Body:** `{ "reason": "..." }`. Closes the request. No message is sent to the family: the centre contacts them itself. **Errors:** `409` already decided.
+
+---
+
+### Reports
+
+**Base path:** `/api/v1/reports`. Amounts are in MT. Periods: `from` and `to` as `YYYY-MM-DD`, both inclusive; the default is the current month so far. `400` for an invalid period.
+
+#### `GET /reports/finance/summary` 🔒 (admin)
+
+```json
+{
+  "period": { "from": "2026-11-01", "to": "2026-11-02" },
+  "invoiced": 1000, "received": 600, "expenses": 200, "net": 400,
+  "outstanding": { "amount": 400, "count": 1, "overdue_amount": 0, "overdue_count": 0 },
+  "by_month": [{ "month": "2026-11", "invoiced": 1000, "received": 600, "expenses": 200 }]
+}
+```
+
+- `invoiced`: invoices issued in the period, excluding cancelled ones.
+- `received`: payments in the period.
+- `net`: received minus expenses.
+- `outstanding`: **today's** unpaid balance (pending and overdue invoices, minus payments already made on them), whatever the period.
+
+#### `GET /reports/payments` 🔒 (admin)
+
+Query: `from`, `to`, `method`. Returns `total`, `count`, `by_method` [{ method, amount, count }] and `by_month`.
+
+#### `GET /reports/expenses` 🔒 (admin)
+
+Query: `from`, `to`, `category_id`. Returns `total`, `by_category` [{ category_id, category, amount, count }] and `by_month`.
+
+#### `GET /reports/attendance` 🔒 (staff+)
+
+Query: `month` (`YYYY-MM`, default current) and `class_id`. Admins may omit `class_id` (all classes). Staff must give one of their own classes (`403` otherwise).
+
+```json
+{
+  "month": "2026-10", "class_id": "...",
+  "totals": { "present": 2, "late": 1, "absent": 1, "excused": 0, "days": 4, "rate": 0.75 },
+  "children": [{ "child_id": "...", "name": "...", "class": "Turma X", "present": 1, "late": 1, "absent": 1, "excused": 0, "days": 3, "rate": 0.67 }]
+}
+```
+
+`rate` = (present + late) / days recorded (`null` when there are none).
+
+---
+
+### Scheduled jobs
+
+**Base path:** `/api/v1/jobs`. Called by Vercel Cron with `Authorization: Bearer <CRON_SECRET>`. **Without `CRON_SECRET` the jobs are disabled** (`503`); a wrong secret gets `401`.
+
+#### `GET|POST /jobs/mark-overdue`
+
+Run daily (suggested: 04:00 UTC, i.e. 06:00 in Maputo). It marks `pending` invoices whose due date is before today as `overdue`, and sends each family the overdue notification (WhatsApp only with consent). Running it twice in a day changes nothing the second time.
+
+**Response `200`** — `data: { "marked_overdue": 3 }`
 
 ---
 
@@ -1244,6 +1582,23 @@ Change only the status. Triggers a **overdue** or **paid** notification dependin
 
 ---
 
+#### `POST /invoices/generate` 🔒 Admin
+
+The monthly propina run: one invoice per child of the given classes, for a month. Children who already have that month's invoice (not cancelled), or have no parent account, are skipped, so it's safe to run again. Each family is notified.
+
+**Body**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `period` | string | `YYYY-MM` (required) |
+| `due_date` | date | Required |
+| `amounts` | array | `[{ "class_id", "amount" }]`, at least one class |
+| `description` | string | Optional; default "Propina <Mês> <Ano>" |
+
+**Response `201`** — `data: { "created": 18, "skipped": 2, "invoices": [ ... ] }`
+
+---
+
 ### Payments
 
 **Base path:** `/api/v1/payments`  
@@ -1315,6 +1670,37 @@ Returns all payments linked to a specific invoice.
 #### `DELETE /payments/:id` 🔒 (admin)
 
 **Response `200`**
+
+---
+
+### Payment claims ("Já paguei")
+
+**Base path:** `/api/v1/payment-claims`. A parent tells the centre they paid an invoice (M-Pesa, e-Mola, transfer, cash); the administration checks the statement and confirms (which records the payment) or rejects with a reason the parent sees.
+
+#### `GET /payment-claims` 🔒 Admin, Responsável
+
+Parents see their own; admins see all. Query: `status` (`pending`, `confirmed`, `rejected`), `invoice_id`, `page`, `limit`. Paginated.
+
+#### `POST /payment-claims` 🔒 Responsável
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `invoice_id` | string | Required; one of the parent's own invoices |
+| `amount` | number | Required, > 0 |
+| `method` | string | `mpesa`, `emola`, `bank_transfer`, `cash` |
+| `reference` | string | Transaction code; required except for `cash` |
+| `paid_on` | date | Optional; default today |
+| `notes` | string | Optional, ≤ 300 chars |
+
+**Response `201`.** **Errors:** `404` not the parent's invoice · `409` invoice already paid or cancelled, or a claim for it is already pending.
+
+#### `PATCH /payment-claims/:id/confirm` 🔒 Admin
+
+Records the payment (body `amount` optional, to record a different amount than claimed); the invoice becomes `paid` when covered, and the family is told. **Errors:** `409` already handled.
+
+#### `PATCH /payment-claims/:id/reject` 🔒 Admin
+
+Body `{ "reason": "…" }` (required). **Errors:** `409` already handled.
 
 ---
 
@@ -1442,6 +1828,27 @@ All routes require authentication.
 > Messages can be sent to a specific user (`recipient_id`) or broadcast to all users with a given role (`recipient_role`). One of the two must be provided. Triggers an email/WhatsApp notification to each recipient (fire-and-forget).
 
 ---
+
+#### `GET /messages/recipients` 🔒
+
+Who the user may write to, for the recipient picker. Query: `search` (name).
+
+- **Parent:** the administration, and the staff of their children's classes.
+- **Staff:** colleagues, the administration, and the parents of children in their classes.
+- **Admin:** every active user.
+
+```json
+{ "data": [
+  { "id": "...", "name": "Joana Cossa", "role": "staff", "classes": ["Turma X"] },
+  { "id": "...", "name": "Ana Machava", "role": "responsavel", "children": ["Lara Machava"] }
+] }
+```
+
+`POST /messages` applies the same rules:
+- A `recipient_id` outside the list gets `404`.
+- Messages to a whole role (`recipient_role`) are for admins only (`403`).
+- A `child_id` must be one of the sender's children or classes (`404`).
+- Either `recipient_id` or `recipient_role` is required (`400`).
 
 #### `GET /messages/inbox` 🔒
 
@@ -1641,6 +2048,29 @@ Marks the report as `validated`. Triggers a **monthly report validated** email/W
 #### `DELETE /monthly-reports/:id` 🔒 (admin)
 
 **Response `200`**
+
+---
+
+### Notifications
+
+**Base path:** `/api/v1/notifications` 🔒 Admin. The log of every WhatsApp and email sent (kept 6 months), for the Notificações screen. How channels are chosen, fallback and statuses: [NOTIFICATIONS.md](NOTIFICATIONS.md).
+
+#### `GET /notifications`
+
+Query: `status` (`sent`, `delivered`, `read`, `failed`, `skipped`), `channel` (`whatsapp`, `email`), `category` (`account`, `enrollment`, `billing`, `reports`, `attendance`, `messages`), `search` (name, email or phone), `page`, `limit` (default 30). Paginated, newest first. Each row has `user_id` populated (`firstName`, `lastName`, `role`), `resendable` and `handled` (already resent, or covered by an email fallback); message contents are not returned. Extra `meta: { "failed_this_week", "whatsapp_configured", "email_configured" }`.
+
+#### `POST /notifications/:id/resend`
+
+Sends the message again from what was stored, as a new log row (`resend_of`). WhatsApp re-checks the person's current consent. **Errors:** `404` · `422` with the reason (account messages, which are re-issued from Users instead; consent withdrawn; failed again).
+
+---
+
+### WhatsApp webhook
+
+**Base path:** `/api/v1/webhooks/whatsapp`. For Meta, not for the app. Disabled (`503`) until `WHATSAPP_VERIFY_TOKEN` and `WHATSAPP_APP_SECRET` are set.
+
+- `GET`: Meta's verification (`hub.mode=subscribe`, `hub.verify_token`, `hub.challenge`) → the challenge, or `403`.
+- `POST`: delivery statuses, signed with `X-Hub-Signature-256` (HMAC-SHA256 of the raw body with the app secret; `401` otherwise). Updates the log (`sent` → `delivered` → `read`, never backwards); `failed` sends the email fallback once.
 
 ---
 

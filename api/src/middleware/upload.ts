@@ -1,4 +1,9 @@
 import multer from 'multer';
+import { ApiError } from '../utils/ApiError';
+
+// Vercel rejects request bodies above ~4.5 MB, so files are capped below that.
+// The web app compresses photos before uploading.
+export const MAX_UPLOAD_MB = 4;
 
 const storage = multer.memoryStorage();
 
@@ -6,7 +11,7 @@ const imageFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilter
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new Error('Apenas arquivos de imagem são permitidos'));
+    cb(new ApiError(400, 'Apenas ficheiros de imagem são permitidos'));
   }
 };
 
@@ -14,20 +19,20 @@ const imageOrPdfFilter = (_req: any, file: Express.Multer.File, cb: multer.FileF
   if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
     cb(null, true);
   } else {
-    cb(new Error('Apenas arquivos de imagem ou PDF são permitidos'));
+    cb(new ApiError(400, 'Apenas ficheiros de imagem ou PDF são permitidos'));
   }
 };
 
 const uploadImage = multer({
   storage,
   fileFilter: imageFilter,
-  limits: { fileSize: 10 * 1024 * 1024 }
+  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 }
 });
 
 const uploadFile = multer({
   storage,
   fileFilter: imageOrPdfFilter,
-  limits: { fileSize: 10 * 1024 * 1024 }
+  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 }
 });
 
 /** Single image upload — field name: `avatar` (for user profile) */

@@ -1,62 +1,98 @@
 import * as Joi from 'joi';
 import Messages from './messages';
+import { normalisePhone } from './phone';
 
-export const registerSchema = Joi.object({
-  firstName: Joi.string()
-    .min(2)
-    .max(50)
-    .required()
-    .messages({
-      'string.min': 'First name must be at least 2 characters',
-      'string.max': 'First name cannot exceed 50 characters',
-      'any.required': 'First name is required'
-    }),
-  lastName: Joi.string()
-    .min(2)
-    .max(50)
-    .required()
-    .messages({
-      'string.min': 'Last name must be at least 2 characters',
-      'string.max': 'Last name cannot exceed 50 characters',
-      'any.required': 'Last name is required'
-    }),
-  email: Joi.string()
-    .email()
-    .required()
-    .messages({
-      'string.email': 'Please enter a valid email address',
-      'any.required': 'Email is required'
-    }),
-  password: Joi.string()
-    .min(8)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .required()
-    .messages({
-      'string.min': 'Password must be at least 8 characters',
-      'string.pattern.base':
-        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-      'any.required': 'Password is required'
-    }),
-  confirmPassword: Joi.string()
-    .valid(Joi.ref('password'))
-    .required()
-    .messages({
-      'any.only': 'Passwords do not match',
-      'any.required': 'Please confirm your password'
-    }),
-  role: Joi.string().valid('responsavel', 'staff', 'administrador').default('responsavel'),
-  phone: Joi.string().optional().allow('')
+// Shared password rule: 8+ chars with upper, lower, digit and special character
+const strongPassword = Joi.string()
+  .min(8)
+  .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+  .messages({
+    'string.min': 'A senha deve ter pelo menos 8 caracteres',
+    'string.pattern.base':
+      'A senha deve ter pelo menos uma letra maiúscula, uma minúscula, um número e um carácter especial (@$!%*?&)'
+  });
+
+const personName = (label: string) =>
+  Joi.string().trim().min(2).max(50).messages({
+    'string.min': `${label} deve ter pelo menos 2 caracteres`,
+    'string.max': `${label} não pode exceder 50 caracteres`,
+    'any.required': `${label} é obrigatório`
+  });
+
+// Phone numbers in any common format; converted to E.164 (+258…)
+const phoneNumber = Joi.string()
+  .trim()
+  .custom((value, helpers) => normalisePhone(value) ?? helpers.error('phone.invalid'))
+  .messages({ 'phone.invalid': 'Número de telefone inválido' });
+
+const emailAddress = Joi.string().trim().lowercase().email().messages({ 'string.email': 'Email inválido' });
+
+// Login / forgot password: the email or phone number the user typed. `email` is accepted from older clients.
+const identifierFields = {
+  identifier: Joi.string().trim(),
+  email: Joi.string().trim()
+};
+const identifierMessages = { 'object.missing': 'Indique o email ou o número de telefone' };
+
+// Admin creates a user; the user receives an invite and sets their own password.
+// A user needs an email, a phone number, or both. `whatsappOptIn` records consent already given
+// (e.g. on the enrolment form); without it the invite is not sent by WhatsApp.
+export const createUserSchema = Joi.object({
+  firstName: personName('O nome').required(),
+  lastName: personName('O apelido').required(),
+  email: emailAddress.empty(''),
+  phone: phoneNumber.empty(''),
+  role: Joi.string().valid('responsavel', 'staff', 'administrador').required().messages({
+    'any.only': 'Perfil inválido',
+    'any.required': 'O perfil é obrigatório'
+  }),
+  whatsappOptIn: Joi.boolean().default(false)
+}).or('email', 'phone').messages({ 'object.missing': 'Indique um email ou um número de telefone' });
+
+// '' clears the email or phone (the user must keep at least one)
+export const updateUserSchema = Joi.object({
+  firstName: personName('O nome'),
+  lastName: personName('O apelido'),
+  email: emailAddress.allow(''),
+  phone: phoneNumber.allow(''),
+  role: Joi.string().valid('responsavel', 'staff', 'administrador').messages({ 'any.only': 'Perfil inválido' }),
+  whatsappOptIn: Joi.boolean()
+}).min(1);
+
+export const userStatusSchema = Joi.object({
+  status: Joi.string().valid('active', 'inactive', 'suspended').required().messages({
+    'any.only': 'Estado inválido',
+    'any.required': 'O estado é obrigatório'
+  })
+});
+
+export const acceptInviteSchema = Joi.object({
+  token: Joi.string().required().messages({ 'any.required': 'O token do convite é obrigatório' }),
+  password: strongPassword.required().messages({ 'any.required': 'A senha é obrigatória' }),
+  confirmPassword: Joi.string().valid(Joi.ref('password')).required().messages({
+    'any.only': 'As senhas não coincidem',
+    'any.required': 'Confirme a senha'
+  }),
+  // Optional: when omitted, the consent recorded by the admin is kept
+  whatsappOptIn: Joi.boolean()
+});
+
+export const forgotPasswordSchema = Joi.object(identifierFields).or('identifier', 'email').messages(identifierMessages);
+
+export const resetPasswordSchema = Joi.object({
+  token: Joi.string().required().messages({ 'any.required': 'O token é obrigatório' }),
+  newPassword: strongPassword.required().messages({ 'any.required': 'A nova senha é obrigatória' }),
+  confirmNewPassword: Joi.string().valid(Joi.ref('newPassword')).optional().messages({
+    'any.only': 'As senhas não coincidem'
+  })
 });
 
 export const loginSchema = Joi.object({
-  email: Joi.string().email().required().messages({
-    'string.email': 'Please enter a valid email address',
-    'any.required': 'Email is required'
-  }),
+  ...identifierFields,
   password: Joi.string().required().messages({
-    'any.required': 'Password is required'
+    'any.required': 'A senha é obrigatória'
   })
-});
+}).or('identifier', 'email').messages(identifierMessages);
 
 export const changePasswordSchema = Joi.object({
   currentPassword: Joi.string().required().messages({
@@ -90,8 +126,13 @@ export const updateProfileSchema = Joi.object({
     'string.min': 'Last name must be at least 2 characters',
     'string.max': 'Last name cannot exceed 50 characters'
   }),
-  phone: Joi.string().optional().allow(''),
-  avatar: Joi.string().optional().allow('')
+  phone: phoneNumber.allow(''),
+  avatar: Joi.string().optional().allow(''),
+  whatsappOptIn: Joi.boolean(),
+  // Per kind of message: { attendance: { whatsapp: true, email: false }, ... }
+  notificationPrefs: Joi.object(
+    Object.fromEntries(['attendance', 'reports', 'billing', 'messages'].map((category) => [category, Joi.object({ whatsapp: Joi.boolean(), email: Joi.boolean() })]))
+  )
 });
 
 export const refreshTokenSchema = Joi.object({
@@ -271,6 +312,14 @@ export const createPickupPersonSchema = Joi.object({
   is_authorized: Joi.boolean().optional()
 });
 
+// A parent authorises someone to collect their child today only (name, phone, optional photo)
+export const pickupTodaySchema = Joi.object({
+  child_id: Joi.string().required().messages({ 'any.required': 'ID da criança é obrigatório' }),
+  name: Joi.string().trim().required().messages({ 'any.required': 'Nome é obrigatório' }),
+  relationship: Joi.string().trim().optional().allow(''),
+  phone: Joi.string().required().messages({ 'any.required': 'Telefone é obrigatório' })
+});
+
 export const updatePickupPersonSchema = Joi.object({
   name: Joi.string().trim().optional(),
   relationship: Joi.string().optional().allow(''),
@@ -301,10 +350,15 @@ export const createDailyReportSchema = Joi.object({
   mood: Joi.string().optional().allow(''),
   notes: Joi.string().optional().allow(''),
   behavior_notes: Joi.string().optional().allow(''),
-  health_notes: Joi.string().optional().allow('')
+  health_notes: Joi.string().optional().allow(''),
+  // Offline sync: the app's id for this record (same id again = same record)
+  client_id: Joi.string().trim().max(64)
 });
 
-export const updateDailyReportSchema = createDailyReportSchema;
+// Updates can't move a report to another child or day; `base_updated_at` is the version the app edited
+export const updateDailyReportSchema = createDailyReportSchema
+  .fork(['child_id', 'date', 'client_id'], (field) => field.optional().strip())
+  .keys({ base_updated_at: Joi.date() });
 
 export const createActivitySchema = Joi.object({
   name: Joi.string().trim().required().messages({
@@ -330,6 +384,13 @@ export const createReportPhotoSchema = Joi.object({
   caption: Joi.string().optional().allow('')
 });
 
+// A parent tells the centre their child won't come (today or a later day)
+export const absenceNoticeSchema = Joi.object({
+  child_id: Joi.string().required().messages({ 'any.required': 'ID da criança é obrigatório' }),
+  date: Joi.date().required().messages({ 'any.required': 'Data é obrigatória' }),
+  reason: Joi.string().trim().max(200).required().messages({ 'any.required': 'Indique o motivo' })
+});
+
 export const createAttendanceSchema = Joi.object({
   child_id: Joi.string().required().messages({
     'any.required': 'ID da criança é obrigatório'
@@ -342,14 +403,19 @@ export const createAttendanceSchema = Joi.object({
   status: Joi.string().valid('present', 'absent', 'late', 'excused').required().messages({
     'any.required': 'Status é obrigatório'
   }),
-  notes: Joi.string().optional().allow('')
+  notes: Joi.string().optional().allow(''),
+  // Offline sync: the app's id for this record (same id again = same record)
+  client_id: Joi.string().trim().max(64)
 });
 
 export const updateAttendanceSchema = Joi.object({
-  check_in: Joi.date().optional(),
-  check_out: Joi.date().optional(),
+  // null clears a time (the app's "Desfazer" after a mistaken check-in or check-out)
+  check_in: Joi.date().allow(null).optional(),
+  check_out: Joi.date().allow(null).optional(),
   status: Joi.string().valid('present', 'absent', 'late', 'excused').optional(),
-  notes: Joi.string().optional().allow('')
+  notes: Joi.string().optional().allow(''),
+  // The version the app edited: a newer stored version is reported as a conflict
+  base_updated_at: Joi.date()
 });
 
 export const createCalendarEventSchema = Joi.object({
@@ -363,10 +429,12 @@ export const createCalendarEventSchema = Joi.object({
   end_date: Joi.date().optional(),
   is_all_day: Joi.boolean().optional(),
   event_type: Joi.string().valid('holiday', 'activity', 'meeting', 'reminder', 'other').optional(),
-  class_id: Joi.string().optional()
+  // null: the whole centre (lets an edit move a class event to everyone)
+  class_id: Joi.string().optional().allow(null)
 });
 
-export const updateCalendarEventSchema = createCalendarEventSchema;
+// Partial updates: only the fields sent change
+export const updateCalendarEventSchema = createCalendarEventSchema.fork(['title', 'start_date'], (field) => field.optional());
 
 export const createInvoiceSchema = Joi.object({
   child_id: Joi.string().required().messages({
@@ -390,7 +458,24 @@ export const createInvoiceSchema = Joi.object({
   })).required().messages({
     'any.required': 'Itens são obrigatórios'
   }),
-  notes: Joi.string().optional().allow('')
+  notes: Joi.string().optional().allow(''),
+  period: Joi.string().pattern(/^\d{4}-(0[1-9]|1[0-2])$/).optional()
+});
+
+// The month's propina for every child of the chosen classes (an amount per class)
+export const generateInvoicesSchema = Joi.object({
+  period: Joi.string().pattern(/^\d{4}-(0[1-9]|1[0-2])$/).required().messages({
+    'any.required': 'Indique o mês',
+    'string.pattern.base': 'Mês inválido (AAAA-MM)'
+  }),
+  due_date: Joi.date().required().messages({ 'any.required': 'Indique a data de vencimento' }),
+  amounts: Joi.array()
+    .items(Joi.object({ class_id: Joi.string().hex().length(24).required(), amount: Joi.number().positive().required() }))
+    .min(1)
+    .required()
+    .messages({ 'array.min': 'Indique o valor de pelo menos uma turma' }),
+  // Default: "Propina <Mês> <Ano>"
+  description: Joi.string().trim().max(120).optional().allow('')
 });
 
 export const updateInvoiceSchema = Joi.object({
@@ -424,6 +509,29 @@ export const createPaymentSchema = Joi.object({
   payment_method_details: Joi.string().optional().allow(''),
   reference_number: Joi.string().optional().allow(''),
   notes: Joi.string().optional().allow('')
+});
+
+export const createPaymentClaimSchema = Joi.object({
+  invoice_id: Joi.string().required().messages({ 'any.required': 'Factura é obrigatória' }),
+  amount: Joi.number().positive().required().messages({ 'any.required': 'Valor é obrigatório' }),
+  method: Joi.string().valid('mpesa', 'emola', 'bank_transfer', 'cash').required().messages({ 'any.required': 'Forma de pagamento é obrigatória' }),
+  // The transaction code is how the administration finds the money (not needed for cash)
+  reference: Joi.when('method', {
+    is: 'cash',
+    then: Joi.string().trim().max(60).optional().allow(''),
+    otherwise: Joi.string().trim().max(60).required().messages({ 'any.required': 'Indique o código da transacção', 'string.empty': 'Indique o código da transacção' })
+  }),
+  paid_on: Joi.date().optional(),
+  notes: Joi.string().trim().max(300).optional().allow('')
+});
+
+// The administration may confirm a different amount than the parent stated (what actually arrived)
+export const confirmPaymentClaimSchema = Joi.object({
+  amount: Joi.number().positive().optional()
+});
+
+export const rejectPaymentClaimSchema = Joi.object({
+  reason: Joi.string().trim().max(300).required().messages({ 'any.required': 'Indique o motivo', 'string.empty': 'Indique o motivo' })
 });
 
 export const createExpenseCategorySchema = Joi.object({
@@ -475,7 +583,7 @@ export const createMessageSchema = Joi.object({
   }),
   message_type: Joi.string().valid('info', 'reminder', 'alert', 'general').optional(),
   child_id: Joi.string().optional()
-});
+}).or('recipient_id', 'recipient_role').messages({ 'object.missing': 'Indique o destinatário' });
 
 export const createMonthlyReportSchema = Joi.object({
   child_id: Joi.string().required().messages({
@@ -509,7 +617,8 @@ export const createMonthlyReportSchema = Joi.object({
   parent_feedback: Joi.string().optional().allow('')
 });
 
-export const updateMonthlyReportSchema = createMonthlyReportSchema;
+// Partial updates; a report can't move to another child or month
+export const updateMonthlyReportSchema = createMonthlyReportSchema.fork(['child_id', 'month', 'year'], (field) => field.optional().strip());
 
 export const validateRequest = (schema: Joi.ObjectSchema) => {
   return (req: any, res: any, next: any) => {
@@ -531,3 +640,101 @@ export const validateRequest = (schema: Joi.ObjectSchema) => {
     next();
   };
 };
+
+// ---------------------------------------------------------------------------
+// Enrolment (public form at /matricula, or an admin on a family's behalf)
+// ---------------------------------------------------------------------------
+
+const optionalText = Joi.string().trim().max(2000).allow('');
+
+const enrollmentChild = Joi.object({
+  name: Joi.string().trim().min(2).max(100).required().messages({ 'any.required': 'O nome da criança é obrigatório' }),
+  birth_date: Joi.date().max('now').required().messages({
+    'any.required': 'A data de nascimento é obrigatória',
+    'date.max': 'A data de nascimento não pode ser no futuro'
+  }),
+  gender: Joi.string().valid('Masculino', 'Feminino'),
+  nationality: optionalText,
+  address: optionalText,
+  languages_spoken: optionalText,
+  allergies: optionalText,
+  medications: optionalText,
+  dietary_restrictions: optionalText,
+  sleep_schedule: optionalText,
+  preferred_foods: optionalText,
+  separation_reaction: optionalText,
+  plays_with_others: Joi.boolean(),
+  behavior_notes: optionalText,
+  previous_center: optionalText,
+  transfer_reason: optionalText,
+  emergency_contact_name: optionalText,
+  emergency_contact_phone: phoneNumber.empty('')
+});
+
+const enrollmentGuardianFields = {
+  name: Joi.string().trim().min(2).max(100).required().messages({ 'any.required': 'O nome do encarregado é obrigatório' }),
+  relationship: optionalText,
+  phone: phoneNumber.empty(''),
+  email: emailAddress.empty(''),
+  profession: optionalText,
+  workplace: optionalText,
+  address: optionalText
+};
+
+const enrollmentPickupPerson = Joi.object({
+  name: Joi.string().trim().min(2).max(100).required(),
+  relationship: optionalText,
+  phone: phoneNumber.required().messages({ 'any.required': 'O telefone da pessoa autorizada é obrigatório' }),
+  id_document: optionalText
+});
+
+const enrollmentFields = {
+  child: enrollmentChild,
+  // The first guardian is the main contact: they get the parent account, so need a phone or an email
+  guardians: Joi.array()
+    .ordered(Joi.object(enrollmentGuardianFields).or('phone', 'email').messages({
+      'object.missing': 'O encarregado principal precisa de um telefone ou de um email'
+    }))
+    .items(Joi.object(enrollmentGuardianFields))
+    .min(1)
+    .max(4),
+  pickup_persons: Joi.array().items(enrollmentPickupPerson).max(6),
+  consents: Joi.object({
+    data_processing: Joi.boolean().valid(true).required().messages({
+      'any.only': 'É necessário aceitar o tratamento dos dados para submeter a matrícula',
+      'any.required': 'É necessário aceitar o tratamento dos dados para submeter a matrícula'
+    }),
+    image_usage_authorized: Joi.boolean().default(false),
+    whatsapp_opt_in: Joi.boolean().default(false)
+  }),
+  requested_class_id: Joi.string().hex().length(24).empty(''),
+  requested_start_date: Joi.date().empty(''),
+  notes: optionalText,
+  signature: Joi.string().trim().max(150).allow('')
+};
+
+export const submitEnrollmentSchema = Joi.object({
+  ...enrollmentFields,
+  child: enrollmentChild.required(),
+  guardians: enrollmentFields.guardians.required(),
+  consents: enrollmentFields.consents.required(),
+  // Honeypot: hidden on the form, so only bots fill it in
+  website: Joi.string().allow('')
+});
+
+// Admin corrections while the request is still open; status can only move to under_review here
+export const updateEnrollmentSchema = Joi.object({
+  ...enrollmentFields,
+  status: Joi.string().valid('under_review')
+}).min(1);
+
+export const approveEnrollmentSchema = Joi.object({
+  class_id: Joi.string().hex().length(24).required().messages({ 'any.required': 'Indique a turma' }),
+  start_date: Joi.date(),
+  // Approve even if the class is full
+  override_capacity: Joi.boolean().default(false)
+});
+
+export const rejectEnrollmentSchema = Joi.object({
+  reason: Joi.string().trim().min(3).max(1000).required().messages({ 'any.required': 'Indique o motivo' })
+});

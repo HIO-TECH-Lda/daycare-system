@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { mediaJsonTransform } from '../utils/media';
 
 export interface IExpense {
   _id?: string;
@@ -52,7 +53,8 @@ const expenseSchema = new Schema<IExpenseDocument>(
       required: [true, 'Recorded by is required']
     }
   },
-  { timestamps: true }
+  // The stored file URL is private: responses carry a signed media link instead
+  { timestamps: true, toJSON: { transform: mediaJsonTransform('receipts', 'receipt_url') } }
 );
 
 expenseSchema.index({ category_id: 1 });

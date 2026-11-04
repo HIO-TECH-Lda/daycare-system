@@ -5,6 +5,10 @@
  *   npm run seed          → safe mode: skips if demo data already exists
  *   npm run seed:fresh    → drops all collections first, then seeds
  *
+ * For local and staging databases only: it refuses to run with NODE_ENV=production, and wiping
+ * a database that isn't on this machine (e.g. staging on Atlas) needs `--yes`:
+ *   npm run seed:fresh -- --yes
+ *
  * Demo credentials (all passwords: Demo@2026):
  *   admin@sonhodecrianca.mz     — Administrador
  *   maria@sonhodecrianca.mz     — Staff (Educadora)
@@ -28,11 +32,13 @@ import ReportPhoto from '../src/models/ReportPhoto';
 import Attendance from '../src/models/Attendance';
 import CalendarEvent from '../src/models/CalendarEvent';
 import Invoice from '../src/models/Invoice';
+import Counter from '../src/models/Counter';
 import Payment from '../src/models/Payment';
 import ExpenseCategory from '../src/models/ExpenseCategory';
 import Expense from '../src/models/Expense';
 import Message from '../src/models/Message';
 import MonthlyReport from '../src/models/MonthlyReport';
+import { startOfCentreDay } from '../src/utils/dates';
 
 dotenv.config();
 
@@ -72,10 +78,33 @@ const prevMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+/** Where MONGODB_URI points (host and database, never the credentials). */
+function target(): { host: string; database: string; local: boolean } {
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URI || '';
+  const match = uri.match(/^mongodb(?:\+srv)?:\/\/(?:[^@/]*@)?([^/?]+)\/?([^?]*)/);
+  const host = match?.[1] ?? '?';
+  return { host, database: match?.[2] || '(default)', local: /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host) };
+}
+
+/** Demo data and --fresh wipes never reach a real centre's database by accident. */
+function assertSafeTarget(): void {
+  const { host, database, local } = target();
+  console.log(`   Database: ${database} on ${host}`);
+  if (process.env.NODE_ENV === 'production') {
+    console.error('\n❌ NODE_ENV is "production": the demo seed is for local and staging databases only.\n');
+    process.exit(1);
+  }
+  if (isFresh && !local && !process.argv.includes('--yes')) {
+    console.error(`\n❌ --fresh would wipe every collection on ${host}. If this is the staging database, run again with --yes.\n`);
+    process.exit(1);
+  }
+}
+
 async function seedDatabase() {
   try {
     console.log('\n🌱 Sonho de Criança — Database Seeder');
     console.log('─'.repeat(50));
+    assertSafeTarget();
     await connectDB();
 
     if (isFresh) {
@@ -421,7 +450,7 @@ async function seedDatabase() {
 
     const report1 = await DailyReport.create({
       child_id: child1._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       created_by: staff1._id,
       meals: {
         breakfast: 'Leite e biscoito',
@@ -443,7 +472,7 @@ async function seedDatabase() {
 
     const report2 = await DailyReport.create({
       child_id: child2._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       created_by: staff1._id,
       meals: {
         breakfast: 'Leite (sem lactose) e fruta',
@@ -465,7 +494,7 @@ async function seedDatabase() {
 
     const report3 = await DailyReport.create({
       child_id: child3._id,
-      date: daysFromNow(-1),
+      date: startOfCentreDay(daysFromNow(-1)),
       created_by: staff2._id,
       meals: {
         breakfast: 'Leite e pão com manteiga',
@@ -514,7 +543,7 @@ async function seedDatabase() {
     // Today — present with check-in and check-out
     await Attendance.create({
       child_id: child1._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       check_in: todayAt(7, 55),
       check_out: todayAt(17, 0),
       status: 'present',
@@ -524,7 +553,7 @@ async function seedDatabase() {
 
     await Attendance.create({
       child_id: child2._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       check_in: todayAt(8, 10),
       check_out: todayAt(17, 30),
       status: 'present',
@@ -534,7 +563,7 @@ async function seedDatabase() {
 
     await Attendance.create({
       child_id: child3._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       check_in: todayAt(7, 45),
       status: 'present',
       notes: '',
@@ -543,7 +572,7 @@ async function seedDatabase() {
 
     await Attendance.create({
       child_id: child4._id,
-      date: new Date(),
+      date: startOfCentreDay(new Date()),
       check_in: todayAt(8, 20),
       status: 'late',
       notes: 'Chegou 20 minutos após o início das atividades.',
@@ -553,7 +582,7 @@ async function seedDatabase() {
     // Yesterday — absent
     await Attendance.create({
       child_id: child3._id,
-      date: daysFromNow(-1),
+      date: startOfCentreDay(daysFromNow(-1)),
       status: 'absent',
       notes: 'Falta justificada por doença.',
       recorded_by: staff2._id
@@ -694,6 +723,13 @@ async function seedDatabase() {
       created_by: admin._id
     });
 
+    // The numbers above were set by hand: move the counters past them, or the next invoice the
+    // app issues would reuse INV-<year>-0001
+    for (const year of [...new Set([currentYear, prevMonthYear])]) {
+      const last = await Invoice.find({ invoice_number: new RegExp(`^INV-${year}-`) }).sort({ invoice_number: -1 }).limit(1).lean();
+      const seq = last[0] ? Number(last[0].invoice_number.split('-')[2]) : 0;
+      await Counter.findOneAndUpdate({ _id: `invoice_${year}` }, { seq }, { upsert: true });
+    }
     console.log('✅ 4 invoices created\n');
 
     // ── 13. Payments ─────────────────────────────────────────────────────────

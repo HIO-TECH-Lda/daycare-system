@@ -30,6 +30,10 @@ const requiredEnvVars: RequiredEnvVars = {
     required: true,
     description: 'Secret key for JWT tokens'
   },
+  JWT_REFRESH_SECRET: {
+    required: false,
+    description: 'Separate secret for refresh tokens. Required in production.'
+  },
   JWT_EXPIRES_IN: {
     required: false,
     description: 'JWT token expiration time',
@@ -58,13 +62,31 @@ const requiredEnvVars: RequiredEnvVars = {
     description: 'Public URL of the frontend app (used in email links)',
     defaultValue: 'http://localhost:3000'
   },
+  API_PUBLIC_URL: {
+    required: false,
+    description: 'Public URL of this API, used in signed photo links (e.g. https://api.example.co.mz). Required in production.'
+  },
+  MEDIA_URL_SECRET: {
+    required: false,
+    description: 'Secret for signed photo links (defaults to one derived from JWT_SECRET)'
+  },
+  CRON_SECRET: {
+    required: false,
+    description: 'Secret Vercel Cron sends to /api/v1/jobs/*. Without it the overdue-invoice job is disabled.'
+  },
+  CORS_ORIGINS: {
+    required: false,
+    description: 'Comma-separated browser origins allowed to call the API (supports * wildcards). Required in production.'
+  },
   // WhatsApp (Meta Cloud API)
   WHATSAPP_TOKEN: { required: false, description: 'Meta permanent system-user access token' },
   WHATSAPP_PHONE_ID: { required: false, description: 'Meta Phone Number ID (not the actual phone number)' },
-  WHATSAPP_API_VERSION: { required: false, description: 'Meta Graph API version', defaultValue: 'v21.0' },
-  WHATSAPP_LANG: { required: false, description: 'BCP 47 language code for WhatsApp templates', defaultValue: 'pt_BR' },
+  WHATSAPP_API_VERSION: { required: false, description: 'Meta Graph API version', defaultValue: 'v23.0' },
+  WHATSAPP_LANG: { required: false, description: 'Language code the WhatsApp templates were approved in', defaultValue: 'pt_PT' },
+  WHATSAPP_VERIFY_TOKEN: { required: false, description: 'Token Meta sends when setting up the delivery webhook (/api/v1/webhooks/whatsapp)' },
+  WHATSAPP_APP_SECRET: { required: false, description: 'Meta app secret, to check webhook signatures. Without it (or the verify token) the webhook is disabled.' },
   // Optional: override default WhatsApp template names
-  WA_TEMPLATE_WELCOME: { required: false, description: 'WhatsApp template: welcome' },
+  WA_TEMPLATE_INVITE: { required: false, description: 'WhatsApp template: account invite' },
   WA_TEMPLATE_INVOICE_NEW: { required: false, description: 'WhatsApp template: new invoice' },
   WA_TEMPLATE_INVOICE_OVERDUE: { required: false, description: 'WhatsApp template: overdue invoice' },
   WA_TEMPLATE_INVOICE_PAID: { required: false, description: 'WhatsApp template: invoice paid' },
@@ -73,7 +95,9 @@ const requiredEnvVars: RequiredEnvVars = {
   WA_TEMPLATE_NEW_MESSAGE: { required: false, description: 'WhatsApp template: new message received' },
   WA_TEMPLATE_ATTENDANCE_CHECKIN: { required: false, description: 'WhatsApp template: child checked in' },
   WA_TEMPLATE_ATTENDANCE_CHECKOUT: { required: false, description: 'WhatsApp template: child checked out' },
-  WA_TEMPLATE_PASSWORD_RESET: { required: false, description: 'WhatsApp template: password reset' }
+  WA_TEMPLATE_PASSWORD_RESET: { required: false, description: 'WhatsApp template: password reset' },
+  WA_TEMPLATE_ENROLLMENT_RECEIVED: { required: false, description: 'WhatsApp template: enrolment request received' },
+  WA_TEMPLATE_ENROLLMENT_APPROVED: { required: false, description: 'WhatsApp template: enrolment approved' }
 };
 
 export function validateEnvironmentVariables(): boolean {
@@ -81,6 +105,9 @@ export function validateEnvironmentVariables(): boolean {
   const warnings: string[] = [];
 
   console.log('🔍 Validating environment variables...');
+
+  // Read before the development defaults below are filled in (FRONTEND_URL defaults to localhost)
+  const frontendUrlSet = !!process.env.FRONTEND_URL;
 
   for (const [varName, config] of Object.entries(requiredEnvVars)) {
     const value = process.env[varName];
@@ -95,14 +122,49 @@ export function validateEnvironmentVariables(): boolean {
     }
   }
 
+  if (process.env.NODE_ENV === 'production') {
+    // Links in invites and emails, signed photo links and browser access all depend on these
+    for (const name of ['API_PUBLIC_URL', 'CORS_ORIGINS']) {
+      if (!process.env[name]) missingVars.push(name);
+    }
+    if (!frontendUrlSet) missingVars.push('FRONTEND_URL');
+    // Without its own secret, a 30-day refresh token would be signed with the access-token secret
+    if (!process.env.JWT_REFRESH_SECRET) {
+      missingVars.push('JWT_REFRESH_SECRET');
+    } else if (process.env.JWT_REFRESH_SECRET === process.env.JWT_SECRET) {
+      console.warn('⚠️  JWT_REFRESH_SECRET should differ from JWT_SECRET.');
+    }
+    // Guessable secrets would let anyone sign tokens: at least 32 characters
+    for (const name of ['JWT_SECRET', 'JWT_REFRESH_SECRET']) {
+      const value = process.env[name];
+      if (value && value.length < 32) {
+        console.error(`❌ ${name} is too short (${value.length} characters; use at least 32, e.g. openssl rand -base64 48).`);
+        missingVars.push(name);
+      }
+    }
+    if (process.env.FRONTEND_URL?.includes('localhost')) {
+      console.warn('⚠️  FRONTEND_URL points to localhost: links in invites and emails will not work.');
+    }
+    if (process.env.WHATSAPP_TOKEN && !(process.env.WHATSAPP_VERIFY_TOKEN && process.env.WHATSAPP_APP_SECRET)) {
+      console.warn('⚠️  WhatsApp is on but its delivery webhook is not (WHATSAPP_VERIFY_TOKEN, WHATSAPP_APP_SECRET): no delivery status or email fallback for late failures.');
+    }
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('⚠️  Email is not configured (SMTP_USER, SMTP_PASS).');
+    }
+  }
+
   if (missingVars.length > 0) {
     console.error('❌ Missing required environment variables:');
     missingVars.forEach(varName => {
       const config = requiredEnvVars[varName];
-      console.error(`   ${varName}: ${config.description}`);
+      console.error(`   ${varName}: ${config?.description ?? ''}`);
     });
     console.error('\nPlease set these variables in your .env file');
     return false;
+  }
+
+  if (process.env.NODE_ENV === 'production' && !process.env.CRON_SECRET) {
+    console.warn('⚠️  CRON_SECRET is not set: overdue invoices will not be marked automatically.');
   }
 
   if (warnings.length > 0) {

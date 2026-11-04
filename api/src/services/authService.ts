@@ -1,237 +1,294 @@
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import User, { IUserDocument } from '../models/User';
 import { JWTPayload } from '../types';
 import Messages from '../utils/messages';
 import { uploadBase64Image } from '../utils/cloudinary';
+import { ApiError } from '../utils/ApiError';
+import { generateOneTimeToken, hashToken } from '../utils/tokens';
+import { isEmailIdentifier, normalisePhone } from '../utils/phone';
+import { NotificationService } from './notificationService';
+import type { ChannelPrefs, PrefCategory } from '../types';
+
+const RESET_TOKEN_HOURS = 24;
 
 // Format user for frontend (matches frontend User type)
 export function formatUserForFrontend(user: IUserDocument) {
   return {
     id: (user._id as any).toString(),
-    email: user.email,
+    email: user.email || '',
     name: user.fullName,
     role: user.role,
-    phone: user.phone || ''
+    phone: user.phone || '',
+    whatsappOptIn: !!user.whatsappOptIn,
+    notificationPrefs: NotificationService.prefsFor(user)
   };
 }
 
+/**
+ * Database filter for what the user typed to identify themselves: an email address
+ * or a phone number in any common format. Null when it can be neither.
+ */
+export function identifierFilter(identifier: string): { email: string } | { phone: string } | null {
+  const value = (identifier || '').trim();
+  if (!value) return null;
+  if (isEmailIdentifier(value)) return { email: value.toLowerCase() };
+  const phone = normalisePhone(value);
+  return phone ? { phone } : null;
+}
+
+function refreshSecret(): string {
+  return process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET!;
+}
+
 export class AuthService {
-  // Generate JWT token
-  static generateToken(user: IUserDocument): string {
-    const payload: JWTPayload = {
+  private static payload(user: IUserDocument, typ: JWTPayload['typ']): JWTPayload {
+    return {
       userId: (user._id as any).toString(),
       email: user.email,
       role: user.role,
       firstName: user.firstName,
-      lastName: user.lastName
+      lastName: user.lastName,
+      tv: user.tokenVersion ?? 0,
+      typ
     };
+  }
 
-    return jwt.sign(payload, process.env.JWT_SECRET!, {
+  // Generate JWT access token
+  static generateToken(user: IUserDocument): string {
+    return jwt.sign(this.payload(user, 'access'), process.env.JWT_SECRET!, {
       expiresIn: process.env.JWT_EXPIRES_IN || '7d'
     } as jwt.SignOptions);
   }
 
-  // Generate refresh token — uses JWT_REFRESH_SECRET to keep it separate from access tokens
+  // Generate refresh token — signed with JWT_REFRESH_SECRET and typed, so it can't be used as an access token
   static generateRefreshToken(user: IUserDocument): string {
-    const payload: JWTPayload = {
-      userId: (user._id as any).toString(),
-      email: user.email,
-      role: user.role,
-      firstName: user.firstName,
-      lastName: user.lastName
-    };
-
-    return jwt.sign(payload, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET!, {
+    return jwt.sign(this.payload(user, 'refresh'), refreshSecret(), {
       expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d'
     } as jwt.SignOptions);
   }
 
-  // Verify user credentials
-  static async verifyCredentials(email: string, password: string): Promise<IUserDocument | null> {
-    try {
-      // Find user by email and include password for comparison
-      const user = await User.findOne({ email }).select('+password');
-      
-      if (!user) {
-        return null;
-      }
-
-      // Check if user is active
-      if (user.status !== 'active') {
-        return null;
-      }
-
-      // Verify password
-      const isPasswordValid = await user.comparePassword(password);
-      
-      if (!isPasswordValid) {
-        return null;
-      }
-
-      return user;
-    } catch (error) {
-      console.error('Error verifying credentials:', error);
-      return null;
-    }
+  static issueTokens(user: IUserDocument): { token: string; refreshToken: string } {
+    return { token: this.generateToken(user), refreshToken: this.generateRefreshToken(user) };
   }
 
-  // Register new user — returns both access and refresh tokens
-  static async registerUser(userData: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    role?: string;
-    phone?: string;
-  }): Promise<{ user: IUserDocument; token: string; refreshToken: string }> {
-    const existingUser = await User.findOne({ email: userData.email });
+  // Verify credentials (email or phone + password). Returns null for an unknown identifier or wrong
+  // password; throws ApiError(401) when the password is right but the account is not active.
+  static async verifyCredentials(identifier: string, password: string): Promise<IUserDocument | null> {
+    const filter = identifierFilter(identifier);
+    if (!filter) return null;
 
-    if (existingUser) {
-      throw new Error(Messages.AUTH.EMAIL_ALREADY_EXISTS);
+    const user = await User.findOne(filter).select('+password');
+    if (!user || !(await user.comparePassword(password))) {
+      return null;
     }
 
-    const user = new User({
-      ...userData,
-      role: userData.role || 'responsavel',
-      phone: userData.phone || ''
-    });
+    if (user.status === 'inactive' || user.status === 'suspended') {
+      throw new ApiError(401, Messages.AUTH.ACCOUNT_DISABLED);
+    }
+    if (user.status !== 'active') {
+      throw new ApiError(401, Messages.AUTH.ACCOUNT_NOT_ACTIVE);
+    }
 
-    await user.save();
-
-    const token = this.generateToken(user);
-    const refreshToken = this.generateRefreshToken(user);
-
-    return { user, token, refreshToken };
+    return user;
   }
 
   // Login user
-  static async loginUser(email: string, password: string): Promise<{ user: IUserDocument; token: string; refreshToken: string }> {
-    const user = await this.verifyCredentials(email, password);
-    
+  static async loginUser(identifier: string, password: string): Promise<{ user: IUserDocument; token: string; refreshToken: string }> {
+    const user = await this.verifyCredentials(identifier, password);
+
     if (!user) {
-      throw new Error(Messages.AUTH.INVALID_CREDENTIALS);
+      throw new ApiError(401, Messages.AUTH.INVALID_CREDENTIALS);
     }
 
-    // Generate tokens
-    const token = this.generateToken(user);
-    const refreshToken = this.generateRefreshToken(user);
-
-    return { user, token, refreshToken };
+    return { user, ...this.issueTokens(user) };
   }
 
-  // Refresh token — verifies with JWT_REFRESH_SECRET
-  static async refreshToken(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
-    try {
-      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET!) as JWTPayload;
-      
-      const user = await User.findById(decoded.userId);
-      
-      if (!user || user.status !== 'active') {
-        throw new Error(Messages.AUTH.INVALID_REFRESH_TOKEN);
-      }
+  // Look up a pending invite (for the "accept invite" page)
+  static async findPendingInvite(inviteToken: string): Promise<IUserDocument> {
+    const user = await User.findOne({
+      inviteTokenHash: hashToken(inviteToken),
+      inviteExpires: { $gt: new Date() },
+      status: 'invited'
+    });
 
-      // Generate new tokens
-      const newToken = this.generateToken(user);
-      const newRefreshToken = this.generateRefreshToken(user);
-
-      return { token: newToken, refreshToken: newRefreshToken };
-    } catch (error) {
-      throw new Error('Invalid refresh token');
+    if (!user) {
+      throw new ApiError(400, Messages.INVITE.INVALID);
     }
+
+    return user;
+  }
+
+  // Accept an invite: set the password, record the WhatsApp choice if given, activate and log in
+  static async acceptInvite(
+    inviteToken: string,
+    password: string,
+    whatsappOptIn?: boolean
+  ): Promise<{ user: IUserDocument; token: string; refreshToken: string }> {
+    const user = await this.findPendingInvite(inviteToken);
+
+    user.password = password;
+    user.status = 'active';
+    user.activatedAt = new Date();
+    user.inviteTokenHash = undefined;
+    user.inviteExpires = undefined;
+    if (typeof whatsappOptIn === 'boolean') setWhatsAppConsent(user, whatsappOptIn);
+    await user.save();
+
+    return { user, ...this.issueTokens(user) };
+  }
+
+  // Refresh: only refresh tokens, only for active accounts, only if not revoked since they were issued
+  static async refreshToken(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
+    let decoded: JWTPayload;
+    try {
+      decoded = jwt.verify(refreshToken, refreshSecret()) as JWTPayload;
+    } catch {
+      throw new ApiError(401, Messages.AUTH.INVALID_REFRESH_TOKEN);
+    }
+
+    const user = decoded.typ === 'refresh' ? await User.findById(decoded.userId) : null;
+    if (!user || user.status !== 'active' || (user.tokenVersion ?? 0) !== decoded.tv) {
+      throw new ApiError(401, Messages.AUTH.INVALID_REFRESH_TOKEN);
+    }
+
+    return this.issueTokens(user);
   }
 
   // Get user by ID
   static async getUserById(userId: string): Promise<IUserDocument | null> {
-    try {
-      return await User.findById(userId);
-    } catch (error) {
-      return null;
-    }
+    return User.findById(userId);
   }
 
-  // Update user profile
-  static async updateUserProfile(userId: string, updateData: Partial<IUserDocument>): Promise<IUserDocument | null> {
-    // Remove sensitive fields that shouldn't be updated directly
-    const { password, email, role, status, ...safeUpdateData } = updateData as any;
+  // Update own profile: only these fields; email and role are managed by admins
+  static async updateUserProfile(
+    userId: string,
+    updateData: Partial<{ firstName: string; lastName: string; phone: string; avatar: string; whatsappOptIn: boolean; notificationPrefs: Partial<Record<PrefCategory, Partial<ChannelPrefs>>> }>
+  ): Promise<IUserDocument | null> {
+    const user = await User.findById(userId);
+    if (!user) return null;
 
-    // Upload avatar to Cloudinary if provided (base64 or file data)
-    if (safeUpdateData.avatar) {
-      const uploaded = await uploadBase64Image(safeUpdateData.avatar, 'avatars');
-      safeUpdateData.avatar = uploaded.url;
+    const { firstName, lastName, phone, avatar, whatsappOptIn, notificationPrefs } = updateData;
+
+    if (phone !== undefined) {
+      await assertPhoneFree(phone, userId);
+      user.phone = phone;
+    }
+    if (firstName !== undefined) user.firstName = firstName;
+    if (lastName !== undefined) user.lastName = lastName;
+    if (avatar) {
+      // Base64 data or a URL: store the Cloudinary URL
+      user.avatar = avatar.startsWith('http') ? avatar : (await uploadBase64Image(avatar, 'avatars')).url;
+    }
+    if (typeof whatsappOptIn === 'boolean') setWhatsAppConsent(user, whatsappOptIn);
+    // Merged over what's stored, so a client can change one category at a time
+    if (notificationPrefs) {
+      const current = NotificationService.prefsFor(user);
+      for (const [category, prefs] of Object.entries(notificationPrefs) as [PrefCategory, Partial<ChannelPrefs>][]) {
+        current[category] = { ...current[category], ...prefs };
+      }
+      user.notificationPrefs = current;
+      user.markModified('notificationPrefs');
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      safeUpdateData,
-      { new: true, runValidators: true }
-    );
-
+    await user.save();
     return user;
   }
 
-  // Change password
-  static async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
+  // Change password. Ends every other session; returns fresh tokens for the current one.
+  static async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ token: string; refreshToken: string }> {
     const user = await User.findById(userId).select('+password');
-    
+
     if (!user) {
-      throw new Error(Messages.USER.NOT_FOUND);
+      throw new ApiError(404, Messages.USER.NOT_FOUND);
     }
 
-    // Verify current password
-    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
-    
-    if (!isCurrentPasswordValid) {
-      throw new Error(Messages.AUTH.CURRENT_PASSWORD_INCORRECT);
+    if (!(await user.comparePassword(currentPassword))) {
+      throw new ApiError(400, Messages.AUTH.CURRENT_PASSWORD_INCORRECT);
     }
 
-    // Update password
     user.password = newPassword;
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     await user.save();
 
-    return true;
+    return this.issueTokens(user);
   }
 
-  // Request password reset
-  static async requestPasswordReset(email: string): Promise<{ user: IUserDocument; resetToken: string }> {
-    const user = await User.findOne({ email: email.toLowerCase() });
-    
-    if (!user) {
-      // Don't reveal if email exists for security
-      throw new Error('If the email exists, a reset link will be sent');
+  /** Puts a fresh password-reset token on the user (valid 24 h) and returns it. */
+  static async issuePasswordReset(user: IUserDocument): Promise<string> {
+    const { token, hash } = generateOneTimeToken();
+    user.passwordResetToken = hash;
+    user.passwordResetExpires = new Date(Date.now() + RESET_TOKEN_HOURS * 60 * 60 * 1000);
+    await user.save();
+    return token;
+  }
+
+  /**
+   * "Forgot password" lookup. Active users get a reset token; invited users haven't set a
+   * password yet, so the caller re-sends their invite instead. Null for anyone else.
+   */
+  static async requestPasswordReset(identifier: string): Promise<
+    { kind: 'reset'; user: IUserDocument; resetToken: string } | { kind: 'invite'; user: IUserDocument } | null
+  > {
+    const filter = identifierFilter(identifier);
+    const user = filter ? await User.findOne(filter) : null;
+
+    if (user?.status === 'active') {
+      return { kind: 'reset', user, resetToken: await this.issuePasswordReset(user) };
     }
-
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-    // Save hashed token and expiry
-    user.passwordResetToken = resetTokenHash;
-    user.passwordResetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-    await user.save();
-
-    return { user, resetToken };
+    if (user?.status === 'invited') {
+      return { kind: 'invite', user };
+    }
+    return null;
   }
 
-  // Reset password with token
+  // Reset password with token. Ends every existing session.
   static async resetPassword(resetToken: string, newPassword: string): Promise<IUserDocument> {
-    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-
     const user = await User.findOne({
-      passwordResetToken: resetTokenHash,
+      passwordResetToken: hashToken(resetToken),
       passwordResetExpires: { $gt: new Date() }
     }).select('+password');
 
     if (!user) {
-      throw new Error(Messages.AUTH.INVALID_RESET_TOKEN);
+      throw new ApiError(400, Messages.AUTH.INVALID_RESET_TOKEN);
     }
 
-    // Update password and clear reset token
     user.password = newPassword;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     await user.save();
 
     return user;
+  }
+}
+
+/** Records the user's WhatsApp consent (or its withdrawal) with a timestamp. */
+export function setWhatsAppConsent(user: IUserDocument, optIn: boolean): void {
+  if (optIn && !user.whatsappOptIn) user.whatsappOptInAt = new Date();
+  if (!optIn) user.whatsappOptInAt = undefined;
+  user.whatsappOptIn = optIn;
+}
+
+/** 409 when another user already has this phone number. Empty input (clearing the phone) is fine. */
+export async function assertPhoneFree(phone: string | undefined, exceptUserId?: string): Promise<void> {
+  const normalised = normalisePhone(phone);
+  if (!normalised) return;
+  const existing = await User.findOne({ phone: normalised }).select('_id');
+  if (existing && (existing._id as any).toString() !== exceptUserId) {
+    throw new ApiError(409, Messages.AUTH.PHONE_ALREADY_EXISTS);
+  }
+}
+
+/** 409 when another user already has this email. */
+export async function assertEmailFree(email: string | undefined, exceptUserId?: string): Promise<void> {
+  const value = email?.trim().toLowerCase();
+  if (!value) return;
+  const existing = await User.findOne({ email: value }).select('_id');
+  if (existing && (existing._id as any).toString() !== exceptUserId) {
+    throw new ApiError(409, Messages.AUTH.EMAIL_ALREADY_EXISTS);
   }
 }

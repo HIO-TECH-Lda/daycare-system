@@ -1,16 +1,18 @@
 import { Request, Response } from 'express';
 import { GuardianService } from '../services/guardianService';
-import { ChildService } from '../services/childService';
 import { catchAsync } from '../utils/catchAsync';
 import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
+import { AccessService } from '../services/accessService';
 
 export class GuardianController {
   // Get all guardians (with optional child filter)
   static getAll = catchAsync(async (req: Request, res: Response) => {
     const childId = req.query.child_id as string | undefined;
     const { page, limit } = getPaginationParams(req);
-    const { guardians, total } = await GuardianService.findAll(childId, page, limit);
+    const scope = await AccessService.scopeFor(req);
+    if (childId) AccessService.assertChild(scope, childId);
+    const { guardians, total } = await GuardianService.findAll(childId, page, limit, AccessService.childFilter(scope));
     res.json(ApiResponse.paginated(guardians, { page, limit, total }, 'Responsáveis recuperados com sucesso'));
   });
 
@@ -29,21 +31,6 @@ export class GuardianController {
         success: false,
         message: 'Responsável não encontrado'
       });
-    }
-
-    // Check access: responsavel can only see guardians of their own children
-    const userRole = req.user?.role || '';
-    const userId = req.user?.userId || '';
-    
-    if (userRole === 'responsavel') {
-      const childId = (guardian.child_id as any)?._id?.toString() ?? (guardian.child_id as any).toString();
-      const child = await ChildService.findById(childId, userRole, userId);
-      if (!child) {
-        return res.status(403).json({
-          success: false,
-          message: 'Você não tem permissão para acessar este responsável'
-        });
-      }
     }
 
     return res.json(ApiResponse.success(guardian, 'Responsável recuperado com sucesso'));

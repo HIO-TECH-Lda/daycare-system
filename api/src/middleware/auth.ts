@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { JWTPayload } from '../types';
 import Messages from '../utils/messages';
+import User from '../models/User';
 
 // Extend Express Request interface
 declare global {
@@ -12,41 +13,61 @@ declare global {
   }
 }
 
-// Verify JWT token middleware
-export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+// Verify JWT token middleware. Also checks the account is still active and the token hasn't been
+// revoked (password changed/reset), so those take effect immediately instead of when the token expires.
+// Only access tokens are accepted; refresh tokens only work on /auth/refresh.
+export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: Messages.AUTH.TOKEN_REQUIRED
+    });
+  }
+
+  let decoded: JWTPayload;
   try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: Messages.AUTH.TOKEN_REQUIRED
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
-    req.user = decoded;
-    return next();
+    decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(403).json({
-        success: false,
-        message: Messages.AUTH.TOKEN_INVALID
-      });
-    }
-    
     if (error instanceof jwt.TokenExpiredError) {
       return res.status(401).json({
         success: false,
         message: Messages.AUTH.TOKEN_EXPIRED
       });
     }
-
-    return res.status(500).json({
+    return res.status(403).json({
       success: false,
       message: Messages.AUTH.TOKEN_INVALID
     });
+  }
+
+  if (decoded.typ !== 'access') {
+    return res.status(403).json({
+      success: false,
+      message: Messages.AUTH.TOKEN_INVALID
+    });
+  }
+
+  try {
+    const account = await User.findById(decoded.userId).select('status role tokenVersion').lean();
+    if (!account || account.status !== 'active') {
+      return res.status(401).json({
+        success: false,
+        message: Messages.AUTH.ACCOUNT_NOT_ACTIVE
+      });
+    }
+    if ((account.tokenVersion ?? 0) !== decoded.tv) {
+      return res.status(401).json({
+        success: false,
+        message: Messages.AUTH.SESSION_REVOKED
+      });
+    }
+    req.user = { ...decoded, role: account.role };
+    return next();
+  } catch (error) {
+    return next(error);
   }
 };
 

@@ -1,12 +1,58 @@
 import { Request, Response } from 'express';
+import { runInBackground } from '../utils/background';
 import { MessageService } from '../services/messageService';
 import { NotificationService } from '../services/notificationService';
 import { catchAsync } from '../utils/catchAsync';
 import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
 import User from '../models/User';
+import Child from '../models/Child';
+import StaffAssignment from '../models/StaffAssignment';
+import { AccessService } from '../services/accessService';
+import { ApiError } from '../utils/ApiError';
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export class MessageController {
+  /**
+   * Who the user may write to, with context for the picker: a parent's children (those the
+   * caller can see) and a staff member's classes.
+   */
+  static getRecipients = catchAsync(async (req: Request, res: Response) => {
+    const scope = await AccessService.scopeFor(req);
+    const filter: Record<string, unknown> = await AccessService.messageableFilter(scope);
+    const search = (req.query.search as string | undefined)?.trim();
+    if (search) {
+      const pattern = new RegExp(escapeRegExp(search), 'i');
+      filter.$and = [{ $or: [{ firstName: pattern }, { lastName: pattern }] }];
+    }
+
+    const users = await User.find(filter).select('firstName lastName role').sort({ firstName: 1, lastName: 1 }).limit(200);
+    const parentIds = users.filter((u) => u.role === 'responsavel').map((u) => u._id);
+    const staffIds = users.filter((u) => u.role === 'staff').map((u) => u._id);
+
+    const [children, assignments] = await Promise.all([
+      Child.find({ parent_id: { $in: parentIds }, ...(scope.all ? {} : { _id: { $in: scope.childIds } }) }).select('name parent_id').lean(),
+      StaffAssignment.find({ staff_id: { $in: staffIds } }).populate('class_id', 'name').lean()
+    ]);
+
+    const recipients = users.map((u) => ({
+      id: String(u._id),
+      name: u.fullName,
+      role: u.role,
+      ...(u.role === 'responsavel' && {
+        children: children.filter((c) => String(c.parent_id) === String(u._id)).map((c) => c.name)
+      }),
+      ...(u.role === 'staff' && {
+        classes: assignments.filter((a) => String(a.staff_id) === String(u._id)).map((a) => (a.class_id as any)?.name).filter(Boolean)
+      })
+    }));
+
+    return res.json(ApiResponse.success(recipients, 'Destinatários obtidos'));
+  });
+
   static getInbox = catchAsync(async (req: Request, res: Response) => {
     const unreadOnly = req.query.unread_only === 'true';
     const userId = req.user!.userId;
@@ -45,6 +91,18 @@ export class MessageController {
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
+    const scope = await AccessService.scopeFor(req);
+    // Messages to a whole role (e.g. all parents) are for the administration only
+    if (req.body.recipient_role && !scope.all) {
+      throw new ApiError(403, 'Só a administração pode enviar mensagens para um grupo');
+    }
+    if (req.body.recipient_id) {
+      // $and: the filter has its own _id condition (not yourself), which must not replace the recipient's
+      const allowed = await User.exists({ $and: [{ _id: req.body.recipient_id }, await AccessService.messageableFilter(scope)] });
+      if (!allowed) throw new ApiError(404, 'Destinatário não disponível');
+    }
+    if (req.body.child_id) AccessService.assertChild(scope, req.body.child_id);
+
     const message = await MessageService.create({
       ...req.body,
       sender_id: req.user!.userId
@@ -53,7 +111,7 @@ export class MessageController {
 
     // Fire-and-forget: notify individual recipient; skip role-broadcast (too many recipients)
     if (message.recipient_id) {
-      (async () => {
+      runInBackground('MessageController notification', async () => {
         try {
           const [sender, recipient] = await Promise.all([
             User.findById(message.sender_id),
@@ -61,19 +119,16 @@ export class MessageController {
           ]);
           if (sender && recipient) {
             await NotificationService.newMessage({
-              recipientEmail: recipient.email,
-              recipientPhone: recipient.phone,
-              recipientName: recipient.fullName,
+              recipient,
               senderName: sender.fullName,
               subject: message.subject,
-              preview: message.content,
-              role: recipient.role
+              preview: message.content
             });
           }
         } catch (err) {
           console.error('[MessageController] Notification error:', err);
         }
-      })();
+      });
     }
   });
 

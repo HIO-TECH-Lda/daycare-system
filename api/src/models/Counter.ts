@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-interface ICounter extends Document {
+// Counters are keyed by name (e.g. 'enrollment-2026'), not ObjectId
+interface ICounter extends Document<string> {
   _id: string;
   seq: number;
 }

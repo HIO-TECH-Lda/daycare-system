@@ -3,6 +3,17 @@ import { PaymentService } from '../services/paymentService';
 import { catchAsync } from '../utils/catchAsync';
 import ApiResponse from '../utils/ApiResponse';
 import { getPaginationParams } from '../utils/pagination';
+import mongoose from 'mongoose';
+import { AccessService } from '../services/accessService';
+import { ApiError } from '../utils/ApiError';
+
+/** Parents may only see payments of their own invoices (404 otherwise). */
+function assertInvoice(allowed: Awaited<ReturnType<typeof AccessService.invoiceIds>>, invoiceId: unknown): void {
+  const id = ((invoiceId as { _id?: unknown })?._id ?? invoiceId)?.toString();
+  if (allowed !== 'all' && !allowed.some((a) => a.toString() === id)) {
+    throw new ApiError(404, 'Pagamento não encontrado');
+  }
+}
 
 export class PaymentController {
   static getAll = catchAsync(async (req: Request, res: Response) => {
@@ -12,10 +23,13 @@ export class PaymentController {
     const { page, limit } = getPaginationParams(req);
     let payments, total;
     if (invoiceId) {
+      assertInvoice(await AccessService.invoiceIds(await AccessService.scopeFor(req)), invoiceId);
       payments = await PaymentService.findByInvoiceId(invoiceId);
       total = payments.length;
     } else {
-      const result = await PaymentService.findAll(startDate, endDate, page, limit);
+      // Parents: their own payments (with or without an invoice)
+      const scope = req.user!.role === 'responsavel' ? { parent_id: new mongoose.Types.ObjectId(req.user!.userId) } : {};
+      const result = await PaymentService.findAll(startDate, endDate, page, limit, scope);
       payments = result.payments;
       total = result.total;
     }
@@ -23,6 +37,7 @@ export class PaymentController {
   });
 
   static getByInvoiceId = catchAsync(async (req: Request, res: Response) => {
+    assertInvoice(await AccessService.invoiceIds(await AccessService.scopeFor(req)), req.params.invoiceId);
     const payments = await PaymentService.findByInvoiceId(req.params.invoiceId);
     res.json(ApiResponse.success(payments, 'Pagamentos recuperados com sucesso'));
   });
@@ -31,6 +46,10 @@ export class PaymentController {
     const payment = await PaymentService.findById(req.params.id);
     if (!payment) {
       return res.status(404).json({ success: false, message: 'Pagamento não encontrado' });
+    }
+    const owner = ((payment.parent_id as any)?._id ?? payment.parent_id)?.toString();
+    if (req.user!.role === 'responsavel' && owner !== req.user!.userId) {
+      throw new ApiError(404, 'Pagamento não encontrado');
     }
     return res.json(ApiResponse.success(payment, 'Pagamento recuperado com sucesso'));
   });

@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IAttendance {
+  client_id?: string;
   _id?: string;
   child_id: mongoose.Types.ObjectId;
   date: Date;
@@ -42,6 +43,8 @@ const attendanceSchema = new Schema<IAttendanceDocument>(
       type: String,
       default: ''
     },
+    // Id the staff app gives a record it may send again after being offline (see utils/syncWrite)
+    client_id: { type: String },
     recorded_by: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -54,7 +57,8 @@ const attendanceSchema = new Schema<IAttendanceDocument>(
 attendanceSchema.index({ child_id: 1, date: -1 });
 attendanceSchema.index({ date: -1 });
 attendanceSchema.index({ status: 1 });
-// Ensure one attendance record per child per day
+// One attendance record per child per day (dates are stored as the centre's calendar day, see utils/dates)
 attendanceSchema.index({ child_id: 1, date: 1 }, { unique: true });
+attendanceSchema.index({ client_id: 1 }, { unique: true, partialFilterExpression: { client_id: { $gt: '' } } });
 
 export default mongoose.model<IAttendanceDocument>('Attendance', attendanceSchema);

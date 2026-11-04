@@ -1,81 +1,32 @@
-'use client';
-
+import type { Metadata, Viewport } from 'next';
+import { Inter, Nunito } from 'next/font/google';
+import { Providers } from '@/components/providers';
 import './globals.css';
-import { Inter } from 'next/font/google';
-import { AuthProvider, useAuth } from '@/lib/auth-context';
-import { QueryProvider } from '@/lib/query-provider';
-import { messages } from '@/lib/messages';
-import { Sidebar } from '@/components/layout/sidebar';
-import { Toaster } from '@/components/ui/sonner';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
-const inter = Inter({ subsets: ['latin'] });
+// Rounded headings echo the logo lettering; Inter keeps forms and tables readable
+const nunito = Nunito({ variable: '--font-nunito', subsets: ['latin'], weight: ['600', '700', '800'] });
+const inter = Inter({ variable: '--font-inter', subsets: ['latin'] });
 
-function AppWrapper({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const pathname = usePathname();
-  const router = useRouter();
+export const metadata: Metadata = {
+  title: { default: 'Sonho de Criança', template: '%s · Sonho de Criança' },
+  description: 'Portal do Centro Infantil Sonho de Criança para famílias, educadores e administração.',
+  applicationName: 'Sonho de Criança',
+  // iPhone/iPad: open full screen from the home screen, under the system status bar
+  appleWebApp: { capable: true, title: 'Sonho de Criança', statusBarStyle: 'default' },
+  formatDetection: { telephone: false }
+};
 
-  const isLoginPage = pathname === '/login';
-  const isPublicPage = pathname === '/' || isLoginPage;
+export const viewport: Viewport = {
+  themeColor: '#608034',
+  width: 'device-width',
+  initialScale: 1
+};
 
-  useEffect(() => {
-    if (!loading && !user && !isPublicPage) {
-      router.push('/login');
-    }
-  }, [user, loading, isPublicPage, router]);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600 mx-auto"></div>
-          <p className="text-sm text-gray-600">{messages.loading}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show sidebar for authenticated users (except on login page)
-  if (user && !isLoginPage) {
-    return (
-      <div className="flex h-screen overflow-hidden bg-gray-50">
-        {/* Desktop Sidebar */}
-        <div className="hidden md:flex">
-          <Sidebar />
-        </div>
-        {/* Mobile Sidebar */}
-        <div className="md:hidden">
-          <Sidebar mobile />
-        </div>
-        <main className="flex-1 overflow-y-auto">
-          <div className="h-full p-4 sm:p-6 pt-16 md:pt-6">
-            {children}
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // Public pages (login, home)
-  return <>{children}</>;
-}
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
-      <body className={inter.className}>
-        <QueryProvider>
-          <AuthProvider>
-            <AppWrapper>{children}</AppWrapper>
-            <Toaster />
-          </AuthProvider>
-        </QueryProvider>
+    <html lang="pt-MZ" className={`${nunito.variable} ${inter.variable} h-full antialiased`}>
+      <body className="min-h-full">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

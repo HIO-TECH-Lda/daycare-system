@@ -16,6 +16,7 @@ export interface IInvoice {
     total: number;
   }>;
   notes?: string;
+  period?: string;
   created_by: mongoose.Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;
@@ -70,6 +71,11 @@ const invoiceSchema = new Schema<IInvoiceDocument>(
       type: String,
       default: ''
     },
+    // The month a recurring fee (propina) is for, "YYYY-MM": one invoice per child per month
+    period: {
+      type: String,
+      default: undefined
+    },
     created_by: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -79,10 +85,10 @@ const invoiceSchema = new Schema<IInvoiceDocument>(
   { timestamps: true }
 );
 
-invoiceSchema.index({ invoice_number: 1 }, { unique: true });
 invoiceSchema.index({ child_id: 1 });
 invoiceSchema.index({ parent_id: 1 });
 invoiceSchema.index({ status: 1 });
 invoiceSchema.index({ due_date: -1 });
+invoiceSchema.index({ child_id: 1, period: 1 }, { unique: true, partialFilterExpression: { period: { $type: 'string' } } });
 
 export default mongoose.model<IInvoiceDocument>('Invoice', invoiceSchema);

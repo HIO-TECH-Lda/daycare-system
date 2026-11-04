@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { mediaJsonTransform } from '../utils/media';
 
 export interface IPickupPerson {
   _id?: string;
@@ -10,6 +11,8 @@ export interface IPickupPerson {
   id_document?: string; // CPF, ID number, etc.
   photo_url?: string;
   is_authorized: boolean;
+  /** Set when a parent authorises someone for one day only (the centre day); null = permanent */
+  valid_on?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -56,9 +59,14 @@ const pickupPersonSchema = new Schema<IPickupPersonDocument>(
     is_authorized: {
       type: Boolean,
       default: true
+    },
+    valid_on: {
+      type: Date,
+      default: null
     }
   },
-  { timestamps: true }
+  // The stored file URL is private: responses carry a signed media link instead
+  { timestamps: true, toJSON: { transform: mediaJsonTransform('pickup-persons', 'photo_url') } }
 );
 
 pickupPersonSchema.index({ child_id: 1 });

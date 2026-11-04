@@ -31,8 +31,8 @@ export class CalendarEventService {
     return event;
   }
 
-  static async findAll(startDate?: Date, endDate?: Date, classId?: string, page = 1, limit = 20): Promise<{ events: ICalendarEventDocument[]; total: number }> {
-    const query: any = {};
+  static async findAll(startDate?: Date, endDate?: Date, classId?: string, page = 1, limit = 20, scope: Record<string, unknown> = {}): Promise<{ events: ICalendarEventDocument[]; total: number }> {
+    const query: any = { ...scope };
     if (startDate || endDate) {
       query.start_date = {};
       if (startDate) query.start_date.$gte = startDate;

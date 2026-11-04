@@ -1,5 +1,11 @@
 import PickupPerson, { IPickupPersonDocument } from '../models/PickupPerson';
 import mongoose from 'mongoose';
+import { startOfCentreDay } from '../utils/dates';
+
+/** Permanent authorisations, and one-day ones from today on (yesterday's no longer count). */
+function notExpired() {
+  return { $or: [{ valid_on: null }, { valid_on: { $gte: startOfCentreDay(new Date()) } }] };
+}
 
 export class PickupPersonService {
   static async create(data: {
@@ -11,6 +17,7 @@ export class PickupPersonService {
     id_document?: string;
     photo_url?: string;
     is_authorized?: boolean;
+    valid_on?: Date | null;
   }): Promise<IPickupPersonDocument> {
     const pickupPersonData = {
       ...data,
@@ -22,7 +29,7 @@ export class PickupPersonService {
   }
 
   static async findByChildId(childId: string): Promise<IPickupPersonDocument[]> {
-    return await PickupPerson.find({ child_id: new mongoose.Types.ObjectId(childId) })
+    return await PickupPerson.find({ child_id: new mongoose.Types.ObjectId(childId), ...notExpired() })
       .populate('child_id', 'name birth_date')
       .sort({ is_authorized: -1, name: 1 });
   }
@@ -51,8 +58,8 @@ export class PickupPersonService {
     return await PickupPerson.findByIdAndDelete(id);
   }
 
-  static async findAll(childId?: string, page = 1, limit = 20): Promise<{ pickupPersons: IPickupPersonDocument[]; total: number }> {
-    const query = childId ? { child_id: new mongoose.Types.ObjectId(childId) } : {};
+  static async findAll(childId?: string, page = 1, limit = 20, scope: Record<string, unknown> = {}): Promise<{ pickupPersons: IPickupPersonDocument[]; total: number }> {
+    const query = { ...(childId ? { ...scope, child_id: new mongoose.Types.ObjectId(childId) } : scope), ...notExpired() };
     const skip = (page - 1) * limit;
     const [pickupPersons, total] = await Promise.all([
       PickupPerson.find(query)

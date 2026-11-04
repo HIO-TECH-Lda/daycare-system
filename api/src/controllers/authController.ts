@@ -2,219 +2,118 @@ import { Request, Response } from 'express';
 import { AuthService, formatUserForFrontend } from '../services/authService';
 import { NotificationService } from '../services/notificationService';
 import { CloudinaryService } from '../services/cloudinaryService';
+import { UserService } from '../services/userService';
 import Messages from '../utils/messages';
+import ApiResponse from '../utils/ApiResponse';
+import { ApiError } from '../utils/ApiError';
+import { catchAsync } from '../utils/catchAsync';
+import { runInBackground } from '../utils/background';
+
+// Unexpected errors (e.g. database down) go to the global error handler as a generic 500;
+// only ApiErrors carry a message meant for the user.
+
+/** What the user typed to identify themselves. `email` is still accepted from older clients. */
+function identifierFrom(body: { identifier?: string; email?: string }): string {
+  return body.identifier ?? body.email ?? '';
+}
 
 export class AuthController {
-  // Register new user
-  static async register(req: Request, res: Response) {
-    try {
-      const { confirmPassword, ...userData } = req.body;
-      
-      const result = await AuthService.registerUser(userData);
+  // Login with email or phone number
+  static login = catchAsync(async (req: Request, res: Response) => {
+    const result = await AuthService.loginUser(identifierFrom(req.body), req.body.password);
+    return res.json(ApiResponse.success({
+      user: formatUserForFrontend(result.user),
+      token: result.token,
+      refreshToken: result.refreshToken
+    }, Messages.AUTH.LOGIN_SUCCESS));
+  });
 
-      // Fire-and-forget welcome notification
-      NotificationService.welcome({
-        email: result.user.email,
-        phone: result.user.phone,
-        name: result.user.fullName,
-        role: result.user.role
-      });
-      
-      return res.status(201).json({
-        success: true,
-        message: Messages.AUTH.REGISTER_SUCCESS,
-        data: {
-          user: formatUserForFrontend(result.user),
-          token: result.token,
-          refreshToken: result.refreshToken
-        }
-      });
-    } catch (error) {
-      console.error('Registration error:', error);
-      return res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : Messages.AUTH.REGISTER_FAILED
-      });
+  static refreshToken = catchAsync(async (req: Request, res: Response) => {
+    const result = await AuthService.refreshToken(req.body.refreshToken);
+    return res.json(ApiResponse.success(result, Messages.AUTH.TOKEN_REFRESHED));
+  });
+
+  static getProfile = catchAsync(async (req: Request, res: Response) => {
+    const user = await AuthService.getUserById(req.user!.userId);
+    if (!user) throw new ApiError(404, Messages.USER.NOT_FOUND);
+    return res.json(ApiResponse.success({ user: formatUserForFrontend(user) }, Messages.USER.PROFILE_RETRIEVED));
+  });
+
+  static updateProfile = catchAsync(async (req: Request, res: Response) => {
+    // If a file was uploaded, push it to Cloudinary and use the returned URL
+    if ((req as any).file) {
+      const file = (req as any).file as Express.Multer.File;
+      const { url } = await CloudinaryService.upload(file.buffer, 'avatars');
+      req.body.avatar = url;
     }
-  }
 
-  // Login user
-  static async login(req: Request, res: Response) {
-    try {
-      const { email, password } = req.body;
-      
-      const result = await AuthService.loginUser(email, password);
-      
-      return res.json({
-        success: true,
-        message: Messages.AUTH.LOGIN_SUCCESS,
-        data: {
-          user: formatUserForFrontend(result.user),
-          token: result.token,
-          refreshToken: result.refreshToken
-        }
-      });
-    } catch (error) {
-      console.error('Login error:', error);
-      return res.status(401).json({
-        success: false,
-        message: error instanceof Error ? error.message : Messages.AUTH.INVALID_CREDENTIALS
-      });
-    }
-  }
+    const updatedUser = await AuthService.updateUserProfile(req.user!.userId, req.body);
+    if (!updatedUser) throw new ApiError(404, Messages.USER.NOT_FOUND);
+    return res.json(ApiResponse.success({ user: formatUserForFrontend(updatedUser) }, Messages.USER.UPDATED));
+  });
 
-  // Refresh token
-  static async refreshToken(req: Request, res: Response) {
-    try {
-      const { refreshToken } = req.body;
-      
-      const result = await AuthService.refreshToken(refreshToken);
-      
-      return res.json({
-        success: true,
-        message: Messages.AUTH.TOKEN_REFRESHED,
-        data: {
-          token: result.token,
-          refreshToken: result.refreshToken
-        }
-      });
-    } catch (error) {
-      console.error('Token refresh error:', error);
-      return res.status(401).json({
-        success: false,
-        message: Messages.AUTH.INVALID_REFRESH_TOKEN
-      });
-    }
-  }
-
-  // Get current user profile
-  static async getProfile(req: Request, res: Response) {
-    try {
-      const user = await AuthService.getUserById(req.user!.userId);
-      
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: Messages.USER.NOT_FOUND
-        });
-      }
-      
-      return res.json({
-        success: true,
-        message: Messages.USER.PROFILE_RETRIEVED,
-        data: { user: formatUserForFrontend(user) }
-      });
-    } catch (error) {
-      console.error('Get profile error:', error);
-      return res.status(500).json({
-        success: false,
-        message: Messages.USER.FETCH_FAILED
-      });
-    }
-  }
-
-  // Update user profile
-  static async updateProfile(req: Request, res: Response) {
-    try {
-      // If a file was uploaded, push it to Cloudinary and use the returned URL
-      if ((req as any).file) {
-        const file = (req as any).file as Express.Multer.File;
-        const { url } = await CloudinaryService.upload(file.buffer, 'avatars');
-        req.body.avatar = url;
-      }
-
-      const updatedUser = await AuthService.updateUserProfile(req.user!.userId, req.body);
-      
-      if (!updatedUser) {
-        return res.status(404).json({
-          success: false,
-          message: Messages.USER.NOT_FOUND
-        });
-      }
-      
-      return res.json({
-        success: true,
-        message: Messages.USER.UPDATED,
-        data: { user: formatUserForFrontend(updatedUser) }
-      });
-    } catch (error) {
-      console.error('Update profile error:', error);
-      return res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to update profile'
-      });
-    }
-  }
-
-  // Change password
-  static async changePassword(req: Request, res: Response) {
-    try {
-      const { currentPassword, newPassword } = req.body;
-      
-      await AuthService.changePassword(req.user!.userId, currentPassword, newPassword);
-      
-      return res.json({
-        success: true,
-        message: Messages.AUTH.PASSWORD_CHANGED
-      });
-    } catch (error) {
-      console.error('Change password error:', error);
-      return res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to change password'
-      });
-    }
-  }
+  // Change password: other sessions end; the response carries new tokens for this one
+  static changePassword = catchAsync(async (req: Request, res: Response) => {
+    const { currentPassword, newPassword } = req.body;
+    const tokens = await AuthService.changePassword(req.user!.userId, currentPassword, newPassword);
+    return res.json(ApiResponse.success(tokens, Messages.AUTH.PASSWORD_CHANGED_SESSIONS_ENDED));
+  });
 
   // Logout (client-side token removal)
-  static async logout(req: Request, res: Response) {
+  static async logout(_req: Request, res: Response) {
     return res.json({
       success: true,
       message: Messages.AUTH.LOGOUT_SUCCESS
     });
   }
 
-  // Request password reset — generates a token stored on the user, ready for email delivery
-  static async forgotPassword(req: Request, res: Response) {
-    try {
-      const { email } = req.body;
-      if (!email) {
-        return res.status(400).json({ success: false, message: 'Email é obrigatório' });
+  /**
+   * Forgot password, by email or phone. Always answers the same way, immediately; the lookup and
+   * sending happen after the response so the timing doesn't reveal whether an account exists.
+   * Users who never activated their account get their invite again instead of a reset link.
+   */
+  static forgotPassword = catchAsync(async (req: Request, res: Response) => {
+    const identifier = identifierFrom(req.body);
+
+    runInBackground('forgot-password', async () => {
+      const result = await AuthService.requestPasswordReset(identifier);
+      if (result?.kind === 'reset') {
+        await NotificationService.passwordReset({ user: result.user, resetToken: result.resetToken });
+      } else if (result?.kind === 'invite') {
+        await UserService.reissueInvite(result.user);
       }
-      const resetResult = await AuthService.requestPasswordReset(email);
+    });
 
-      // Fire-and-forget password reset notification
-      NotificationService.passwordReset({
-        email: resetResult.user.email,
-        phone: resetResult.user.phone,
-        name: resetResult.user.fullName,
-        resetToken: resetResult.resetToken
-      });
+    return res.json(ApiResponse.success(null, Messages.AUTH.PASSWORD_RESET_EMAIL_SENT));
+  });
 
-      return res.json({ success: true, message: Messages.AUTH.PASSWORD_RESET_EMAIL_SENT });
-    } catch (error) {
-      // Always return the same message to avoid exposing whether the email exists
-      return res.json({ success: true, message: Messages.AUTH.PASSWORD_RESET_EMAIL_SENT });
-    }
-  }
+  static resetPassword = catchAsync(async (req: Request, res: Response) => {
+    const { token, newPassword } = req.body;
+    await AuthService.resetPassword(token, newPassword);
+    return res.json(ApiResponse.success(null, Messages.AUTH.PASSWORD_RESET_SUCCESS));
+  });
 
-  // Reset password with token
-  static async resetPassword(req: Request, res: Response) {
-    try {
-      const { token, newPassword } = req.body;
-      await AuthService.resetPassword(token, newPassword);
-      
-      return res.json({
-        success: true,
-        message: Messages.AUTH.PASSWORD_RESET_SUCCESS
-      });
-    } catch (error) {
-      console.error('Reset password error:', error);
-      return res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to reset password'
-      });
-    }
-  }
+  // Look up a pending invite so the accept page can greet the user
+  static getInvite = catchAsync(async (req: Request, res: Response) => {
+    const user = await AuthService.findPendingInvite(req.params.token);
+    return res.json(ApiResponse.success({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email || '',
+      phone: user.phone || '',
+      role: user.role,
+      whatsappOptIn: !!user.whatsappOptIn
+    }, Messages.INVITE.VALID));
+  });
 
+  // Accept an invite: set password + WhatsApp choice, then log the user in
+  static acceptInvite = catchAsync(async (req: Request, res: Response) => {
+    const { token, password, whatsappOptIn } = req.body;
+    const result = await AuthService.acceptInvite(token, password, whatsappOptIn);
+    return res.json(ApiResponse.success({
+      user: formatUserForFrontend(result.user),
+      token: result.token,
+      refreshToken: result.refreshToken
+    }, Messages.INVITE.ACCEPTED));
+  });
 }

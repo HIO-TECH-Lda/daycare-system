@@ -8,8 +8,8 @@ const router = Router();
 
 router.use(authenticateToken);
 
-router.get('/', ExpenseController.getAll);
-router.get('/:id', ExpenseController.getById);
+router.get('/', requireAdmin, ExpenseController.getAll);
+router.get('/:id', requireAdmin, ExpenseController.getById);
 router.post('/', requireAdmin, uploadReceipt, validateRequest(createExpenseSchema), ExpenseController.create);
 router.put('/:id', requireAdmin, uploadReceipt, validateRequest(updateExpenseSchema), ExpenseController.update);
 router.delete('/:id', requireAdmin, ExpenseController.delete);

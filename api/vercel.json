@@ -1,16 +1,25 @@
 {
-  "version": 2,
-  "builds": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": [
+    "cpt1"
+  ],
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 30,
+      "includeFiles": "src/templates/**"
+    }
+  },
+  "rewrites": [
     {
-      "src": "api/index.ts",
-      "use": "@vercel/node"
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ],
-  "routes": [
+  "crons": [
     {
-      "src": "/(.*)",
-      "dest": "api/index.ts"
+      "path": "/api/v1/jobs/mark-overdue",
+      "schedule": "0 4 * * *"
     }
   ]
 }
-

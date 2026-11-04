@@ -1,124 +1,102 @@
 /**
  * WhatsAppService
- * Sends WhatsApp messages via the Meta Cloud API.
+ * Sends template messages through the Meta WhatsApp Cloud API.
  *
- * Prerequisites (Meta Business Manager):
- *   1. Create a WhatsApp Business Account (WABA)
- *   2. Add a phone number and get its Phone Number ID
- *   3. Generate a permanent System User access token
- *   4. Create and get approved message templates for transactional notifications
+ * Environment:
+ *   WHATSAPP_TOKEN        Permanent system-user access token
+ *   WHATSAPP_PHONE_ID     Phone Number ID (not the phone number itself)
+ *   WHATSAPP_API_VERSION  Graph API version (default v23.0; Meta supports each for about two years)
  *
- * Environment variables required:
- *   WHATSAPP_TOKEN        — Permanent access token from Meta
- *   WHATSAPP_PHONE_ID     — Phone Number ID from Meta (not the actual phone number)
- *   WHATSAPP_API_VERSION  — Meta Graph API version (default: v21.0)
- *
- * Phone numbers in the `to` field must be in international format without '+':
- *   e.g. "258841234567" for Mozambique +258 84 123 4567
- *
- * Two send modes:
- *   sendTemplate() — Sends a pre-approved template message (required for outbound/24h+ gaps)
- *   sendText()     — Sends a free-form text (only works within 24h of user-initiated contact)
+ * Business-initiated messages must use templates approved in Meta Business Manager (see
+ * docs/WHATSAPP-TEMPLATES.md). Links go in a URL button with a dynamic suffix rather than in the
+ * text, which Meta handles better.
  */
 
-const META_GRAPH = 'https://graph.facebook.com';
+import { normalisePhone } from '../utils/phone';
 
-function isWhatsAppConfigured(): boolean {
+const META_GRAPH = 'https://graph.facebook.com';
+// Give up on a slow Meta API instead of holding the background task open
+const REQUEST_TIMEOUT_MS = 10_000;
+// Temporary failures (network, rate limit, Meta errors): 3 attempts in all
+const MAX_ATTEMPTS = 3;
+const BACKOFF_MS = process.env.NODE_ENV === 'test' ? [0, 0] : [1_000, 3_000];
+
+export function isWhatsAppConfigured(): boolean {
   return !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID);
 }
 
-function apiVersion(): string {
-  return process.env.WHATSAPP_API_VERSION || 'v21.0';
-}
-
 function messagesUrl(): string {
-  return `${META_GRAPH}/${apiVersion()}/${process.env.WHATSAPP_PHONE_ID}/messages`;
+  return `${META_GRAPH}/${process.env.WHATSAPP_API_VERSION || 'v23.0'}/${process.env.WHATSAPP_PHONE_ID}/messages`;
 }
 
-async function post(body: object): Promise<void> {
-  const res = await fetch(messagesUrl(), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`WhatsApp API error ${res.status}: ${detail}`);
-  }
+export interface TemplateMessage {
+  template: string;
+  language: string;
+  /** Values for {{1}}, {{2}}… in the template body */
+  body: string[];
+  /** Dynamic part of the template's URL button (e.g. the invite token) */
+  buttonSuffix?: string;
 }
 
-export interface WhatsAppTemplateComponent {
-  type: 'header' | 'body' | 'button';
-  parameters: Array<{ type: 'text'; text: string }>;
+export interface SendResult {
+  ok: boolean;
+  /** Meta's message id (wamid), matched later by the delivery webhook */
+  messageId?: string;
+  error?: string;
+  attempts: number;
 }
+
+/** Network errors, timeouts, rate limits and Meta's own errors are worth retrying; the rest aren't. */
+function isTransient(status: number | null): boolean {
+  return status === null || status === 429 || status >= 500;
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class WhatsAppService {
-  /**
-   * Send a pre-approved template message.
-   * `templateName` must match the approved template name in Meta Business Manager.
-   * `components` supply the variable values for each placeholder in the template.
-   */
-  static async sendTemplate(
-    to: string,
-    templateName: string,
-    languageCode: string,
-    components: WhatsAppTemplateComponent[] = []
-  ): Promise<void> {
-    if (!isWhatsAppConfigured()) {
-      console.log(`[WhatsAppService] Not configured — skipping template "${templateName}" to ${to}`);
-      return;
-    }
-    const payload: any = {
+  /** Sends an approved template; never throws. Retries temporary failures (3 attempts in all). */
+  static async sendTemplate(to: string, message: TemplateMessage): Promise<SendResult> {
+    if (!isWhatsAppConfigured()) return { ok: false, error: 'WhatsApp não configurado', attempts: 0 };
+
+    const components: object[] = [];
+    if (message.body.length) components.push({ type: 'body', parameters: message.body.map((text) => ({ type: 'text', text })) });
+    if (message.buttonSuffix) components.push({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: message.buttonSuffix }] });
+    const payload = {
       messaging_product: 'whatsapp',
-      to,
+      to: this.normalisePhone(to),
       type: 'template',
-      template: {
-        name: templateName,
-        language: { code: languageCode }
-      }
+      template: { name: message.template, language: { code: message.language }, ...(components.length && { components }) }
     };
-    if (components.length > 0) {
-      payload.template.components = components;
+
+    let lastError = '';
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      let status: number | null = null;
+      try {
+        const res = await fetch(messagesUrl(), {
+          method: 'POST',
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        status = res.status;
+        const data = (await res.json().catch(() => null)) as { messages?: { id: string }[]; error?: { code?: number; message?: string } } | null;
+        if (res.ok) return { ok: true, messageId: data?.messages?.[0]?.id, attempts: attempt };
+        lastError = `Meta ${res.status}${data?.error?.code ? ` (${data.error.code})` : ''}: ${data?.error?.message ?? 'erro desconhecido'}`;
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+      }
+      if (!isTransient(status) || attempt === MAX_ATTEMPTS) return { ok: false, error: lastError, attempts: attempt };
+      await wait(BACKOFF_MS[attempt - 1] ?? 3_000);
     }
-    try {
-      await post(payload);
-      console.log(`[WhatsAppService] Sent template "${templateName}" to ${to}`);
-    } catch (err) {
-      console.error(`[WhatsAppService] Failed to send template "${templateName}" to ${to}:`, err);
-    }
+    return { ok: false, error: lastError, attempts: MAX_ATTEMPTS };
   }
 
   /**
-   * Send a plain text message.
-   * Only works within a 24-hour customer service window (after the recipient messaged first).
-   * Use sendTemplate() for proactive outbound notifications.
-   */
-  static async sendText(to: string, text: string): Promise<void> {
-    if (!isWhatsAppConfigured()) {
-      console.log(`[WhatsAppService] Not configured — skipping text message to ${to}`);
-      return;
-    }
-    try {
-      await post({
-        messaging_product: 'whatsapp',
-        to,
-        type: 'text',
-        text: { body: text }
-      });
-      console.log(`[WhatsAppService] Sent text message to ${to}`);
-    } catch (err) {
-      console.error(`[WhatsAppService] Failed to send text to ${to}:`, err);
-    }
-  }
-
-  /**
-   * Normalise a phone number to Meta's expected format (digits only, no '+').
-   * Strips spaces, dashes, parentheses, and leading '+'.
+   * Format a phone number the way Meta expects it: country code + number, digits only.
+   * Local Mozambican numbers get the 258 country code (see utils/phone).
    */
   static normalisePhone(phone: string): string {
-    return phone.replace(/[\s\-().+]/g, '');
+    const e164 = normalisePhone(phone);
+    return e164 ? e164.slice(1) : phone.replace(/\D/g, '');
   }
 }

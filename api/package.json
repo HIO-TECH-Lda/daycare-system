@@ -1,22 +1,24 @@
 {
   "name": "sonho-de-crianca-api",
   "version": "1.0.0",
-  "description": "Express + TypeScript + MongoDB API starter kit with auth, upload (Cloudinary), and audit logging",
+  "description": "API for the Sonho de Criança daycare system (Express, TypeScript, MongoDB)",
   "main": "dist/app.js",
   "scripts": {
     "start": "node dist/app.js",
     "dev": "nodemon src/app.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json && node -e \"require('fs').cpSync('src/templates', 'dist/templates', { recursive: true })\"",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint \"src/**/*.ts\" \"api/**/*.ts\" \"scripts/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"api/**/*.ts\" \"scripts/**/*.ts\" --fix",
     "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
-    "seed:fresh": "ts-node -r tsconfig-paths/register scripts/seed.ts --fresh"
+    "seed:fresh": "ts-node -r tsconfig-paths/register scripts/seed.ts --fresh",
+    "create-admin": "ts-node -r tsconfig-paths/register scripts/create-admin.ts"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.11",
+    "@vercel/functions": "^3.10.5",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.8.0",
     "cors": "^2.8.5",
@@ -27,7 +29,7 @@
     "helmet": "^7.0.0",
     "joi": "^17.9.2",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^7.5.0",
+    "mongoose": "^8.24.7",
     "multer": "^2.0.2",
     "nodemailer": "^8.0.3",
     "tsconfig-paths": "^4.2.0"

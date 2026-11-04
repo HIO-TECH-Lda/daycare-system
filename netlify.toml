@@ -1,0 +1,14 @@
+# Web app on Netlify (Next.js runtime, detected automatically). See docs/DEPLOYMENT.md.
+# Set NEXT_PUBLIC_API_URL per deploy context in the Netlify UI (it's fixed at build time):
+#   Production (main) → https://api.<domain>   ·   Branch deploy dev → https://api-staging.<domain>
+
+[build]
+  base = "web-app"
+  command = "npm run build"
+  publish = ".next"
+  # Skip the build when nothing under web-app/ changed (API-only commits)
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
